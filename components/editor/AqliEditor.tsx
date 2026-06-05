@@ -2,7 +2,7 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
+import { Placeholder } from "@tiptap/extensions";
 import { useEffect } from "react";
 import EditorToolbar from "./EditorToolbar";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
