@@ -169,7 +169,7 @@ export async function snapshotVersion(
 
   const nextVersion = (versions?.[0]?.version_number ?? 0) + 1;
 
-  await supabase.from("doc_versions").insert({
+  const { error } = await supabase.from("doc_versions").insert({
     doc_id: docId,
     version_number: nextVersion,
     body_md: bodyMd,
@@ -177,6 +177,9 @@ export async function snapshotVersion(
     changed_by: changedBy ?? null,
     change_type: changeType,
   });
+  // Best-effort: don't block the doc update if versioning fails, but never
+  // swallow the error silently (this previously hid an RLS denial).
+  if (error) console.error("snapshotVersion failed:", error.message);
 }
 
 export async function searchDocs(workspaceId: string, query: string) {

@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aqli
 
-## Getting Started
+> The shared intellect for human-agent teams.
 
-First, run the development server:
+An open source team knowledge base where humans write docs, agents read context,
+agents write output, and humans review and approve.
+
+## Status
+
+🚧 **Week 1 — Core foundation.** Editor, spaces, docs, search, version history.
+(Agent API, RAG, and AI features land in Week 2.)
+
+## Stack
+
+- Next.js 16 (App Router)
+- Supabase (Postgres + Auth)
+- Tiptap v3
+- Tailwind CSS v4
+- pnpm
+
+## Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.example .env.local
+# Fill in your Supabase URL + anon key (already set for the Aqli project)
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 and sign up — this creates your workspace with default
+spaces (Product, Engineering, Compliance).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> **Dev note:** disable "Confirm email" in your Supabase project (Auth → Providers)
+> so signup returns an immediate session during local development.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## What's in Week 1
 
-## Learn More
+- Email/password auth with session persistence and route protection
+- Workspaces + Spaces (sidebar nav, create spaces)
+- Docs CRUD with a Tiptap editor and 2s autosave
+- Doc metadata: type, status, tags, linked project URL
+- Markdown generation (`body_md`) + per-doc `.md` export with frontmatter
+- Postgres full-text search across titles and bodies
+- Version snapshots on status change
 
-To learn more about Next.js, take a look at the following resources:
+## Roadmap
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [x] Week 1: Editor, spaces, docs, search
+- [ ] Week 2: Agent API, RAG, embeddings
+- [ ] Week 3: Review loop, AI features, Linear
+- [ ] Week 4: Self-host, Docker Compose, open source release
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT — github.com/AAALI/aqli

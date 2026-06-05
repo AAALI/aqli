@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/signup"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -41,8 +41,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Signed-in users hitting auth pages -> their workspace.
-  if (user && isPublic) {
+  // Signed-in users hitting the login page -> route them home.
+  // NOTE: /signup is intentionally NOT bounced — it doubles as the
+  // workspace-bootstrap step (/signup?step=workspace) for authenticated
+  // users who don't have a workspace yet. Bouncing it caused a redirect
+  // loop with the root page (which sends workspace-less users to signup).
+  if (user && pathname.startsWith("/login")) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
