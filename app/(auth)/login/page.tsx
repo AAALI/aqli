@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
+import { AuthStage, AuthField, authInputStyle } from "@/components/auth/AuthShell";
+import { IconMail } from "@/components/aqli/icons";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,43 +40,50 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
-      <div className="w-full max-w-sm">
-        <h1 className="mb-1 text-2xl font-semibold">Aqli</h1>
-        <p className="mb-6 text-sm text-neutral-500">
-          The shared intellect for human-agent teams.
-        </p>
-        <form
-          onSubmit={login}
-          className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-6"
-        >
-          <h2 className="text-lg font-medium">Log in</h2>
-          <Input
-            type="email"
-            placeholder="you@team.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button type="submit" disabled={busy}>
-            {busy ? "Logging in…" : "Log in"}
-          </Button>
-          <p className="text-center text-sm text-neutral-500">
-            No account?{" "}
-            <Link href="/signup" className="text-neutral-900 underline">
-              Sign up
-            </Link>
+    <AuthStage
+      ornament={
+        <>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)" }}>Welcome back</div>
+          <h2 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 38, lineHeight: 1.1, letterSpacing: "-0.015em", color: "var(--text-primary)", textWrap: "balance" }}>
+            The shared context layer for your team and its agents.
+          </h2>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, maxWidth: 380 }}>
+            Sign in to pick up where you left off. Drafts, review queues, and agent activity are all where you left them.
           </p>
-        </form>
-      </div>
-    </main>
+          <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 999, fontSize: 12, color: "var(--text-secondary)", width: "fit-content" }}>
+            <span style={{ width: 8, height: 8, borderRadius: 999, background: "var(--accent)" }} />
+            <span>3 docs awaiting your review</span>
+          </div>
+        </>
+      }
+    >
+      <form onSubmit={login} style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 28, letterSpacing: "-0.015em" }}>Sign in</h1>
+          <p style={{ margin: 0, fontSize: 13.5, color: "var(--text-secondary)" }}>Use your workspace email.</p>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <AuthField label="Email">
+            <span style={authInputStyle()}>
+              <span style={{ color: "var(--text-muted)", display: "flex" }}><IconMail size={14} /></span>
+              <input type="email" placeholder="you@team.com" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "var(--text-primary)", fontFamily: "inherit" }} />
+            </span>
+          </AuthField>
+          <AuthField label="Password" trailing={<span style={{ fontSize: 11.5, color: "var(--accent)", fontWeight: 500, cursor: "pointer" }}>Forgot?</span>}>
+            <span style={authInputStyle()}>
+              <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "var(--text-primary)", fontFamily: "inherit" }} />
+            </span>
+          </AuthField>
+          {error && <p style={{ margin: 0, fontSize: 13, color: "#993C1D" }}>{error}</p>}
+          <button type="submit" disabled={busy} className="btn btn-primary" style={{ width: "100%", height: 40, justifyContent: "center", marginTop: 6 }}>
+            {busy ? "Signing in…" : "Sign in"}
+          </button>
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--text-secondary)", textAlign: "center" }}>
+          New here?{" "}
+          <Link href="/signup" style={{ color: "var(--accent)", fontWeight: 500 }}>Create a workspace</Link>
+        </div>
+      </form>
+    </AuthStage>
   );
 }

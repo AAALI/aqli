@@ -2,15 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import NewSpaceButton from "./NewSpaceButton";
 import type { Space } from "@/types/space";
+import { AqliWordmark } from "@/components/aqli/AqliMark";
+import { IconHome, IconSearch, IconCheck, IconGear, IconClock } from "@/components/aqli/icons";
+import NewSpaceButton from "./NewSpaceButton";
 
 type Props = {
   workspaceSlug: string;
   workspaceId: string;
   workspaceName: string;
   spaces: Space[];
+  userName?: string;
+  reviewCount?: number;
 };
 
 export default function Sidebar({
@@ -18,53 +21,76 @@ export default function Sidebar({
   workspaceId,
   workspaceName,
   spaces,
+  userName = "You",
+  reviewCount = 3,
 }: Props) {
   const pathname = usePathname();
   const base = `/w/${workspaceSlug}`;
+  const initial = userName.trim().charAt(0).toUpperCase() || "Y";
 
-  const link = (href: string, active: boolean) =>
-    cn(
-      "flex items-center gap-2 rounded px-3 py-1.5 text-sm",
-      active
-        ? "bg-neutral-200 text-neutral-900"
-        : "text-neutral-600 hover:bg-neutral-100",
-    );
+  const isHome = pathname === base;
+  const isSearch = pathname.startsWith(`${base}/search`);
+  const isReview = pathname.startsWith(`${base}/review`);
+  const isStale = pathname.startsWith(`${base}/stale`);
 
   return (
-    <aside className="flex h-screen w-56 shrink-0 flex-col border-r border-neutral-200 bg-neutral-50">
-      <div className="border-b border-neutral-200 px-4 py-4">
-        <span className="text-sm font-semibold text-neutral-800">
-          {workspaceName}
-        </span>
+    <aside className="sb">
+      <div className="sb-head">
+        <Link href={base} style={{ textDecoration: "none" }}>
+          <AqliWordmark />
+        </Link>
+        <div className="sb-workspace">{workspaceName} · Workspace</div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
-        <Link href={base} className={cn(link(base, pathname === base), "mb-1")}>
-          🏠 Home
+      <div className="sb-nav">
+        <Link href={base} className={`sb-item ${isHome ? "is-active" : ""}`}>
+          <span className="sb-icon"><IconHome /></span>
+          <span>Home</span>
         </Link>
-        <Link
-          href={`${base}/search`}
-          className={cn(link("", pathname.includes("/search")), "mb-3")}
-        >
-          🔍 Search
+        <Link href={`${base}/search`} className={`sb-item ${isSearch ? "is-active" : ""}`}>
+          <span className="sb-icon"><IconSearch /></span>
+          <span>Search</span>
+          <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>⌘K</span>
         </Link>
+        <Link href={`${base}/review`} className={`sb-item ${isReview ? "is-active" : ""}`}>
+          <span className="sb-icon"><IconCheck /></span>
+          <span>Review Queue</span>
+          {reviewCount > 0 && (
+            <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--review-text)", background: "var(--review-bg)", border: "1px solid var(--review-border)", padding: "0 6px", borderRadius: 999, lineHeight: "16px", height: 16 }}>
+              {reviewCount}
+            </span>
+          )}
+        </Link>
+        <Link href={`${base}/stale`} className={`sb-item ${isStale ? "is-active" : ""}`}>
+          <span className="sb-icon"><IconClock /></span>
+          <span>Stale docs</span>
+        </Link>
+      </div>
 
-        <p className="mb-1 px-3 text-xs font-medium uppercase tracking-wider text-neutral-400">
-          Spaces
-        </p>
-        {spaces.map((space) => (
-          <Link
-            key={space.id}
-            href={`${base}/s/${space.slug}`}
-            className={link("", pathname.includes(`/s/${space.slug}`))}
-          >
-            {space.icon} {space.name}
-          </Link>
-        ))}
-        <div className="mt-1">
-          <NewSpaceButton workspaceId={workspaceId} />
+      <div className="sb-section-label">Spaces</div>
+      <div className="sb-nav" style={{ paddingTop: 0, overflowY: "auto" }}>
+        {spaces.map((s) => {
+          const active = pathname.startsWith(`${base}/s/${s.slug}`);
+          return (
+            <Link key={s.id} href={`${base}/s/${s.slug}`} className={`sb-item ${active ? "is-active" : ""}`}>
+              <span className="sb-emoji">{s.icon}</span>
+              <span>{s.name}</span>
+            </Link>
+          );
+        })}
+        <NewSpaceButton workspaceId={workspaceId} />
+      </div>
+
+      <div className="sb-foot">
+        <div className="avatar avatar-ali">{initial}</div>
+        <div className="meta">
+          <span className="n">{userName}</span>
+          <span className="w">aqli.app/{workspaceSlug}</span>
         </div>
-      </nav>
+        <Link href={`${base}/settings`} className="gear" aria-label="Settings">
+          <IconGear size={15} />
+        </Link>
+      </div>
     </aside>
   );
 }

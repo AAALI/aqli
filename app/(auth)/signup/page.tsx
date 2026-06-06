@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
+import { AuthStage, AuthField, authInputStyle } from "@/components/auth/AuthShell";
+import { IconMail } from "@/components/aqli/icons";
+
+const fieldInput: React.CSSProperties = { flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "var(--text-primary)", fontFamily: "inherit" };
 
 export default function SignupPage() {
   const router = useRouter();
@@ -67,59 +69,62 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
-      <div className="w-full max-w-sm">
-        <h1 className="mb-1 text-2xl font-semibold">Aqli</h1>
-        <p className="mb-6 text-sm text-neutral-500">
-          Create your team knowledge base.
-        </p>
-        <form
-          onSubmit={submit}
-          className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-6"
-        >
-          <h2 className="text-lg font-medium">
-            {loggedIn ? "Name your workspace" : "Sign up"}
+    <AuthStage
+      ornament={
+        <>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)" }}>Get started</div>
+          <h2 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 38, lineHeight: 1.1, letterSpacing: "-0.015em", color: "var(--text-primary)", textWrap: "balance" }}>
+            One shared brain for your humans and your agents.
           </h2>
-          <Input
-            placeholder="Workspace name (e.g. Tabadulat)"
-            value={workspaceName}
-            onChange={(e) => setWorkspaceName(e.target.value)}
-            required
-          />
+          <p style={{ margin: 0, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, maxWidth: 380 }}>
+            Humans write docs. Agents read context and draft output. Humans review and approve. Aqli keeps everyone working from the same source of truth.
+          </p>
+        </>
+      }
+    >
+      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 28, letterSpacing: "-0.015em" }}>
+            {loggedIn ? "Name your workspace" : "Create a workspace"}
+          </h1>
+          <p style={{ margin: 0, fontSize: 13.5, color: "var(--text-secondary)" }}>
+            {loggedIn ? "This is the shared layer your team and agents will share." : "Start your team's shared context layer in seconds."}
+          </p>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <AuthField label="Workspace name">
+            <span style={authInputStyle()}>
+              <input placeholder="e.g. Tabadulat" value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} required style={fieldInput} />
+            </span>
+          </AuthField>
           {!loggedIn && (
             <>
-              <Input
-                type="email"
-                placeholder="you@team.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <Input
-                type="password"
-                placeholder="Password (min 6 chars)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
-                required
-              />
+              <AuthField label="Email">
+                <span style={authInputStyle()}>
+                  <span style={{ color: "var(--text-muted)", display: "flex" }}><IconMail size={14} /></span>
+                  <input type="email" placeholder="you@team.com" value={email} onChange={(e) => setEmail(e.target.value)} required style={fieldInput} />
+                </span>
+              </AuthField>
+              <AuthField label="Password">
+                <span style={authInputStyle()}>
+                  <input type="password" placeholder="Min 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required style={fieldInput} />
+                </span>
+              </AuthField>
             </>
           )}
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {notice && <p className="text-sm text-green-700">{notice}</p>}
-          <Button type="submit" disabled={busy}>
+          {error && <p style={{ margin: 0, fontSize: 13, color: "#993C1D" }}>{error}</p>}
+          {notice && <p style={{ margin: 0, fontSize: 13, color: "var(--approved-text)" }}>{notice}</p>}
+          <button type="submit" disabled={busy} className="btn btn-primary" style={{ width: "100%", height: 40, justifyContent: "center", marginTop: 6 }}>
             {busy ? "Creating…" : "Create workspace"}
-          </Button>
-          {!loggedIn && (
-            <p className="text-center text-sm text-neutral-500">
-              Already have an account?{" "}
-              <Link href="/login" className="text-neutral-900 underline">
-                Log in
-              </Link>
-            </p>
-          )}
-        </form>
-      </div>
-    </main>
+          </button>
+        </div>
+        {!loggedIn && (
+          <div style={{ fontSize: 12.5, color: "var(--text-secondary)", textAlign: "center" }}>
+            Already have an account?{" "}
+            <Link href="/login" style={{ color: "var(--accent)", fontWeight: 500 }}>Sign in</Link>
+          </div>
+        )}
+      </form>
+    </AuthStage>
   );
 }

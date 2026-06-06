@@ -12,13 +12,23 @@ export default function DocList({
 }) {
   if (docs.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-neutral-300 p-10 text-center text-sm text-neutral-400">
+      <div
+        style={{
+          border: "1px dashed var(--border-strong)",
+          borderRadius: 12,
+          padding: "44px 32px",
+          textAlign: "center",
+          fontSize: 13,
+          color: "var(--text-muted)",
+          background: "var(--bg-card)",
+        }}
+      >
         {emptyLabel}
       </div>
     );
   }
   return (
-    <div className="grid gap-3">
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {docs.map((doc) => (
         <DocCard key={doc.id} doc={doc} workspaceSlug={workspaceSlug} />
       ))}

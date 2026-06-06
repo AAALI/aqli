@@ -19,6 +19,7 @@ export default async function NewDocPage({
       workspaceSlug={workspace.slug}
       spaceId={space.id}
       spaceName={space.name}
+      spaceSlug={space.slug}
     />
   );
 }
