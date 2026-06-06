@@ -1,6 +1,0 @@
-packages:
-  - .
-ignoreWorkspaceRootCheck: true
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
