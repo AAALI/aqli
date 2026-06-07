@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { chunkMarkdown } from "./chunker";
 import type { Doc } from "@/types/doc";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function resolveSpaceName(spaceId: string | null): Promise<string> {
   if (!spaceId) return "Unknown";
@@ -35,6 +35,7 @@ export async function embedDoc(doc: Doc, spaceName?: string): Promise<void> {
   }
 
   // Batch-embed all chunks in one API call.
+  const openai = getOpenAI();
   const embeddingResponse = await openai.embeddings.create({
     model: "text-embedding-3-small",
     input: chunks.map((c) => c.content),

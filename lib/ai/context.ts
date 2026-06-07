@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { ContextResult } from "@/types/chunk";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 type SearchRow = {
   doc_id: string;
@@ -31,6 +31,7 @@ export async function queryContext(
   const status = options?.status ?? "approved";
 
   // Embed the query.
+  const openai = getOpenAI();
   const embeddingResponse = await openai.embeddings.create({
     model: "text-embedding-3-small",
     input: query,
