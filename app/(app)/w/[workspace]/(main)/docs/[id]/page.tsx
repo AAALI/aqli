@@ -6,6 +6,7 @@ import DownloadMarkdownButton from "@/components/docs/DownloadMarkdownButton";
 import DocStatusControl from "@/components/docs/DocStatusControl";
 import RequestReviewButton from "@/components/docs/RequestReviewButton";
 import AqliEditor from "@/components/editor/AqliEditor";
+import LinearPreviewPanel from "@/components/docs/LinearPreviewPanel";
 import { IconEdit, IconHistory, IconSparkle } from "@/components/aqli/icons";
 import { typeLabel } from "@/lib/doc-display";
 import { formatRelative, formatDate } from "@/lib/utils";
@@ -109,7 +110,7 @@ export default async function DocViewPage({
           </article>
         </div>
 
-        <ViewerRail version={version} versions={versions} base={base} docId={doc.id} updated={doc.updated_at} />
+        <ViewerRail version={version} versions={versions} base={base} docId={doc.id} updated={doc.updated_at} linkedUrl={doc.frontmatter?.linked_project_url} />
       </div>
     </>
   );
@@ -132,15 +133,18 @@ function ViewerRail({
   base,
   docId,
   updated,
+  linkedUrl,
 }: {
   version: number;
   versions: { id: string; version_number: number; change_type: string; created_at: string }[];
   base: string;
   docId: string;
   updated: string;
+  linkedUrl?: string;
 }) {
   return (
     <aside style={{ width: 300, flex: "0 0 300px", background: "var(--bg-card)", borderLeft: "1px solid var(--border)", overflow: "auto" }}>
+      {linkedUrl && <LinearPreviewPanel url={linkedUrl} />}
       <RailPanel title="AI summary" action={<span style={{ color: "var(--accent)", display: "flex" }}><IconSparkle size={13} /></span>}>
         <p style={{ margin: 0, fontSize: 13, color: "var(--text-primary)", lineHeight: 1.55 }}>
           This doc is indexed for agent retrieval. An AI summary is generated from the latest

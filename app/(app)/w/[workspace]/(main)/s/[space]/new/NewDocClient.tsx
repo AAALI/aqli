@@ -6,6 +6,8 @@ import Link from "next/link";
 import type { DocType } from "@/types/doc";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { IconPlus, IconX } from "@/components/aqli/icons";
+import { templateFor } from "@/components/editor/templates";
+import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
 
 type TypeDef = {
   id: DocType;
@@ -89,6 +91,7 @@ export default function NewDocClient({
   async function create() {
     setBusy(true);
     try {
+      const template = templateFor(selected.id);
       const res = await fetch("/api/docs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -97,6 +100,12 @@ export default function NewDocClient({
           space_id: spaceId,
           title: title.trim() || "Untitled",
           type: selected.id,
+          ...(template
+            ? {
+                body_json: template,
+                body_md: tiptapToMarkdown(template as Record<string, unknown>),
+              }
+            : {}),
         }),
       });
       if (res.ok) {
