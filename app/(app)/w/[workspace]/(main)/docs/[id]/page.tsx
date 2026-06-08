@@ -7,7 +7,10 @@ import DocStatusControl from "@/components/docs/DocStatusControl";
 import RequestReviewButton from "@/components/docs/RequestReviewButton";
 import AqliEditor from "@/components/editor/AqliEditor";
 import LinearPreviewPanel from "@/components/docs/LinearPreviewPanel";
-import { IconEdit, IconHistory, IconSparkle } from "@/components/aqli/icons";
+import DocSummary from "@/components/ai/DocSummary";
+import AskQuestion from "@/components/ai/AskQuestion";
+import DocActivityFeed from "@/components/docs/DocActivityFeed";
+import { IconEdit, IconHistory } from "@/components/aqli/icons";
 import { typeLabel } from "@/lib/doc-display";
 import { formatRelative, formatDate } from "@/lib/utils";
 
@@ -110,7 +113,7 @@ export default async function DocViewPage({
           </article>
         </div>
 
-        <ViewerRail version={version} versions={versions} base={base} docId={doc.id} updated={doc.updated_at} linkedUrl={doc.frontmatter?.linked_project_url} />
+        <ViewerRail versions={versions} base={base} docId={doc.id} workspaceId={doc.workspace_id} linkedUrl={doc.frontmatter?.linked_project_url} />
       </div>
     </>
   );
@@ -128,32 +131,24 @@ function MetaItem({ label, children }: { label: string; children: React.ReactNod
 }
 
 function ViewerRail({
-  version,
   versions,
   base,
   docId,
-  updated,
+  workspaceId,
   linkedUrl,
 }: {
-  version: number;
   versions: { id: string; version_number: number; change_type: string; created_at: string }[];
   base: string;
   docId: string;
-  updated: string;
+  workspaceId: string;
   linkedUrl?: string;
 }) {
   return (
     <aside style={{ width: 300, flex: "0 0 300px", background: "var(--bg-card)", borderLeft: "1px solid var(--border)", overflow: "auto" }}>
       {linkedUrl && <LinearPreviewPanel url={linkedUrl} />}
-      <RailPanel title="AI summary" action={<span style={{ color: "var(--accent)", display: "flex" }}><IconSparkle size={13} /></span>}>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--text-primary)", lineHeight: 1.55 }}>
-          This doc is indexed for agent retrieval. An AI summary is generated from the latest
-          approved version and refreshed as the doc changes.
-        </p>
-        <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--text-muted)" }}>
-          Generated from v{version} · updated {formatRelative(updated)}
-        </div>
-      </RailPanel>
+
+      <DocSummary docId={docId} />
+      <AskQuestion workspaceId={workspaceId} />
 
       <RailPanel
         title="Version history"
@@ -181,6 +176,8 @@ function ViewerRail({
           ))
         )}
       </RailPanel>
+
+      <DocActivityFeed docId={docId} />
     </aside>
   );
 }

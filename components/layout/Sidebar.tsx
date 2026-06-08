@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Space } from "@/types/space";
 import { AqliWordmark } from "@/components/aqli/AqliMark";
-import { IconHome, IconSearch, IconCheck, IconGear, IconClock } from "@/components/aqli/icons";
+import { IconHome, IconSearch, IconCheck, IconGear, IconClock, IconRobot } from "@/components/aqli/icons";
 import NewSpaceButton from "./NewSpaceButton";
 
 type Props = {
@@ -14,6 +14,7 @@ type Props = {
   spaces: Space[];
   userName?: string;
   reviewCount?: number;
+  staleCount?: number;
 };
 
 export default function Sidebar({
@@ -22,7 +23,8 @@ export default function Sidebar({
   workspaceName,
   spaces,
   userName = "You",
-  reviewCount = 3,
+  reviewCount = 0,
+  staleCount = 0,
 }: Props) {
   const pathname = usePathname();
   const base = `/w/${workspaceSlug}`;
@@ -32,6 +34,7 @@ export default function Sidebar({
   const isSearch = pathname.startsWith(`${base}/search`);
   const isReview = pathname.startsWith(`${base}/review`);
   const isStale = pathname.startsWith(`${base}/stale`);
+  const isAgentLog = pathname.startsWith(`${base}/agent-log`);
 
   return (
     <aside className="sb">
@@ -64,6 +67,15 @@ export default function Sidebar({
         <Link href={`${base}/stale`} className={`sb-item ${isStale ? "is-active" : ""}`}>
           <span className="sb-icon"><IconClock /></span>
           <span>Stale docs</span>
+          {staleCount > 0 && (
+            <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--stale-text)", background: "var(--stale-bg)", border: "1px solid var(--stale-border)", padding: "0 6px", borderRadius: 999, lineHeight: "16px", height: 16 }}>
+              {staleCount}
+            </span>
+          )}
+        </Link>
+        <Link href={`${base}/agent-log`} className={`sb-item ${isAgentLog ? "is-active" : ""}`}>
+          <span className="sb-icon"><IconRobot /></span>
+          <span>Agent log</span>
         </Link>
       </div>
 

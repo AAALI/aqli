@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDocs, createDoc } from "@/lib/supabase/docs";
+import { logActivity } from "@/lib/supabase/activity";
 import type { DocType, DocStatus } from "@/types/doc";
+
+function actorName(user: { email?: string; id: string; user_metadata?: Record<string, unknown> }) {
+  return (
+    (user.user_metadata?.full_name as string | undefined) ||
+    user.email ||
+    user.id
+  );
+}
 
 export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
@@ -45,5 +54,15 @@ export async function POST(req: NextRequest) {
     );
 
   const doc = await createDoc({ ...body, owner_id: user.id });
+
+  await logActivity({
+    docId: doc.id,
+    workspaceId: doc.workspace_id,
+    actorType: "human",
+    actorId: user.id,
+    actorName: actorName(user),
+    action: "created",
+  });
+
   return NextResponse.json({ doc }, { status: 201 });
 }

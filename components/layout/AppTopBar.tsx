@@ -1,19 +1,17 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { IconChevRight, IconPlus } from "@/components/aqli/icons";
-import NotificationsButton from "./NotificationsButton";
 
 export type Crumb = { label: string; href?: string };
 
 export default function AppTopBar({
-  base,
   crumbs,
   saved,
   primary,
   share,
   userInitial = "Y",
 }: {
-  base: string;
+  base?: string;
   crumbs: Crumb[];
   saved?: string | null;
   primary?: { label: string; href: string } | null;
@@ -52,7 +50,6 @@ export default function AppTopBar({
             {primary.label}
           </Link>
         )}
-        <NotificationsButton base={base} />
         <div className="avatar avatar-sm avatar-ali">{userInitial}</div>
       </div>
     </div>

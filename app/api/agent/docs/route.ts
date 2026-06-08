@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateAgent } from "../_auth";
 import { listAgentDocs, createAgentDoc, getServiceSpaceBySlug } from "@/lib/supabase/agent-docs";
 import { embedDoc } from "@/lib/ai/embedder";
+import { logActivity } from "@/lib/supabase/activity";
 import type { DocType, DocStatus } from "@/types/doc";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
@@ -69,8 +70,25 @@ export async function POST(req: NextRequest) {
     frontmatter: { tags: tags ?? [] },
   });
 
+  await logActivity({
+    docId: doc.id,
+    workspaceId: doc.workspace_id,
+    actorType: "agent",
+    actorId: doc.agent_id,
+    actorName: doc.agent_id,
+    action: "created",
+  });
+
   if (doc.body_md) {
     await embedDoc(doc, spaceName);
+    await logActivity({
+      docId: doc.id,
+      workspaceId: doc.workspace_id,
+      actorType: "agent",
+      actorId: doc.agent_id,
+      actorName: doc.agent_id,
+      action: "embedded",
+    });
   }
 
   return NextResponse.json(

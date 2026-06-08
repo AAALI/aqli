@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDoc, updateDoc, deleteDoc } from "@/lib/supabase/docs";
 import { embedDoc } from "@/lib/ai/embedder";
+import { logActivity, logEditCoalesced } from "@/lib/supabase/activity";
 
 type Params = { params: Promise<{ id: string }> };
+
+function actorName(user: { email?: string; id: string; user_metadata?: Record<string, unknown> }) {
+  return (
+    (user.user_metadata?.full_name as string | undefined) ||
+    user.email ||
+    user.id
+  );
+}
 
 export async function GET(_req: NextRequest, { params }: Params) {
   const supabase = await createServerSupabaseClient();
@@ -28,6 +37,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const { id } = await params;
   const updates = await req.json();
+
+  // Read the prior status so we can tell a status change from a content edit.
+  const before = await getDoc(id).catch(() => null);
   const doc = await updateDoc(id, updates);
 
   // Re-embed when the doc body changes. Fire-and-forget so we don't block
@@ -36,6 +48,28 @@ export async function PUT(req: NextRequest, { params }: Params) {
     embedDoc(doc).catch((err) =>
       console.error("Embed failed for doc", doc.id, err),
     );
+  }
+
+  // Activity log: a status change is the headline event; otherwise a body
+  // edit is recorded as a coalesced `updated` (autosave fires this often).
+  const name = actorName(user);
+  if (updates.status && before && before.status !== updates.status) {
+    await logActivity({
+      docId: doc.id,
+      workspaceId: doc.workspace_id,
+      actorType: "human",
+      actorId: user.id,
+      actorName: name,
+      action: "status_changed",
+      metadata: { from_status: before.status, to_status: updates.status },
+    });
+  } else if (typeof updates.body_md === "string") {
+    await logEditCoalesced({
+      docId: doc.id,
+      workspaceId: doc.workspace_id,
+      actorId: user.id,
+      actorName: name,
+    });
   }
 
   return NextResponse.json({ doc });
