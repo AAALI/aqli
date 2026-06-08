@@ -48,7 +48,7 @@ export async function getAgentDoc(id: string) {
   return data as (Doc & { space: { slug: string; name: string } | null }) | null;
 }
 
-async function serviceSnapshot(
+export async function snapshotAgentDocVersion(
   docId: string,
   bodyMd: string,
   frontmatter: DocFrontmatter | null,
@@ -101,7 +101,7 @@ export async function createAgentDoc(payload: {
     .single();
   if (error) throw error;
   const doc = data as Doc;
-  if (doc.body_md) await serviceSnapshot(doc.id, doc.body_md, doc.frontmatter, "created");
+  if (doc.body_md) await snapshotAgentDocVersion(doc.id, doc.body_md, doc.frontmatter, "created");
   return doc;
 }
 
@@ -110,6 +110,7 @@ export async function updateAgentDoc(
   updates: { body_md?: string; frontmatter?: DocFrontmatter },
 ): Promise<Doc> {
   const supabase = createServiceClient();
+  const current = await getAgentDoc(id);
   const patch: Record<string, unknown> = {};
   if (typeof updates.body_md === "string") {
     patch.body_md = updates.body_md;
@@ -118,6 +119,9 @@ export async function updateAgentDoc(
   if (updates.frontmatter) patch.frontmatter = updates.frontmatter;
   const { data, error } = await supabase.from("docs").update(patch).eq("id", id).select().single();
   if (error) throw error;
+  if (typeof updates.body_md === "string" && current?.body_md !== updates.body_md) {
+    await snapshotAgentDocVersion(id, updates.body_md, updates.frontmatter ?? current?.frontmatter ?? null, "edit");
+  }
   return data as Doc;
 }
 
@@ -125,7 +129,7 @@ export async function setAgentDocStatus(id: string, status: DocStatus): Promise<
   const supabase = createServiceClient();
   const { data: current } = await supabase.from("docs").select("status, body_md, frontmatter").eq("id", id).single();
   if (current && current.status !== status && current.body_md) {
-    await serviceSnapshot(id, current.body_md, current.frontmatter as DocFrontmatter | null, "status_change");
+    await snapshotAgentDocVersion(id, current.body_md, current.frontmatter as DocFrontmatter | null, "status_change");
   }
   const { data, error } = await supabase.from("docs").update({ status }).eq("id", id).select().single();
   if (error) throw error;
