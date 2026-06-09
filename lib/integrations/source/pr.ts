@@ -33,22 +33,63 @@ export function extractLinearIssueKey(input: ExtractInput): string | null {
   return match ? match[1].toUpperCase() : null;
 }
 
+export type PullRequestCandidate = PullRequestSummary & {
+  /** Lifecycle action from the webhook envelope, when present (e.g. "opened", "closed"). */
+  action: string | null;
+};
+
+/** Strict normaliser: returns null unless the payload clearly indicates a merge. */
 export function normalizePullRequestEvent(data: unknown): PullRequestSummary | null {
+  const candidate = parsePullRequestCandidate(data);
+  if (!candidate || !candidate.merged) return null;
+  // Strip the action field so existing callers keep getting the original shape.
+  const { action: _action, ...summary } = candidate;
+  return { ...summary, merged: true };
+}
+
+/**
+ * Lenient parser: pulls out as much PR information as possible from any
+ * Composio / GitHub envelope. Composio's slim trigger payload sends only
+ * `{ data: { action, number, url, title, description, ... } }` with no
+ * `merged` / `merged_at` flag, so we can't decide merge-vs-not-merge from
+ * the webhook body alone — callers must enrich via the GitHub REST PR
+ * fetch and re-check `merged` before acting.
+ */
+export function parsePullRequestCandidate(data: unknown): PullRequestCandidate | null {
   if (!isRecord(data)) return null;
   const pr = isRecord(data.pull_request) ? data.pull_request : data;
   const repository = isRecord(data.repository) ? data.repository : {};
-  const merged = pr.merged === true || Boolean(pr.merged_at);
-  if (!merged) return null;
 
-  const repoFullName = stringValue(repository.full_name) ?? stringValue(data.repo) ?? "";
-  const [fallbackOwner, fallbackRepo] = repoFullName.split("/");
-  const owner = stringValue(recordValue(repository.owner)?.login) ?? stringValue(data.owner) ?? fallbackOwner;
-  const repo = stringValue(repository.name) ?? stringValue(data.repository_name) ?? fallbackRepo;
-  const number = numberValue(pr.number) ?? numberValue(data.number);
-  const title = stringValue(pr.title) ?? stringValue(data.title);
   const url = stringValue(pr.html_url) ?? stringValue(pr.url) ?? stringValue(data.url);
+  const fromUrl = parseGithubPrUrl(url);
+
+  const repoFullName =
+    stringValue(repository.full_name) ??
+    stringValue(data.repo) ??
+    (fromUrl ? `${fromUrl.owner}/${fromUrl.repo}` : "");
+  const [fbOwner, fbRepo] = repoFullName.split("/");
+  const owner =
+    stringValue(recordValue(repository.owner)?.login) ??
+    stringValue(data.owner) ??
+    fbOwner ??
+    fromUrl?.owner ??
+    "";
+  const repo =
+    stringValue(repository.name) ??
+    stringValue(data.repository_name) ??
+    fbRepo ??
+    fromUrl?.repo ??
+    "";
+  const number = numberValue(pr.number) ?? numberValue(data.number) ?? fromUrl?.number;
+  const title = stringValue(pr.title) ?? stringValue(data.title);
 
   if (!owner || !repo || !number || !title || !url) return null;
+
+  const merged =
+    pr.merged === true ||
+    Boolean(stringValue(pr.merged_at)) ||
+    data.merged === true ||
+    Boolean(stringValue(data.merged_at));
 
   return {
     owner,
@@ -56,13 +97,36 @@ export function normalizePullRequestEvent(data: unknown): PullRequestSummary | n
     repoFullName: repoFullName || `${owner}/${repo}`,
     number,
     title,
-    body: stringValue(pr.body) ?? "",
+    body:
+      stringValue(pr.body) ??
+      stringValue(data.body) ??
+      // Composio's slim payload uses `description` for the PR body.
+      stringValue(data.description) ??
+      "",
     url,
-    merged: true,
-    branch: stringValue(recordValue(pr.head)?.ref) ?? stringValue(data.branch) ?? "",
-    baseBranch: stringValue(recordValue(pr.base)?.ref) ?? stringValue(data.base_branch) ?? "",
+    merged,
+    branch:
+      stringValue(recordValue(pr.head)?.ref) ??
+      stringValue(data.branch) ??
+      stringValue(data.head_ref) ??
+      "",
+    baseBranch:
+      stringValue(recordValue(pr.base)?.ref) ??
+      stringValue(data.base_branch) ??
+      stringValue(data.base_ref) ??
+      "",
     mergedAt: stringValue(pr.merged_at) ?? stringValue(data.merged_at) ?? null,
+    action: stringValue(data.action) ?? stringValue(pr.action) ?? null,
   };
+}
+
+function parseGithubPrUrl(url?: string | null): { owner: string; repo: string; number: number } | null {
+  if (!url) return null;
+  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/i);
+  if (!match) return null;
+  const number = Number(match[3]);
+  if (!Number.isFinite(number)) return null;
+  return { owner: match[1], repo: match[2], number };
 }
 
 /**
