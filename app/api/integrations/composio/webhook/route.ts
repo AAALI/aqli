@@ -4,6 +4,7 @@ import { processComposioWebhookPayload } from "@/lib/integrations/source/feature
 import { verifyComposioWebhook } from "@/lib/integrations/source/composio";
 import { claimWebhookEvent, finishWebhookEvent } from "@/lib/supabase/integration-webhook-events";
 import type { IntegrationProvider } from "@/types/integration";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,13 @@ async function processInBackground(eventId: string, event: unknown) {
       status: result.ignored ? "ignored" : "done",
       result,
     });
+    if (!result.ignored) {
+      getPostHogClient().capture({
+        distinctId: "system",
+        event: "webhook_doc_generated",
+        properties: { event_id: eventId, provider: inferProvider(event) },
+      });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[composio webhook] background failed", eventId, err);
