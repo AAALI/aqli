@@ -15,14 +15,14 @@ declare
 begin
   select conname
     into cn
-    from pg_constraint
-    where conrelid = 'public.integration_connections'::regclass
-      and contype = 'u'
+    from pg_constraint pc
+    where pc.conrelid = 'public.integration_connections'::regclass
+      and pc.contype = 'u'
       and (
-        select array_agg(att.attname order by att.attname)
-        from unnest(conkey) as k(attnum)
+        select array_agg(att.attname::text order by att.attname::text)
+        from unnest(pc.conkey) as k(attnum)
         join pg_attribute att
-          on att.attrelid = pg_constraint.conrelid and att.attnum = k.attnum
+          on att.attrelid = pc.conrelid and att.attnum = k.attnum
       ) = array['provider','user_id','workspace_id'];
 
   if cn is not null then
