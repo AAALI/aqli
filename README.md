@@ -71,3 +71,5 @@ MIT — github.com/AAALI/aqli
 # Composio webhook probe
 
 This tiny change exists only to trigger a real GitHub PR-merged webhook through Composio so we can verify end-to-end docs creation. Safe to delete.
+
+Probe ping #2 — verifying slim-payload merge handling end-to-end.
