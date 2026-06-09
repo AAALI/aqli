@@ -30,7 +30,9 @@ export default async function IntegrationDetailPage({
   const workspace = await getWorkspaceBySlug(wsSlug);
   const [spaces, connection] = await Promise.all([
     getSpaces(workspace.id),
-    getIntegrationConnection(workspace.id, provider).catch(() => null),
+    // Let real failures (auth, DB) surface so users aren't shown a misleading
+    // "disconnected" state during outages or permission regressions.
+    getIntegrationConnection(workspace.id, provider),
   ]);
   const base = `/w/${workspace.slug}`;
   const settingsBase = `${base}/settings`;
@@ -55,11 +57,18 @@ export default async function IntegrationDetailPage({
             />
           </div>
 
-          {status && (
-            <div style={{ marginBottom: 18, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: status === "connected" ? "var(--approved-bg)" : "var(--bg-sidebar)", color: status === "connected" ? "var(--approved-text)" : "var(--text-secondary)", fontSize: 13 }}>
-              {status === "connected" ? "Connection saved." : "Connection was not completed."}
-            </div>
-          )}
+          {status && (() => {
+            // Only show the success banner if the connection actually reports
+            // as connected; otherwise the URL flag could mislead users when
+            // the callback flow updated the row to failed/expired.
+            const showSuccess = status === "connected" && connected;
+            const showFailure = status !== "connected" || !connected;
+            return (
+              <div style={{ marginBottom: 18, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: showSuccess ? "var(--approved-bg)" : "var(--bg-sidebar)", color: showSuccess ? "var(--approved-text)" : "var(--text-secondary)", fontSize: 13 }}>
+                {showSuccess ? "Connection saved." : showFailure ? "Connection was not completed." : ""}
+              </div>
+            );
+          })()}
 
           {provider === "github" ? (
             <GitHubConfig workspaceId={workspace.id} workspaceSlug={workspace.slug} spaces={spaces} connected={connected} connection={connection} />

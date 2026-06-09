@@ -78,10 +78,13 @@ export default function GitHubRepoPicker({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Save failed");
+      // Guard against variant payload shapes so a successful save isn't
+      // reported as "Save failed" when `saved` is missing/not an array.
+      const savedRepos: string[] = Array.isArray(data.saved) ? data.saved : [...selected];
       setSaved(
         data.error
           ? `Saved, but triggers failed: ${data.error}`
-          : `Saved — watching ${data.saved.length} ${data.saved.length === 1 ? "repo" : "repos"}.`,
+          : `Saved — watching ${savedRepos.length} ${savedRepos.length === 1 ? "repo" : "repos"}.`,
       );
       router.refresh();
     } catch (e) {

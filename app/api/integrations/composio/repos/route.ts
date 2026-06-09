@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getMyRole } from "@/lib/supabase/members";
 import {
   getIntegrationConnection,
   updateIntegrationConnection,
@@ -37,6 +38,12 @@ export async function GET(req: NextRequest) {
   if (!workspaceId)
     return NextResponse.json({ error: "workspace_id required" }, { status: 400 });
 
+  // Verify membership before reading — the connection lookup uses the
+  // request-scoped client but `listGithubRepos` exposes repository names
+  // for the workspace's connected account, which non-members must not see.
+  const role = await getMyRole(workspaceId);
+  if (!role) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   const connection = await getIntegrationConnection(workspaceId, "github");
   if (!connection || connection.status !== "connected") {
     return NextResponse.json({ error: "GitHub is not connected" }, { status: 409 });
@@ -66,6 +73,12 @@ export async function POST(req: NextRequest) {
   const defaultSpaceId = (body.default_space_id as string | undefined) || null;
   if (!workspaceId)
     return NextResponse.json({ error: "workspace_id required" }, { status: 400 });
+
+  // Match the RLS policy: only workspace admins can manage the connection
+  // (and so create Composio PR triggers / change the default space).
+  const role = await getMyRole(workspaceId);
+  if (role !== "admin")
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const connection = await getIntegrationConnection(workspaceId, "github");
   if (!connection || connection.status !== "connected") {

@@ -31,11 +31,22 @@ export default async function SettingsIntegrationsPage({
 }) {
   const { workspace: wsSlug } = await params;
   const workspace = await getWorkspaceBySlug(wsSlug);
-  const connections = await listIntegrationConnections(workspace.id).catch(() => []);
+  // Let auth/DB failures surface — silently rendering "no integrations"
+  // misleads admins during outages or permission regressions.
+  const connections = await listIntegrationConnections(workspace.id);
   const base = `/w/${workspace.slug}`;
   const settingsBase = `${base}/settings`;
   const connected = connections.filter((connection) => connection.status === "connected").length;
-  const last = connections.find((connection) => connection.last_event_at);
+  // Pick the connection whose last_event_at is the most recent so the stat
+  // shows the newest webhook event (not just the first row with a timestamp).
+  const last = connections
+    .filter((connection) => connection.last_event_at)
+    .reduce<IntegrationConnection | undefined>((latest, connection) => {
+      if (!latest) return connection;
+      const a = connection.last_event_at ? Date.parse(connection.last_event_at) : 0;
+      const b = latest.last_event_at ? Date.parse(latest.last_event_at) : 0;
+      return a > b ? connection : latest;
+    }, undefined);
 
   return (
     <>

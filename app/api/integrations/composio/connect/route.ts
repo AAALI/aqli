@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getMyRole } from "@/lib/supabase/members";
 import { createConnectLink } from "@/lib/integrations/source/composio";
 import {
   composioUserId,
@@ -23,6 +24,15 @@ export async function POST(req: NextRequest) {
   }
   if (!input.workspace_id || !input.workspace_slug) {
     return NextResponse.json({ error: "workspace_id and workspace_slug required" }, { status: 400 });
+  }
+
+  // The mutation path uses a service-role client under the hood, which bypasses
+  // RLS. Explicitly verify the caller is a workspace admin (matching the
+  // `workspace admins can manage integration connections` policy) so this
+  // endpoint can't be used to write connections for an arbitrary workspace.
+  const role = await getMyRole(input.workspace_id);
+  if (role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const repos = provider === "github" ? parseRepos(input.repo_full_name) : [];

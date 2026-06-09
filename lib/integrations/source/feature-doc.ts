@@ -173,22 +173,40 @@ async function findMatchingDoc(
   workspaceId: string,
   input: { linearIssueKey: string | null; prUrl: string },
 ) {
+  // Match in the DB instead of fetching N rows into memory: in larger
+  // workspaces a capped (e.g. 500-most-recent) scan can miss an older
+  // matching doc and produce a duplicate Fix Note for the same PR / Linear
+  // issue. We run up to two targeted queries and take the most recent match.
   const supabase = createServiceClient();
+  const selectCols = "*, space:spaces(id, workspace_id, name, slug, icon, created_at)";
+
+  if (input.linearIssueKey) {
+    const key = input.linearIssueKey;
+    // jsonb keys are stored as-is; match both exact `linear_issue_id` and any
+    // `linked_project_url` containing the key (case-insensitive).
+    const safeKey = key.replace(/[%,]/g, "");
+    const { data, error } = await supabase
+      .from("docs")
+      .select(selectCols)
+      .eq("workspace_id", workspaceId)
+      .or(
+        `frontmatter->>linear_issue_id.eq.${safeKey},frontmatter->>linked_project_url.ilike.%${safeKey}%`,
+      )
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    if (data && data.length) return data[0] as Doc;
+  }
+
   const { data, error } = await supabase
     .from("docs")
-    .select("*, space:spaces(id, workspace_id, name, slug, icon, created_at)")
+    .select(selectCols)
     .eq("workspace_id", workspaceId)
+    .eq("frontmatter->>source_pr_url", input.prUrl)
     .order("updated_at", { ascending: false })
-    .limit(500);
+    .limit(1);
   if (error) throw error;
-
-  const docs = (data ?? []) as Doc[];
-  return docs.find((doc) => {
-    const fm = doc.frontmatter ?? { tags: [] };
-    if (input.linearIssueKey && fm.linear_issue_id?.toUpperCase() === input.linearIssueKey) return true;
-    if (input.linearIssueKey && fm.linked_project_url?.toUpperCase().includes(input.linearIssueKey)) return true;
-    return fm.source_pr_url === input.prUrl;
-  }) ?? null;
+  return ((data && data[0]) as Doc | undefined) ?? null;
 }
 
 async function updateMatchedDoc(

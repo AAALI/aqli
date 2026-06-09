@@ -63,7 +63,7 @@ export async function upsertIntegrationConnection(input: {
         last_error: input.lastError ?? null,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "workspace_id,user_id,provider" },
+      { onConflict: "workspace_id,provider" },
     )
     .select()
     .single();
