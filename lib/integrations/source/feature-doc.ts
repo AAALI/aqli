@@ -282,11 +282,27 @@ async function updateMatchedDoc(
   };
   const updated = await updateAgentDoc(doc.id, { body_md: bodyMd, frontmatter });
   // Merged PRs are already trusted — auto-approve so the doc is live context
-  // immediately (and embedded as approved, so agents can retrieve it).
-  const approved = await setAgentDocStatus(updated.id, "approved", { markReviewed: true });
+  // immediately. Skip the status flip (and its `status_change` snapshot) when
+  // the doc is already approved so we don't add a no-op version entry.
+  const approved =
+    updated.status === "approved"
+      ? await touchReviewedAt(updated.id)
+      : await setAgentDocStatus(updated.id, "approved", { markReviewed: true });
   await embedDoc(approved).catch((err) => console.error("Embed failed for integration doc", approved.id, err));
   await logPrActivity(approved, pr, files, false);
   return approved;
+}
+
+async function touchReviewedAt(id: string): Promise<Doc> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("docs")
+    .update({ last_reviewed_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Doc;
 }
 
 async function createChangeDoc(
@@ -298,13 +314,18 @@ async function createChangeDoc(
 ) {
   const spaceId = await resolveDefaultSpaceId(connection);
   const bodyMd = buildFixNoteMarkdown({ pr, files, implementedText, linearIssueKey });
-  const doc = await createAgentDoc({
+  // Merged PRs are already trusted, so create the doc directly as `approved`.
+  // This skips the redundant `draft -> approved` status snapshot that used to
+  // show up as a no-op v2 entry in the doc's version history.
+  const approved = await createAgentDoc({
     workspace_id: connection.workspace_id,
     space_id: spaceId,
     title: pr.title,
     type: "fix_note",
     body_md: bodyMd,
     agent_id: "composio-github",
+    status: "approved",
+    markReviewed: true,
     frontmatter: {
       tags: ["github", "auto-update"],
       linear_issue_id: linearIssueKey ?? undefined,
@@ -312,7 +333,6 @@ async function createChangeDoc(
       source_repo: pr.repoFullName,
     },
   });
-  const approved = await setAgentDocStatus(doc.id, "approved", { markReviewed: true });
   await embedDoc(approved).catch((err) => console.error("Embed failed for integration doc", approved.id, err));
   await logPrActivity(approved, pr, files, true);
   return approved;
@@ -336,6 +356,9 @@ async function logPrActivity(
   files: PullRequestFileSummary[],
   created: boolean,
 ) {
+  // One activity row per merge — the auto-approval is already implied by the
+  // metadata (`auto_approved: true`) and the doc's `approved` status, so we
+  // don't emit a separate `approved` entry that would double the feed.
   await logActivity({
     docId: doc.id,
     workspaceId: doc.workspace_id,
@@ -348,17 +371,8 @@ async function logPrActivity(
       pr_url: pr.url,
       repo: pr.repoFullName,
       files_changed: files.length,
+      auto_approved: true,
     },
-  });
-  // No review step: a merged PR is already trusted, so the doc is auto-approved.
-  await logActivity({
-    docId: doc.id,
-    workspaceId: doc.workspace_id,
-    actorType: "agent",
-    actorId: "composio-github",
-    actorName: "Composio GitHub",
-    action: "approved",
-    metadata: { auto_approved: true, reason: "merged_pr", to_status: "approved", pr_url: pr.url },
   });
 }
 
