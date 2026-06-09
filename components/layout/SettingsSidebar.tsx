@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   IconGear,
   IconKey,
+  IconLink,
   IconChevLeft,
 } from "@/components/aqli/icons";
 
@@ -22,6 +23,7 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You" 
   const nav = [
     { id: "general", href: settingsBase, icon: <IconGear />, label: "Workspace", exact: true },
     { id: "keys", href: `${settingsBase}/keys`, icon: <IconKey />, label: "API keys" },
+    { id: "integrations", href: `${settingsBase}/integrations`, icon: <IconLink />, label: "Integrations" },
   ];
 
   return (
