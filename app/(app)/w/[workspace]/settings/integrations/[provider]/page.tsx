@@ -6,6 +6,7 @@ import { getIntegrationConnection } from "@/lib/supabase/integration-connections
 import AppTopBar from "@/components/layout/AppTopBar";
 import { SettingsCard, SettingsHeader } from "@/components/settings/primitives";
 import { providerLogo } from "@/components/settings/BrandLogos";
+import GitHubRepoPicker from "@/components/integrations/GitHubRepoPicker";
 import { IconChevLeft } from "@/components/aqli/icons";
 import type { IntegrationProvider } from "@/types/integration";
 import type { Space } from "@/types/space";
@@ -84,31 +85,37 @@ function GitHubConfig({
   connected: boolean;
   connection: Awaited<ReturnType<typeof getIntegrationConnection>>;
 }) {
-  const repos = Array.isArray(connection?.metadata.repositories)
-    ? connection.metadata.repositories as { full_name?: string }[]
-    : [];
-  const defaultRepo = repos.map((repo) => repo.full_name).filter(Boolean).join(", ");
   const defaultSpaceId = connection?.default_space_id ?? spaces.find((space) => space.name === "Engineering")?.id ?? spaces[0]?.id ?? "";
 
   return (
     <>
       <SettingsCard title="Connection" sub="Use a GitHub account with access to the repositories Aqli should watch.">
         <ConnectionStatus connected={connected} error={connection?.last_error ?? null} />
-        <form method="post" action="/api/integrations/composio/connect" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <input type="hidden" name="__form" value="true" />
-          <input type="hidden" name="provider" value="github" />
-          <input type="hidden" name="workspace_id" value={workspaceId} />
-          <input type="hidden" name="workspace_slug" value={workspaceSlug} />
-          <Field label="Repositories" hint="Comma-separated owner/repo names. Composio creates one PR trigger per repo.">
-            <input name="repo_full_name" defaultValue={defaultRepo} placeholder="AAALI/aqli" style={inputStyle} />
-          </Field>
-          <Field label="Default destination space" hint="Used when a merged PR does not match an existing Linear-linked doc.">
-            <select name="default_space_id" defaultValue={defaultSpaceId} style={inputStyle}>
-              {spaces.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
-            </select>
-          </Field>
-          <button className="btn btn-primary" style={{ width: "fit-content" }}>{connected ? "Reconnect GitHub" : "Connect GitHub"}</button>
-        </form>
+
+        {connected ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <GitHubRepoPicker
+              workspaceId={workspaceId}
+              spaces={spaces.map((s) => ({ id: s.id, name: s.name }))}
+              defaultSpaceId={defaultSpaceId}
+            />
+            <form method="post" action="/api/integrations/composio/connect" style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+              <input type="hidden" name="__form" value="true" />
+              <input type="hidden" name="provider" value="github" />
+              <input type="hidden" name="workspace_id" value={workspaceId} />
+              <input type="hidden" name="workspace_slug" value={workspaceSlug} />
+              <button className="btn btn-secondary" style={{ width: "fit-content" }}>Reconnect GitHub</button>
+            </form>
+          </div>
+        ) : (
+          <form method="post" action="/api/integrations/composio/connect">
+            <input type="hidden" name="__form" value="true" />
+            <input type="hidden" name="provider" value="github" />
+            <input type="hidden" name="workspace_id" value={workspaceId} />
+            <input type="hidden" name="workspace_slug" value={workspaceSlug} />
+            <button className="btn btn-primary" style={{ width: "fit-content" }}>Connect GitHub</button>
+          </form>
+        )}
       </SettingsCard>
 
       <SettingsCard title="Review behavior" sub="Merged PRs never become trusted context automatically.">
@@ -152,16 +159,6 @@ function ConnectionStatus({ connected, error }: { connected: boolean; error: str
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
-  return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)" }}>{label}</span>
-      {children}
-      <span style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.4 }}>{hint}</span>
-    </label>
-  );
-}
-
 function ReadOnlyRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 16, padding: "10px 0", borderTop: "1px solid var(--border)", fontSize: 13 }}>
@@ -170,13 +167,3 @@ function ReadOnlyRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  height: 36,
-  padding: "0 12px",
-  background: "var(--bg-base)",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  color: "var(--text-primary)",
-  fontSize: 13,
-};

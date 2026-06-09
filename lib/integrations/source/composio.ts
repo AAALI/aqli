@@ -2,6 +2,59 @@ import { Composio } from "@composio/core";
 import type { IntegrationProvider } from "@/types/integration";
 
 export const GITHUB_PR_TRIGGER = "GITHUB_PULL_REQUEST_EVENT";
+export const GITHUB_LIST_REPOS_TOOL = "GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER";
+
+export type GithubRepo = { full_name: string; private: boolean };
+
+/** Repos the connected GitHub account can access, most-recently-updated first. */
+export async function listGithubRepos(composioUserId: string): Promise<GithubRepo[]> {
+  const result = await executeComposioTool({
+    composioUserId,
+    toolkit: "github",
+    tool: GITHUB_LIST_REPOS_TOOL,
+    arguments: { per_page: 100, sort: "updated", type: "all" },
+  });
+  return parseRepoList(result);
+}
+
+function parseRepoList(result: unknown): GithubRepo[] {
+  const data = unwrapRepoData(result);
+  const arr = Array.isArray(data)
+    ? data
+    : isRecord(data) && Array.isArray(data.items)
+      ? data.items
+      : isRecord(data) && Array.isArray(data.repositories)
+        ? data.repositories
+        : [];
+
+  const seen = new Set<string>();
+  const repos: GithubRepo[] = [];
+  for (const item of arr) {
+    if (!isRecord(item)) continue;
+    const fullName =
+      stringField(item, "full_name") ??
+      stringField(item, "fullName") ??
+      stringField(item, "name");
+    if (!fullName || seen.has(fullName)) continue;
+    seen.add(fullName);
+    repos.push({ full_name: fullName, private: item.private === true });
+  }
+  return repos;
+}
+
+function unwrapRepoData(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  return value.data ?? value.result ?? value.response_data ?? value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function stringField(record: Record<string, unknown>, key: string): string | null {
+  const found = record[key];
+  return typeof found === "string" && found.length > 0 ? found : null;
+}
 
 export function getComposioClient() {
   return new Composio({

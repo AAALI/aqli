@@ -113,6 +113,24 @@ Created from a merged PR.
 The change has no Linear ticket.
 `);
   });
+
+  it("strips echoed title/heading from the AI text so headings aren't duplicated", () => {
+    const aiEcho = `# TAB-555 add metrics
+
+## What's implemented
+- Added metric payout.retry.idempotent_hit.`;
+    const result = patchImplementedSection(`# TAB-555 add idempotency keys
+
+## What's implemented
+- Old note.
+`, aiEcho);
+
+    // Exactly one title and one section heading survive.
+    expect(result.match(/^# /gm)?.length).toBe(1);
+    expect(result.match(/## What's implemented/g)?.length).toBe(1);
+    expect(result).toContain("- Added metric payout.retry.idempotent_hit.");
+    expect(result).not.toContain("- Old note.");
+  });
 });
 
 describe("buildFixNoteMarkdown", () => {

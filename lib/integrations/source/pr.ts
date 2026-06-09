@@ -65,9 +65,23 @@ export function normalizePullRequestEvent(data: unknown): PullRequestSummary | n
   };
 }
 
+/**
+ * The AI is asked for section *body* only, but models sometimes echo a title
+ * (`# ...`) or repeat the `## What's implemented` heading — especially on the
+ * update path where the existing doc is passed as context. Strip those so the
+ * patched doc doesn't end up with nested/duplicated headings.
+ */
+export function sanitizeImplementedText(text: string): string {
+  return text
+    .replace(/^\s*#\s+.*$/gm, "") // drop H1 title lines
+    .replace(/^\s*#{2,6}\s*what'?s\s+implemented\s*$/gim, "") // drop echoed section heading
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function patchImplementedSection(markdown: string, implementedText: string): string {
   const body = markdown.trimEnd();
-  const replacement = `## What's implemented\n${implementedText.trim()}`;
+  const replacement = `## What's implemented\n${sanitizeImplementedText(implementedText)}`;
   const headingPattern = /^## What's implemented\s*$/im;
   const match = headingPattern.exec(body);
 
@@ -111,7 +125,7 @@ export function buildFixNoteMarkdown({
   return `# ${pr.title}
 
 ## What's implemented
-${implementedText.trim()}
+${sanitizeImplementedText(implementedText)}
 
 ## Source
 - PR: ${pr.url}

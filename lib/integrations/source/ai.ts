@@ -23,7 +23,11 @@ export async function generateImplementedText(input: {
     messages: [
       {
         role: "system",
-        content: "Write concise implementation notes for an internal engineering knowledge base. Avoid hype. Use Markdown bullets when useful.",
+        content:
+          "Write concise implementation notes for an internal engineering knowledge base. " +
+          "Avoid hype. Use Markdown bullets when useful. " +
+          "Return ONLY the body text for a 'What's implemented' section: no headings (no '#' title, no '## What's implemented'), " +
+          "no preamble. If an existing doc excerpt is provided, return the full updated section body that supersedes it.",
       },
       {
         role: "user",
