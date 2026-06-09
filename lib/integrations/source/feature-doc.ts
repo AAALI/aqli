@@ -11,10 +11,17 @@ import {
   buildFixNoteMarkdown,
   extractLinearIssueKey,
   normalizePullRequestEvent,
+  parsePullRequestCandidate,
   patchImplementedSection,
+  type PullRequestCandidate,
   type PullRequestFileSummary,
   type PullRequestSummary,
 } from "./pr";
+
+// PR lifecycle actions we treat as potential merges. Composio's slim payload
+// fires for many actions; we ignore everything except the close path (which
+// covers actual merges) so we don't act on `opened` / `synchronize` etc.
+const MERGE_CANDIDATE_ACTIONS = new Set(["closed", "merged"]);
 
 type WebhookPayload = Record<string, unknown>;
 
@@ -81,15 +88,39 @@ export async function processPullRequestData(
   eventData: unknown,
   options: { enrich: boolean },
 ) {
-  const pr = normalizePullRequestEvent(eventData);
-  if (!pr) return { ignored: true, reason: "not_merged_pr" };
+  // Composio's slim webhook envelope omits `merged` / `merged_at`, so we
+  // first parse a lenient candidate (action + identifiers) and decide what
+  // to do based on `action` and any explicit merge signal in the payload.
+  const candidate = parsePullRequestCandidate(eventData);
+  if (!candidate) return { ignored: true, reason: "unparseable_pr" };
+
+  if (candidate.action && !MERGE_CANDIDATE_ACTIONS.has(candidate.action)) {
+    return { ignored: true, reason: "non_merge_action", action: candidate.action };
+  }
+
+  // Resolve a PR summary with a confirmed `merged: true`, enriching from the
+  // GitHub REST API (via Composio) when the webhook payload alone can't tell
+  // us. In non-enrich mode (used by /simulate where the caller supplies a
+  // full GitHub-shaped payload), we trust the candidate's merge signal.
+  let pr: PullRequestSummary;
+  let files: PullRequestFileSummary[];
+  if (options.enrich) {
+    const resolved = await resolveMergedPullRequest(connection, candidate);
+    if (!resolved) return { ignored: true, reason: "closed_without_merge" };
+    pr = resolved.pr;
+    files = resolved.files;
+  } else {
+    if (!candidate.merged) return { ignored: true, reason: "not_merged_pr" };
+    const { action: _action, ...summary } = candidate;
+    pr = { ...summary, merged: true };
+    files = [];
+  }
 
   try {
-    const enriched = options.enrich ? await enrichPullRequest(connection, pr) : { pr, files: [] };
     const linearIssueKey = extractLinearIssueKey({
-      title: enriched.pr.title,
-      body: enriched.pr.body,
-      branch: enriched.pr.branch,
+      title: pr.title,
+      body: pr.body,
+      branch: pr.branch,
     });
     const linearIssue = linearIssueKey && options.enrich
       ? await fetchLinearIssue(connection, linearIssueKey)
@@ -99,19 +130,19 @@ export async function processPullRequestData(
 
     const match = await findMatchingDoc(connection.workspace_id, {
       linearIssueKey,
-      prUrl: enriched.pr.url,
+      prUrl: pr.url,
     });
 
     const implementedText = await generateImplementedText({
-      pr: enriched.pr,
-      files: enriched.files,
+      pr,
+      files,
       linearIssue,
       existingMarkdown: match?.body_md ?? null,
     });
 
     const doc = match
-      ? await updateMatchedDoc(match, enriched.pr, enriched.files, implementedText, linearIssueKey)
-      : await createChangeDoc(connection, enriched.pr, enriched.files, implementedText, linearIssueKey);
+      ? await updateMatchedDoc(match, pr, files, implementedText, linearIssueKey)
+      : await createChangeDoc(connection, pr, files, implementedText, linearIssueKey);
 
     await updateIntegrationConnection(connection.id, {
       last_event_at: new Date().toISOString(),
@@ -129,24 +160,49 @@ export async function processPullRequestData(
   }
 }
 
-async function enrichPullRequest(connection: IntegrationConnection, pr: PullRequestSummary) {
+/**
+ * Resolve a candidate PR (typically from a slim Composio webhook) into a full
+ * PR summary with confirmed `merged: true` plus the changed files. Returns
+ * null when the PR is closed without merging, or when GitHub couldn't be
+ * reached to verify the merge state (we'd rather drop a webhook than create
+ * a spurious Fix Note for a closed-but-not-merged PR).
+ */
+async function resolveMergedPullRequest(
+  connection: IntegrationConnection,
+  candidate: PullRequestCandidate,
+): Promise<{ pr: PullRequestSummary; files: PullRequestFileSummary[] } | null> {
   const [prDetails, filesResult] = await Promise.all([
     executeComposioTool({
       composioUserId: connection.composio_user_id,
       toolkit: "github",
       tool: "GITHUB_GET_A_PULL_REQUEST",
-      arguments: { owner: pr.owner, repo: pr.repo, pull_number: pr.number },
-    }).catch(() => null),
+      arguments: { owner: candidate.owner, repo: candidate.repo, pull_number: candidate.number },
+    }).catch((err) => {
+      console.warn("[composio] GITHUB_GET_A_PULL_REQUEST failed", err);
+      return null;
+    }),
     executeComposioTool({
       composioUserId: connection.composio_user_id,
       toolkit: "github",
       tool: "GITHUB_LIST_PULL_REQUESTS_FILES",
-      arguments: { owner: pr.owner, repo: pr.repo, pull_number: pr.number },
+      arguments: { owner: candidate.owner, repo: candidate.repo, pull_number: candidate.number },
     }).catch(() => null),
   ]);
 
+  // Prefer the GitHub-confirmed PR object; fall back to the candidate only
+  // if the candidate already carries an explicit merge signal.
+  const enriched = normalizePullRequestEvent(readData(prDetails));
+  if (!enriched) {
+    if (!candidate.merged) return null;
+    const { action: _action, ...summary } = candidate;
+    return {
+      pr: { ...summary, merged: true },
+      files: normalizeFiles(readData(filesResult)),
+    };
+  }
+
   return {
-    pr: normalizePullRequestEvent(readData(prDetails) ?? pr) ?? pr,
+    pr: enriched,
     files: normalizeFiles(readData(filesResult)),
   };
 }
