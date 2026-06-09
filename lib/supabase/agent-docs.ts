@@ -125,13 +125,21 @@ export async function updateAgentDoc(
   return data as Doc;
 }
 
-export async function setAgentDocStatus(id: string, status: DocStatus): Promise<Doc> {
+export async function setAgentDocStatus(
+  id: string,
+  status: DocStatus,
+  opts?: { markReviewed?: boolean },
+): Promise<Doc> {
   const supabase = createServiceClient();
   const { data: current } = await supabase.from("docs").select("status, body_md, frontmatter").eq("id", id).single();
   if (current && current.status !== status && current.body_md) {
     await snapshotAgentDocVersion(id, current.body_md, current.frontmatter as DocFrontmatter | null, "status_change");
   }
-  const { data, error } = await supabase.from("docs").update({ status }).eq("id", id).select().single();
+  const patch: Record<string, unknown> = { status };
+  // Merge-driven updates are already trusted (the PR was reviewed in GitHub),
+  // so they go straight to approved and reset the freshness clock.
+  if (opts?.markReviewed) patch.last_reviewed_at = new Date().toISOString();
+  const { data, error } = await supabase.from("docs").update(patch).eq("id", id).select().single();
   if (error) throw error;
   return data as Doc;
 }

@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const doc = await createAgentDoc({
+  const created = await createAgentDoc({
     workspace_id: agent.workspaceId,
     space_id: spaceId,
     title,
@@ -70,6 +70,11 @@ export async function POST(req: NextRequest) {
     frontmatter: { tags: tags ?? [] },
   });
 
+  // Agent-authored docs are trusted on write — auto-approve so they become
+  // live context immediately (no review gate). The review queue is reserved
+  // for human-authored drafts a person explicitly sends for review.
+  const doc = await setAgentDocStatus(created.id, "approved", { markReviewed: true });
+
   await logActivity({
     docId: doc.id,
     workspaceId: doc.workspace_id,
@@ -78,17 +83,18 @@ export async function POST(req: NextRequest) {
     actorName: doc.agent_id,
     action: "created",
   });
+  await logActivity({
+    docId: doc.id,
+    workspaceId: doc.workspace_id,
+    actorType: "agent",
+    actorId: doc.agent_id,
+    actorName: doc.agent_id,
+    action: "approved",
+    metadata: { auto_approved: true, reason: "agent_authored", to_status: "approved" },
+  });
 
   if (doc.body_md) {
     await embedDoc(doc, spaceName);
-    await logActivity({
-      docId: doc.id,
-      workspaceId: doc.workspace_id,
-      actorType: "agent",
-      actorId: doc.agent_id,
-      actorName: doc.agent_id,
-      action: "embedded",
-    });
   }
 
   return NextResponse.json(
@@ -97,8 +103,8 @@ export async function POST(req: NextRequest) {
       title: doc.title,
       status: doc.status,
       author_type: doc.author_type,
-      review_url: `${APP_URL}/docs/${doc.id}`,
-      message: "Doc created with status 'draft'. Flag it for human review when ready.",
+      url: `${APP_URL}/docs/${doc.id}`,
+      message: "Doc created and auto-approved — it is now trusted, searchable context.",
     },
     { status: 201 },
   );

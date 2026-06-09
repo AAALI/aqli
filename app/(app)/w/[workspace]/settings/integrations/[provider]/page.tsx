@@ -118,9 +118,9 @@ function GitHubConfig({
         )}
       </SettingsCard>
 
-      <SettingsCard title="Review behavior" sub="Merged PRs never become trusted context automatically.">
-        <ReadOnlyRow label="Matched PR" value="Patch the linked doc's What's implemented section, then request review." />
-        <ReadOnlyRow label="Unmatched PR" value="Create a new Fix Note in the default destination space, then request review." />
+      <SettingsCard title="What happens on merge" sub="A merged PR is already reviewed in GitHub, so doc updates are trusted automatically — no second review.">
+        <ReadOnlyRow label="Matched PR" value="Patch the linked doc's What's implemented section and approve it (live context immediately)." />
+        <ReadOnlyRow label="Unmatched PR" value="Create a new Fix Note in the default destination space and approve it." />
       </SettingsCard>
     </>
   );

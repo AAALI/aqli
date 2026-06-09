@@ -4,20 +4,31 @@ import { verifyComposioWebhook } from "@/lib/integrations/source/composio";
 
 export async function POST(req: NextRequest) {
   const payload = await req.text();
+  console.log("[composio webhook] received", payload.slice(0, 1200));
+
+  // 1) Verify signature — a failure here is genuinely a 401 (don't retry).
+  let verified: unknown;
   try {
-    const verified = await verifyComposioWebhook({
+    verified = await verifyComposioWebhook({
       id: req.headers.get("webhook-id") ?? "",
       timestamp: req.headers.get("webhook-timestamp") ?? "",
       signature: req.headers.get("webhook-signature") ?? "",
       payload,
     });
-    const parsed = readPayload(verified);
-    const result = await processComposioWebhookPayload(parsed);
-    return NextResponse.json({ ok: true, result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid webhook";
-    const status = message.includes("SECRET") ? 500 : 401;
-    return NextResponse.json({ error: message }, { status });
+    if (message.includes("SECRET")) return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
+  // 2) Process — a failure here is a 500 so Composio retries the delivery.
+  try {
+    const result = await processComposioWebhookPayload(readPayload(verified));
+    console.log("[composio webhook] result", JSON.stringify(result));
+    return NextResponse.json({ ok: true, result });
+  } catch (err) {
+    console.error("[composio webhook] processing failed", err);
+    return NextResponse.json({ error: "Processing failed" }, { status: 500 });
   }
 }
 

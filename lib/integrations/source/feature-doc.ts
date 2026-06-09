@@ -16,24 +16,64 @@ import {
   type PullRequestSummary,
 } from "./pr";
 
-type WebhookPayload = {
-  type?: string;
-  metadata?: {
-    trigger_slug?: string;
-    user_id?: string;
-  };
-  data?: unknown;
-};
+type WebhookPayload = Record<string, unknown>;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const v of values) if (typeof v === "string" && v.length > 0) return v;
+  return undefined;
+}
+
+/**
+ * Composio's V3 webhook envelope isn't perfectly documented and field names
+ * vary (snake_case vs camelCase, nesting under `data`). Pull the trigger slug,
+ * the Composio user id, and the GitHub event payload from any of the known
+ * shapes so a real event isn't silently dropped over a key-name mismatch.
+ */
+function extractTrigger(payload: WebhookPayload) {
+  const metadata = asRecord(payload.metadata) ?? {};
+  const data = asRecord(payload.data) ?? {};
+  const dataMeta = asRecord(data.metadata) ?? {};
+
+  const triggerSlug = firstString(
+    metadata.trigger_slug, metadata.triggerSlug, metadata.triggerName,
+    dataMeta.trigger_slug, dataMeta.triggerSlug,
+    payload.triggerSlug, payload.trigger_slug,
+  );
+  const userId = firstString(
+    metadata.user_id, metadata.userId, metadata.connectedAccountUserId,
+    dataMeta.user_id, dataMeta.userId,
+    payload.user_id, payload.userId,
+  );
+  // The GitHub event itself can be at payload.data, payload.data.payload, etc.
+  const eventData =
+    asRecord(data.payload) ?? (Object.keys(data).length ? data : asRecord(payload.payload)) ?? payload;
+
+  return { triggerSlug, userId, eventData };
+}
 
 export async function processComposioWebhookPayload(payload: WebhookPayload) {
-  if (payload.type !== "composio.trigger.message") return { ignored: true, reason: "unsupported_event" };
-  if (payload.metadata?.trigger_slug !== GITHUB_PR_TRIGGER) return { ignored: true, reason: "unsupported_trigger" };
-  if (!payload.metadata.user_id) return { ignored: true, reason: "missing_user" };
+  const type = firstString(payload.type, payload.event, payload.eventType);
+  const { triggerSlug, userId, eventData } = extractTrigger(payload);
 
-  const connection = await getServiceIntegrationByComposioUser(payload.metadata.user_id, "github");
-  if (!connection) return { ignored: true, reason: "connection_not_found" };
+  if (type && type !== "composio.trigger.message") {
+    return { ignored: true, reason: "unsupported_event", type };
+  }
+  if (triggerSlug && triggerSlug !== GITHUB_PR_TRIGGER) {
+    return { ignored: true, reason: "unsupported_trigger", triggerSlug };
+  }
+  if (!userId) {
+    console.warn("[composio webhook] no user id found. payload keys:", Object.keys(payload));
+    return { ignored: true, reason: "missing_user" };
+  }
 
-  return processPullRequestData(connection, payload.data, { enrich: true });
+  const connection = await getServiceIntegrationByComposioUser(userId, "github");
+  if (!connection) return { ignored: true, reason: "connection_not_found", userId };
+
+  return processPullRequestData(connection, eventData, { enrich: true });
 }
 
 export async function processPullRequestData(
@@ -167,10 +207,12 @@ async function updateMatchedDoc(
     source_repo: pr.repoFullName,
   };
   const updated = await updateAgentDoc(doc.id, { body_md: bodyMd, frontmatter });
-  const reviewed = await setAgentDocStatus(updated.id, "review");
-  await embedDoc(reviewed).catch((err) => console.error("Embed failed for integration doc", reviewed.id, err));
-  await logPrActivity(reviewed, pr, files, false);
-  return reviewed;
+  // Merged PRs are already trusted — auto-approve so the doc is live context
+  // immediately (and embedded as approved, so agents can retrieve it).
+  const approved = await setAgentDocStatus(updated.id, "approved", { markReviewed: true });
+  await embedDoc(approved).catch((err) => console.error("Embed failed for integration doc", approved.id, err));
+  await logPrActivity(approved, pr, files, false);
+  return approved;
 }
 
 async function createChangeDoc(
@@ -196,10 +238,10 @@ async function createChangeDoc(
       source_repo: pr.repoFullName,
     },
   });
-  const reviewed = await setAgentDocStatus(doc.id, "review");
-  await embedDoc(reviewed).catch((err) => console.error("Embed failed for integration doc", reviewed.id, err));
-  await logPrActivity(reviewed, pr, files, true);
-  return reviewed;
+  const approved = await setAgentDocStatus(doc.id, "approved", { markReviewed: true });
+  await embedDoc(approved).catch((err) => console.error("Embed failed for integration doc", approved.id, err));
+  await logPrActivity(approved, pr, files, true);
+  return approved;
 }
 
 async function resolveDefaultSpaceId(connection: IntegrationConnection) {
@@ -234,14 +276,15 @@ async function logPrActivity(
       files_changed: files.length,
     },
   });
+  // No review step: a merged PR is already trusted, so the doc is auto-approved.
   await logActivity({
     docId: doc.id,
     workspaceId: doc.workspace_id,
     actorType: "agent",
     actorId: "composio-github",
     actorName: "Composio GitHub",
-    action: "review_requested",
-    metadata: { from_status: "draft", to_status: "review", pr_url: pr.url },
+    action: "approved",
+    metadata: { auto_approved: true, reason: "merged_pr", to_status: "approved", pr_url: pr.url },
   });
 }
 
