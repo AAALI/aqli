@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAgent } from "../_auth";
-import { listAgentDocs, createAgentDoc, getServiceSpaceBySlug } from "@/lib/supabase/agent-docs";
+import { listAgentDocs, createAgentDoc, setAgentDocStatus, getServiceSpaceBySlug } from "@/lib/supabase/agent-docs";
 import { embedDoc } from "@/lib/ai/embedder";
 import { logActivity } from "@/lib/supabase/activity";
 import type { DocType, DocStatus } from "@/types/doc";
