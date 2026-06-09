@@ -67,3 +67,7 @@ curl -X POST https://your-aqli.app/api/agent/docs \
 ## License
 
 MIT — github.com/AAALI/aqli
+
+# Composio webhook probe
+
+This tiny change exists only to trigger a real GitHub PR-merged webhook through Composio so we can verify end-to-end docs creation. Safe to delete.
