@@ -17,6 +17,9 @@ export type DocFrontmatter = {
   tags: string[];
   linked_project_url?: string;
   linear_project_id?: string;
+  linear_issue_id?: string;
+  source_pr_url?: string;
+  source_repo?: string;
 };
 
 export type Doc = {
