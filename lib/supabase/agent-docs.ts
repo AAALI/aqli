@@ -80,6 +80,15 @@ export async function createAgentDoc(payload: {
   body_md?: string;
   agent_id?: string;
   frontmatter?: DocFrontmatter;
+  /**
+   * Initial doc status. Defaults to `draft`. Callers that already have a
+   * trusted source (e.g. a merged PR) can pass `approved` directly to avoid
+   * a second `setAgentDocStatus` call that would otherwise produce a
+   * redundant `status_change` version snapshot.
+   */
+  status?: DocStatus;
+  /** Marks `last_reviewed_at` at creation time. Useful with `status: 'approved'`. */
+  markReviewed?: boolean;
 }): Promise<Doc> {
   const supabase = createServiceClient();
   const bodyMd = payload.body_md ?? "";
@@ -90,12 +99,13 @@ export async function createAgentDoc(payload: {
       space_id: payload.space_id ?? null,
       title: payload.title,
       type: payload.type ?? "general",
-      status: "draft",
+      status: payload.status ?? "draft",
       author_type: "agent",
       agent_id: payload.agent_id ?? "unknown",
       body_md: bodyMd,
       body_json: bodyMd ? markdownToTiptap(bodyMd) : { type: "doc", content: [{ type: "paragraph" }] },
       frontmatter: payload.frontmatter ?? { tags: [] },
+      ...(payload.markReviewed ? { last_reviewed_at: new Date().toISOString() } : {}),
     })
     .select()
     .single();
