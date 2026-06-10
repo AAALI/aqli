@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   const event = readPayload(verified);
   const provider = inferProvider(event);
-  const triggerSlug = readString(asRecord(asRecord(event)?.metadata), "trigger_slug");
+  const triggerSlug = readTriggerSlug(event);
 
   // 2) Idempotency claim. If we've already seen this `webhook-id`, ack 200
   //    immediately without redoing the heavy pipeline. Composio retries the
@@ -121,13 +121,31 @@ function readString(record: Record<string, unknown> | null, key: string): string
 }
 
 /**
- * Composio's envelope carries `metadata.trigger_slug` (e.g.
- * `GITHUB_PULL_REQUEST_EVENT`). Map the toolkit prefix back to one of our
- * supported providers so the dedupe row points at the right integration.
+ * `verifyWebhook` returns a normalized `IncomingTriggerPayload` with camelCase
+ * keys (`toolkitSlug` / `triggerSlug`, top-level and under `metadata`) — not
+ * the raw V3 envelope's `metadata.trigger_slug`. Check every known location so
+ * the claim/fast-ack path actually engages; the snake_case fallback covers a
+ * raw envelope in case the SDK ever passes one through unnormalized.
  */
+function readTriggerSlug(event: unknown): string | null {
+  const record = asRecord(event);
+  const metadata = asRecord(record?.metadata);
+  return (
+    readString(record, "triggerSlug") ??
+    readString(metadata, "triggerSlug") ??
+    readString(metadata, "trigger_slug")
+  );
+}
+
 function inferProvider(event: unknown): IntegrationProvider | null {
-  const metadata = asRecord(asRecord(event)?.metadata);
-  const slug = readString(metadata, "trigger_slug")?.toLowerCase() ?? "";
+  const record = asRecord(event);
+  const metadata = asRecord(record?.metadata);
+  const slug = (
+    readString(record, "toolkitSlug") ??
+    readString(metadata, "toolkitSlug") ??
+    readTriggerSlug(event) ??
+    ""
+  ).toLowerCase();
   if (slug.startsWith("github")) return "github";
   if (slug.startsWith("linear")) return "linear";
   return null;
