@@ -10,7 +10,7 @@ type TiptapNode = {
   attrs?: Record<string, unknown>;
   content?: TiptapNode[];
   text?: string;
-  marks?: { type: string }[];
+  marks?: { type: string; attrs?: Record<string, unknown> }[];
 };
 
 export function markdownToTiptap(md: string | null | undefined): TiptapNode {
@@ -131,7 +131,7 @@ function listItem(text: string): TiptapNode {
 function inlineFromText(text: string): TiptapNode[] {
   if (!text) return [];
   const tokens: TiptapNode[] = [];
-  const regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`)/g;
+  const regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\))/g;
   let last = 0;
   let m: RegExpExecArray | null;
 
@@ -145,6 +145,12 @@ function inlineFromText(text: string): TiptapNode[] {
       tokens.push({ type: "text", text: m[3], marks: [{ type: "italic" }] });
     } else if (m[4] !== undefined) {
       tokens.push({ type: "text", text: m[4], marks: [{ type: "code" }] });
+    } else if (m[5] !== undefined && m[6] !== undefined) {
+      tokens.push({
+        type: "text",
+        text: m[5],
+        marks: [{ type: "link", attrs: { href: m[6] } }],
+      });
     }
     last = regex.lastIndex;
   }

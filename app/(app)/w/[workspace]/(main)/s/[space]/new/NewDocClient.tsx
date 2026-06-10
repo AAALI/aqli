@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DocType } from "@/types/doc";
+import type { Space } from "@/types/space";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { IconPlus, IconX } from "@/components/aqli/icons";
 import { templateFor } from "@/components/editor/templates";
@@ -88,6 +89,24 @@ export default function NewDocClient({
   const [selected, setSelected] = useState<TypeDef>(TYPES[0]);
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
+  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string>(spaceId);
+
+  // Fetch available spaces
+  useEffect(() => {
+    async function fetchSpaces() {
+      try {
+        const res = await fetch(`/api/spaces?workspace_id=${workspaceId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSpaces(data.spaces || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch spaces:", err);
+      }
+    }
+    fetchSpaces();
+  }, [workspaceId]);
 
   async function create() {
     setBusy(true);
@@ -98,7 +117,7 @@ export default function NewDocClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workspace_id: workspaceId,
-          space_id: spaceId,
+          space_id: selectedSpaceId,
           title: title.trim() || "Untitled",
           type: selected.id,
           ...(template
@@ -115,7 +134,7 @@ export default function NewDocClient({
           doc_id: doc.id,
           doc_type: selected.id,
           workspace_id: workspaceId,
-          space_id: spaceId,
+          space_id: selectedSpaceId,
         });
         router.replace(`${base}/docs/${doc.id}/edit`);
       } else {
@@ -190,6 +209,32 @@ export default function NewDocClient({
                 ) : (
                   <div style={{ fontSize: 13, color: "var(--text-muted)" }}>No scaffolding — a clean page to write whatever you need.</div>
                 )}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-muted)" }}>Space</span>
+                <select
+                  value={selectedSpaceId}
+                  onChange={(e) => setSelectedSpaceId(e.target.value)}
+                  style={{
+                    height: 44,
+                    padding: "0 14px",
+                    background: "var(--bg-base)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    fontFamily: "var(--font-sans)",
+                    fontSize: 14,
+                    color: "var(--text-primary)",
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  {spaces.map((space) => (
+                    <option key={space.id} value={space.id}>
+                      {space.icon} {space.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 6 }}>

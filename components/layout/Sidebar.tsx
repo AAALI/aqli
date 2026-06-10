@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Space } from "@/types/space";
 import { AqliWordmark } from "@/components/aqli/AqliMark";
-import { IconHome, IconSearch, IconCheck, IconGear, IconClock, IconRobot } from "@/components/aqli/icons";
+import { IconHome, IconSearch, IconCheck, IconClock, IconRobot } from "@/components/aqli/icons";
 import NewSpaceButton from "./NewSpaceButton";
+import AccountMenu from "./AccountMenu";
 
 type Props = {
   workspaceSlug: string;
@@ -28,8 +29,6 @@ export default function Sidebar({
 }: Props) {
   const pathname = usePathname();
   const base = `/w/${workspaceSlug}`;
-  const initial = userName.trim().charAt(0).toUpperCase() || "Y";
-
   const isHome = pathname === base;
   const isSearch = pathname.startsWith(`${base}/search`);
   const isReview = pathname.startsWith(`${base}/review`);
@@ -93,16 +92,7 @@ export default function Sidebar({
         <NewSpaceButton workspaceId={workspaceId} />
       </div>
 
-      <div className="sb-foot">
-        <div className="avatar avatar-ali">{initial}</div>
-        <div className="meta">
-          <span className="n">{userName}</span>
-          <span className="w">aqli.app/{workspaceSlug}</span>
-        </div>
-        <Link href={`${base}/settings`} className="gear" aria-label="Settings">
-          <IconGear size={15} />
-        </Link>
-      </div>
+      <AccountMenu base={base} userName={userName} workspaceSlug={workspaceSlug} />
     </aside>
   );
 }

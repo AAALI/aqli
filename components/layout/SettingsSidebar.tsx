@@ -3,11 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  IconBell,
   IconGear,
   IconKey,
   IconLink,
   IconChevLeft,
+  IconRobot,
+  IconUsers,
 } from "@/components/aqli/icons";
+import AccountMenu from "./AccountMenu";
 
 type Props = {
   base: string;
@@ -18,12 +22,15 @@ type Props = {
 export default function SettingsSidebar({ base, workspaceName, userName = "You" }: Props) {
   const pathname = usePathname();
   const settingsBase = `${base}/settings`;
-  const initial = userName.trim().charAt(0).toUpperCase() || "Y";
+  const workspaceSlug = base.split("/").filter(Boolean).at(1) ?? "";
 
   const nav = [
     { id: "general", href: settingsBase, icon: <IconGear />, label: "Workspace", exact: true },
     { id: "keys", href: `${settingsBase}/keys`, icon: <IconKey />, label: "API keys" },
+    { id: "members", href: `${settingsBase}/members`, icon: <IconUsers />, label: "Members" },
     { id: "integrations", href: `${settingsBase}/integrations`, icon: <IconLink />, label: "Integrations" },
+    { id: "agents", href: `${settingsBase}/agents`, icon: <IconRobot />, label: "Agent activity" },
+    { id: "notifications", href: `${settingsBase}/notifications`, icon: <IconBell />, label: "Notifications" },
   ];
 
   return (
@@ -53,13 +60,12 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You" 
         })}
       </div>
 
-      <div className="sb-foot" style={{ borderTop: "1px solid var(--border)" }}>
-        <span className="avatar avatar-ali" style={{ width: 28, height: 28 }}>{initial}</span>
-        <div className="meta">
-          <div className="n">{userName}</div>
-          <div className="w">Admin</div>
-        </div>
-      </div>
+      <AccountMenu
+        base={base}
+        userName={userName}
+        workspaceSlug={workspaceSlug}
+        roleLabel="Admin"
+      />
     </aside>
   );
 }

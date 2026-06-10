@@ -3,13 +3,13 @@ import { AqliMark } from "@/components/aqli/AqliMark";
 
 export function AuthStage({ ornament, children }: { ornament: ReactNode; children: ReactNode }) {
   return (
-    <div className="aqli-screen" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "560px 1fr", background: "var(--bg-base)", fontFamily: "var(--font-sans)" }}>
-      <div style={{ background: "var(--bg-sidebar)", borderRight: "1px solid var(--border)", padding: "44px 48px", display: "flex", flexDirection: "column" }}>
+    <div className="aqli-screen auth-stage">
+      <div className="auth-ornament">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <AqliMark size={22} />
           <span style={{ fontSize: 17, letterSpacing: "0.08em", fontWeight: 500, color: "var(--text-primary)" }}>AQLI</span>
         </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 22 }}>
+        <div className="auth-ornament-copy">
           {ornament}
         </div>
         <div style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -17,7 +17,7 @@ export function AuthStage({ ornament, children }: { ornament: ReactNode; childre
           <span>aqli.app · docs.aqli.app</span>
         </div>
       </div>
-      <div style={{ padding: "44px 64px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+      <div className="auth-panel">
         <div style={{ width: "100%", maxWidth: 380 }}>{children}</div>
       </div>
     </div>

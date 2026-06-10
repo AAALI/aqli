@@ -9,7 +9,7 @@ type TiptapNode = {
   text?: string;
   attrs?: Record<string, unknown>;
   content?: TiptapNode[];
-  marks?: { type: string }[];
+  marks?: { type: string; attrs?: Record<string, unknown> }[];
 };
 
 export function tiptapToMarkdown(
@@ -85,6 +85,9 @@ function inlineToText(nodes: TiptapNode[] = []): string {
       if (marks.includes("bold")) text = `**${text}**`;
       if (marks.includes("italic")) text = `*${text}*`;
       if (marks.includes("strike")) text = `~~${text}~~`;
+      const link = node.marks?.find((m) => m.type === "link");
+      const href = link?.attrs?.href;
+      if (typeof href === "string" && href) text = `[${text}](${href})`;
       return text;
     })
     .join("");
