@@ -13,7 +13,7 @@ export default function MembersClient() {
       <div style={{ maxWidth: 920, margin: "0 auto", opacity: open ? 0.4 : 1 }}>
         <SettingsHeader
           title="Members"
-          sub="Anyone with a Tabadulat account can read, write, and review docs. Admins can manage workspace settings, members, and API keys."
+          sub="Anyone with an ACME account can read, write, and review docs. Admins can manage workspace settings, members, and API keys."
           action={
             <button className="btn btn-primary" onClick={() => setOpen(true)}>
               <IconPlus size={14} sw={2} />
@@ -104,12 +104,12 @@ function InviteModal({ onClose }: { onClose: () => void }) {
   return (
     <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 520, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "0 18px 48px -12px rgba(20,20,18,0.32), 0 2px 6px rgba(20,20,18,0.06)", padding: "24px 26px", zIndex: 51, display: "flex", flexDirection: "column", gap: 18 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <h2 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 22, letterSpacing: "-0.01em" }}>Invite to Tabadulat</h2>
+        <h2 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 22, letterSpacing: "-0.01em" }}>Invite to ACME</h2>
         <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>They&apos;ll get an email with a link to set a password and join.</p>
       </div>
       <Field label="Email addresses" hint="Paste multiple emails separated by commas or spaces.">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "8px 10px", background: "var(--bg-base)", border: "1px solid var(--accent)", boxShadow: "0 0 0 3px rgba(15,110,86,0.12)", borderRadius: 8, minHeight: 40 }}>
-          {["leyla@tabadulat.com", "hassan@tabadulat.com"].map((e) => (
+          {["leyla@acme.com", "hassan@acme.com"].map((e) => (
             <span key={e} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 8px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 4, fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-primary)" }}>
               {e}
               <span style={{ color: "var(--text-muted)", marginLeft: 2, cursor: "pointer", display: "flex" }}><IconX size={10} sw={1.8} /></span>

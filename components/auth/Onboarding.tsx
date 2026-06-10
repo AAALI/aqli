@@ -195,10 +195,10 @@ export default function Onboarding() {
           >
             <form onSubmit={submitWorkspace} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               <Field label="Workspace name">
-                <TextInput value={workspaceName} onChange={(v) => setWorkspaceName(v)} placeholder="e.g. Tabadulat" required autoFocus />
+                <TextInput value={workspaceName} onChange={(v) => setWorkspaceName(v)} placeholder="e.g. ACME" required autoFocus />
               </Field>
               <Field label="Workspace URL" hint="Used for share links and the agent API base URL.">
-                <TextInput mono prefix="aqli.app /" value={slugTouched ? slug : effectiveSlug} onChange={(v) => { setSlug(v); setSlugTouched(true); }} placeholder="tabadulat" />
+                <TextInput mono prefix="aqli.app /" value={slugTouched ? slug : effectiveSlug} onChange={(v) => { setSlug(v); setSlugTouched(true); }} placeholder="acme" />
               </Field>
               <div style={{ padding: "16px 18px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", display: "flex", alignItems: "flex-start", gap: 12 }}>
                 <span style={{ color: "var(--accent)", marginTop: 1 }}><IconSparkle size={16} /></span>

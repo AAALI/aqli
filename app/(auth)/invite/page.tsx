@@ -17,8 +17,8 @@ export default function InvitePage() {
               <span style={{ fontSize: 13.5, color: "var(--text-secondary)" }}>
                 <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>Ali Al-Mansoori</strong> invited you to
               </span>
-              <span style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 400, letterSpacing: "-0.015em", color: "var(--text-primary)" }}>Tabadulat</span>
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>tabadulat.aqli.app · 4 spaces · 38 docs</span>
+              <span style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 400, letterSpacing: "-0.015em", color: "var(--text-primary)" }}>ACME</span>
+              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>acme.aqli.app · 4 spaces · 38 docs</span>
             </div>
           </div>
 
@@ -36,7 +36,7 @@ export default function InvitePage() {
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 28, letterSpacing: "-0.015em" }}>Join Tabadulat</h1>
+          <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 28, letterSpacing: "-0.015em" }}>Join ACME</h1>
           <p style={{ margin: 0, fontSize: 13.5, color: "var(--text-secondary)" }}>Set a password to finish your account. Takes 10 seconds.</p>
         </div>
 
@@ -49,7 +49,7 @@ export default function InvitePage() {
           <AuthField label="Email">
             <span style={authInputStyle()}>
               <span style={{ color: "var(--text-muted)", display: "flex" }}><IconMail size={14} /></span>
-              <input defaultValue="khalid@tabadulat.com" style={fieldInput} />
+              <input defaultValue="khalid@acme.com" style={fieldInput} />
             </span>
           </AuthField>
           <AuthField label="Password" trailing={<span style={{ fontSize: 11, color: "var(--approved-text)", fontWeight: 500 }}>Strong</span>}>
@@ -58,7 +58,7 @@ export default function InvitePage() {
             </span>
           </AuthField>
           <Link href="/login" className="btn btn-primary" style={{ width: "100%", height: 40, justifyContent: "center", marginTop: 6, gap: 6 }}>
-            <span>Join Tabadulat</span>
+            <span>Join ACME</span>
             <IconArrowUpRight size={13} sw={1.8} />
           </Link>
         </div>

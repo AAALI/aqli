@@ -18,7 +18,7 @@ describe("extractLinearIssueKey", () => {
 
     expect(extractLinearIssueKey({
       title: "Fix payout retry",
-      body: "Closes https://linear.app/tabadulat/issue/TAB-456/payout-retry",
+      body: "Closes https://linear.app/acme/issue/TAB-456/payout-retry",
       branch: "feature/no-ticket",
     })).toBe("TAB-456");
 

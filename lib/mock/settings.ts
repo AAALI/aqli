@@ -52,10 +52,10 @@ export type Member = {
 };
 
 export const MEMBERS: Member[] = [
-  { name: "Ali Al-Mansoori", email: "ali@tabadulat.com", initial: "A", cls: "avatar-ali", role: "Admin", status: "active", joined: "Owner · Jan 2024" },
-  { name: "Sara Haddad", email: "sara@tabadulat.com", initial: "S", cls: "avatar-sara", role: "Admin", status: "active", joined: "Joined Feb 2024" },
-  { name: "Khalid Nasser", email: "khalid@tabadulat.com", initial: "K", cls: "avatar-khalid", role: "Editor", status: "active", joined: "Joined Mar 2024" },
-  { name: "Layla Mansour", email: "layla@tabadulat.com", initial: "L", cls: "avatar-sara", role: "Editor", status: "pending", joined: "Invited 2 days ago" },
+  { name: "Ali Al-Mansoori", email: "ali@acme.com", initial: "A", cls: "avatar-ali", role: "Admin", status: "active", joined: "Owner · Jan 2024" },
+  { name: "Sara Haddad", email: "sara@acme.com", initial: "S", cls: "avatar-sara", role: "Admin", status: "active", joined: "Joined Feb 2024" },
+  { name: "Khalid Nasser", email: "khalid@acme.com", initial: "K", cls: "avatar-khalid", role: "Editor", status: "active", joined: "Joined Mar 2024" },
+  { name: "Layla Mansour", email: "layla@acme.com", initial: "L", cls: "avatar-sara", role: "Editor", status: "pending", joined: "Invited 2 days ago" },
 ];
 
 export type AgentEvent = {
@@ -85,8 +85,8 @@ export type Integration = {
 };
 
 export const INTEGRATIONS: Integration[] = [
-  { id: "linear", name: "Linear", desc: "Link docs to issues. Agents read issue context before writing.", connected: true, detail: "Connected to Tabadulat · 3 projects" },
-  { id: "slack", name: "Slack", desc: "Route review requests and approvals to channels.", connected: true, detail: "Connected to tabadulat.slack.com · 2 channels" },
+  { id: "linear", name: "Linear", desc: "Link docs to issues. Agents read issue context before writing.", connected: true, detail: "Connected to ACME · 3 projects" },
+  { id: "slack", name: "Slack", desc: "Route review requests and approvals to channels.", connected: true, detail: "Connected to acme.slack.com · 2 channels" },
   { id: "github", name: "GitHub", desc: "Mirror approved docs to a repo as Markdown.", connected: false },
   { id: "mcp", name: "MCP Server", desc: "Expose docs to any MCP-compatible client.", connected: false },
 ];
