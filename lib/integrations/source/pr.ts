@@ -19,6 +19,11 @@ export type PullRequestFileSummary = {
   deletions?: number;
 };
 
+export type PullRequestMergeKey = {
+  prUrl: string;
+  mergedAt: string | null;
+};
+
 type ExtractInput = {
   title?: string | null;
   body?: string | null;
@@ -42,9 +47,15 @@ export type PullRequestCandidate = PullRequestSummary & {
 export function normalizePullRequestEvent(data: unknown): PullRequestSummary | null {
   const candidate = parsePullRequestCandidate(data);
   if (!candidate || !candidate.merged) return null;
-  // Strip the action field so existing callers keep getting the original shape.
-  const { action: _action, ...summary } = candidate;
+  const summary = stripAction(candidate);
   return { ...summary, merged: true };
+}
+
+export function buildPullRequestMergeKey(pr: PullRequestSummary): PullRequestMergeKey {
+  return {
+    prUrl: pr.url,
+    mergedAt: pr.mergedAt,
+  };
 }
 
 /**
@@ -143,6 +154,15 @@ export function sanitizeImplementedText(text: string): string {
     .trim();
 }
 
+export function normalizeMarkdownForComparison(markdown: string | null | undefined): string {
+  return (markdown ?? "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n")
+    .trim();
+}
+
 export function patchImplementedSection(markdown: string, implementedText: string): string {
   const body = markdown.trimEnd();
   const replacement = `## What's implemented\n${sanitizeImplementedText(implementedText)}`;
@@ -215,4 +235,10 @@ function stringValue(value: unknown): string | undefined {
 
 function numberValue(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export function stripAction(candidate: PullRequestCandidate): PullRequestSummary {
+  const summary = { ...candidate };
+  delete (summary as Partial<PullRequestCandidate>).action;
+  return summary;
 }

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AqliMark } from "@/components/aqli/AqliMark";
 import { IconCheck, IconKey, IconFolder, IconRobot, IconSparkle } from "@/components/aqli/icons";
 import { slugify } from "@/lib/utils";
+import posthog from "posthog-js";
 
 type StepKey = "account" | "workspace" | "spaces" | "agent" | "done";
 
@@ -74,8 +75,11 @@ export default function Onboarding() {
         setNotice("Account created. Check your email to confirm, then log in to finish setup.");
         return;
       }
+      posthog.identify(data.user!.id, { email });
+      posthog.capture("user_signed_up", { email });
       setStep("workspace");
     } catch (err) {
+      posthog.captureException(err);
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setBusy(false);
@@ -99,6 +103,7 @@ export default function Onboarding() {
       const { workspace } = await res.json();
       setWorkspaceId(workspace.id);
       setWorkspaceSlug(workspace.slug);
+      posthog.capture("workspace_created", { workspace_id: workspace.id, workspace_slug: workspace.slug, workspace_name: workspaceName });
       // Default spaces are created by the workspace RPC — fetch them so we can
       // show what already exists and only create the extras the user picks.
       try {

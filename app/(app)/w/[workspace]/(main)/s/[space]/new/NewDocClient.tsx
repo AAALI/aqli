@@ -8,6 +8,7 @@ import AppTopBar from "@/components/layout/AppTopBar";
 import { IconPlus, IconX } from "@/components/aqli/icons";
 import { templateFor } from "@/components/editor/templates";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
+import posthog from "posthog-js";
 
 type TypeDef = {
   id: DocType;
@@ -110,11 +111,18 @@ export default function NewDocClient({
       });
       if (res.ok) {
         const { doc } = await res.json();
+        posthog.capture("doc_created", {
+          doc_id: doc.id,
+          doc_type: selected.id,
+          workspace_id: workspaceId,
+          space_id: spaceId,
+        });
         router.replace(`${base}/docs/${doc.id}/edit`);
       } else {
         setBusy(false);
       }
-    } catch {
+    } catch (err) {
+      posthog.captureException(err);
       setBusy(false);
     }
   }

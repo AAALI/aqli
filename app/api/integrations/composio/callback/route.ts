@@ -4,6 +4,7 @@ import { getMyRole } from "@/lib/supabase/members";
 import { getIntegrationConnection, updateIntegrationConnection } from "@/lib/supabase/integration-connections";
 import { createGithubPullRequestTriggers } from "@/lib/integrations/source/composio";
 import type { IntegrationProvider } from "@/types/integration";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -58,6 +59,12 @@ export async function GET(req: NextRequest) {
     connected_account_id: connectedAccountId,
     trigger_ids: triggerIds,
     last_error: lastError,
+  });
+
+  getPostHogClient().capture({
+    distinctId: user.id,
+    event: "integration_connected",
+    properties: { provider, workspace_id: workspaceId, has_error: !!lastError },
   });
 
   return NextResponse.redirect(new URL(`/w/${workspaceSlug}/settings/integrations/${provider}?status=connected`, req.url));

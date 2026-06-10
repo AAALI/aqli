@@ -8,6 +8,7 @@ import { IconArrowUpRight, IconCheck } from "@/components/aqli/icons";
 import { typeLabel } from "@/lib/doc-display";
 import { formatRelative } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
+import posthog from "posthog-js";
 
 type Props = {
   docs: DocWithSpace[];
@@ -42,6 +43,7 @@ export default function ReviewQueueClient({ docs, workspaceId, workspaceSlug }: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, workspace_id: workspaceId, ...extra }),
       });
+      posthog.capture("doc_reviewed", { doc_id: docId, action, workspace_id: workspaceId });
       router.refresh();
     } finally {
       setLoading(null);

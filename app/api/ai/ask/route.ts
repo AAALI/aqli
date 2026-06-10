@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { queryContext } from "@/lib/ai/context";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -63,6 +64,12 @@ Answer concisely and accurately. At the end, list the sources you used as: "Sour
     });
     const answer =
       response.choices[0]?.message?.content ?? "Unable to generate answer.";
+
+    getPostHogClient().capture({
+      distinctId: user.id,
+      event: "ai_question_asked",
+      properties: { workspace_id, sources_count: contextResults.length },
+    });
 
     return NextResponse.json({
       answer,

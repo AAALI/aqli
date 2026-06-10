@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/aqli/badges";
 import { IconChevDown, IconCheck } from "@/components/aqli/icons";
 import { statusLabel } from "@/lib/doc-display";
 import type { DocStatus } from "@/types/doc";
+import posthog from "posthog-js";
 
 const ORDER: DocStatus[] = ["draft", "review", "approved", "stale", "archived"];
 
@@ -39,6 +40,7 @@ export default function DocStatusControl({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: next }),
       });
+      posthog.capture("doc_status_changed", { doc_id: docId, from_status: status, to_status: next });
       router.refresh();
     } finally {
       setBusy(false);

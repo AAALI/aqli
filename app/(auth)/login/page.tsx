@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { AuthStage, AuthField, authInputStyle } from "@/components/auth/AuthShell";
 import { IconMail } from "@/components/aqli/icons";
+import posthog from "posthog-js";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function LoginPage() {
     setError(null);
     setBusy(true);
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -34,6 +35,10 @@ export default function LoginPage() {
       setError(error.message);
       setBusy(false);
       return;
+    }
+    if (data.user) {
+      posthog.identify(data.user.id, { email });
+      posthog.capture("user_logged_in", { email });
     }
     router.push("/");
     router.refresh();

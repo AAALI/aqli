@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFixNoteMarkdown,
+  buildPullRequestMergeKey,
   extractLinearIssueKey,
   normalizePullRequestEvent,
+  normalizeMarkdownForComparison,
   patchImplementedSection,
 } from "../pr";
 
@@ -74,6 +76,53 @@ describe("normalizePullRequestEvent", () => {
       pull_request: { merged: false },
       repository: { full_name: "acme/web" },
     })).toBeNull();
+  });
+});
+
+describe("buildPullRequestMergeKey", () => {
+  it("uses the PR URL and merge timestamp as the stable merge identity", () => {
+    expect(buildPullRequestMergeKey({
+      owner: "acme",
+      repo: "web",
+      repoFullName: "acme/web",
+      number: 42,
+      title: "TAB-123 fix payout retry",
+      body: "",
+      url: "https://github.com/acme/web/pull/42",
+      merged: true,
+      branch: "feature/tab-123-retry",
+      baseBranch: "main",
+      mergedAt: "2026-06-08T10:00:00Z",
+    })).toEqual({
+      prUrl: "https://github.com/acme/web/pull/42",
+      mergedAt: "2026-06-08T10:00:00Z",
+    });
+  });
+
+  it("falls back to the PR URL when GitHub does not return merged_at", () => {
+    expect(buildPullRequestMergeKey({
+      owner: "acme",
+      repo: "web",
+      repoFullName: "acme/web",
+      number: 42,
+      title: "TAB-123 fix payout retry",
+      body: "",
+      url: "https://github.com/acme/web/pull/42",
+      merged: true,
+      branch: "feature/tab-123-retry",
+      baseBranch: "main",
+      mergedAt: null,
+    })).toEqual({
+      prUrl: "https://github.com/acme/web/pull/42",
+      mergedAt: null,
+    });
+  });
+});
+
+describe("normalizeMarkdownForComparison", () => {
+  it("ignores line ending and trailing whitespace differences", () => {
+    expect(normalizeMarkdownForComparison("## Done\r\n- Item  \r\n\r\n"))
+      .toBe(normalizeMarkdownForComparison("## Done\n- Item\n"));
   });
 });
 

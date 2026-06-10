@@ -7,6 +7,7 @@ import {
   upsertIntegrationConnection,
 } from "@/lib/supabase/integration-connections";
 import type { IntegrationProvider } from "@/types/integration";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 const PROVIDERS = new Set(["github", "linear"]);
 
@@ -61,6 +62,12 @@ export async function POST(req: NextRequest) {
   if (!redirectUrl) {
     return NextResponse.json({ error: "Composio did not return a redirect URL" }, { status: 502 });
   }
+
+  getPostHogClient().capture({
+    distinctId: user.id,
+    event: "integration_connect_initiated",
+    properties: { provider, workspace_id: input.workspace_id },
+  });
 
   if (input.__form === "true") return NextResponse.redirect(redirectUrl, 303);
   return NextResponse.json({ redirect_url: redirectUrl });
