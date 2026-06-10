@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAgent } from "../_auth";
-import { listAgentDocs, createAgentDoc, setAgentDocStatus, getServiceSpaceBySlug } from "@/lib/supabase/agent-docs";
+import { listAgentDocs, createAgentDoc, getServiceSpaceBySlug } from "@/lib/supabase/agent-docs";
 import { embedDoc } from "@/lib/ai/embedder";
 import { logActivity } from "@/lib/supabase/activity";
 import type { DocType, DocStatus } from "@/types/doc";
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const created = await createAgentDoc({
+  const doc = await createAgentDoc({
     workspace_id: agent.workspaceId,
     space_id: spaceId,
     title,
@@ -68,13 +68,13 @@ export async function POST(req: NextRequest) {
     body_md,
     agent_id: agent_id ?? "unknown",
     frontmatter: { tags: tags ?? [] },
+    status: "approved",
+    markReviewed: true,
   });
 
   // Agent-authored docs are trusted on write — auto-approve so they become
-  // live context immediately (no review gate). The review queue is reserved
-  // for human-authored drafts a person explicitly sends for review.
-  const doc = await setAgentDocStatus(created.id, "approved", { markReviewed: true });
-
+  // live context immediately. The created row carries the approval metadata
+  // instead of emitting a redundant status-change version and activity row.
   await logActivity({
     docId: doc.id,
     workspaceId: doc.workspace_id,
@@ -82,14 +82,6 @@ export async function POST(req: NextRequest) {
     actorId: doc.agent_id,
     actorName: doc.agent_id,
     action: "created",
-  });
-  await logActivity({
-    docId: doc.id,
-    workspaceId: doc.workspace_id,
-    actorType: "agent",
-    actorId: doc.agent_id,
-    actorName: doc.agent_id,
-    action: "approved",
     metadata: { auto_approved: true, reason: "agent_authored", to_status: "approved" },
   });
 

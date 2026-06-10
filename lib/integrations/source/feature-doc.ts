@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { embedDoc } from "@/lib/ai/embedder";
 import { logActivity } from "@/lib/supabase/activity";
 import { createAgentDoc, setAgentDocStatus, updateAgentDoc } from "@/lib/supabase/agent-docs";
+import { claimPullRequestMerge } from "@/lib/supabase/integration-webhook-events";
 import { getServiceIntegrationByComposioUser, updateIntegrationConnection } from "@/lib/supabase/integration-connections";
 import type { Doc, DocFrontmatter } from "@/types/doc";
 import type { IntegrationConnection } from "@/types/integration";
@@ -9,10 +10,13 @@ import { executeComposioTool, GITHUB_PR_TRIGGER } from "./composio";
 import { generateImplementedText } from "./ai";
 import {
   buildFixNoteMarkdown,
+  buildPullRequestMergeKey,
   extractLinearIssueKey,
+  normalizeMarkdownForComparison,
   normalizePullRequestEvent,
   parsePullRequestCandidate,
   patchImplementedSection,
+  stripAction,
   type PullRequestCandidate,
   type PullRequestFileSummary,
   type PullRequestSummary,
@@ -62,7 +66,10 @@ function extractTrigger(payload: WebhookPayload) {
   return { triggerSlug, userId, eventData };
 }
 
-export async function processComposioWebhookPayload(payload: WebhookPayload) {
+export async function processComposioWebhookPayload(
+  payload: WebhookPayload,
+  options: { webhookEventId?: string | null } = {},
+) {
   const type = firstString(payload.type, payload.event, payload.eventType);
   const { triggerSlug, userId, eventData } = extractTrigger(payload);
 
@@ -80,13 +87,16 @@ export async function processComposioWebhookPayload(payload: WebhookPayload) {
   const connection = await getServiceIntegrationByComposioUser(userId, "github");
   if (!connection) return { ignored: true, reason: "connection_not_found", userId };
 
-  return processPullRequestData(connection, eventData, { enrich: true });
+  return processPullRequestData(connection, eventData, {
+    enrich: true,
+    webhookEventId: options.webhookEventId,
+  });
 }
 
 export async function processPullRequestData(
   connection: IntegrationConnection,
   eventData: unknown,
-  options: { enrich: boolean },
+  options: { enrich: boolean; webhookEventId?: string | null },
 ) {
   // Composio's slim webhook envelope omits `merged` / `merged_at`, so we
   // first parse a lenient candidate (action + identifiers) and decide what
@@ -111,12 +121,31 @@ export async function processPullRequestData(
     files = resolved.files;
   } else {
     if (!candidate.merged) return { ignored: true, reason: "not_merged_pr" };
-    const { action: _action, ...summary } = candidate;
-    pr = { ...summary, merged: true };
+    pr = { ...stripAction(candidate), merged: true };
     files = [];
   }
 
   try {
+    if (options.webhookEventId) {
+      const mergeKey = buildPullRequestMergeKey(pr);
+      const mergeClaim = await claimPullRequestMerge({
+        eventId: options.webhookEventId,
+        provider: "github",
+        workspaceId: connection.workspace_id,
+        prUrl: mergeKey.prUrl,
+        mergedAt: mergeKey.mergedAt,
+      });
+      if (mergeClaim.status === "already_processed") {
+        return {
+          ignored: true,
+          reason: "duplicate_pr_merge",
+          existing: mergeClaim.existing,
+          pr_url: mergeKey.prUrl,
+          merged_at: mergeKey.mergedAt,
+        };
+      }
+    }
+
     const linearIssueKey = extractLinearIssueKey({
       title: pr.title,
       body: pr.body,
@@ -140,16 +169,16 @@ export async function processPullRequestData(
       existingMarkdown: match?.body_md ?? null,
     });
 
-    const doc = match
+    const result = match
       ? await updateMatchedDoc(match, pr, files, implementedText, linearIssueKey)
-      : await createChangeDoc(connection, pr, files, implementedText, linearIssueKey);
+      : { doc: await createChangeDoc(connection, pr, files, implementedText, linearIssueKey), changed: true };
 
     await updateIntegrationConnection(connection.id, {
       last_event_at: new Date().toISOString(),
       last_error: null,
     });
 
-    return { ignored: false, doc_id: doc.id, created: !match };
+    return { ignored: false, doc_id: result.doc.id, created: !match, changed: result.changed };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown integration error";
     await updateIntegrationConnection(connection.id, {
@@ -194,9 +223,8 @@ async function resolveMergedPullRequest(
   const enriched = normalizePullRequestEvent(readData(prDetails));
   if (!enriched) {
     if (!candidate.merged) return null;
-    const { action: _action, ...summary } = candidate;
     return {
-      pr: { ...summary, merged: true },
+      pr: { ...stripAction(candidate), merged: true },
       files: normalizeFiles(readData(filesResult)),
     };
   }
@@ -280,6 +308,18 @@ async function updateMatchedDoc(
     source_pr_url: pr.url,
     source_repo: pr.repoFullName,
   };
+  const changed =
+    normalizeMarkdownForComparison(doc.body_md) !== normalizeMarkdownForComparison(bodyMd) ||
+    normalizeFrontmatterForComparison(doc.frontmatter) !== normalizeFrontmatterForComparison(frontmatter);
+
+  if (!changed) {
+    const approved =
+      doc.status === "approved"
+        ? await touchReviewedAt(doc.id)
+        : await setAgentDocStatus(doc.id, "approved", { markReviewed: true });
+    return { doc: approved, changed: false };
+  }
+
   const updated = await updateAgentDoc(doc.id, { body_md: bodyMd, frontmatter });
   // Merged PRs are already trusted — auto-approve so the doc is live context
   // immediately. Skip the status flip (and its `status_change` snapshot) when
@@ -290,7 +330,22 @@ async function updateMatchedDoc(
       : await setAgentDocStatus(updated.id, "approved", { markReviewed: true });
   await embedDoc(approved).catch((err) => console.error("Embed failed for integration doc", approved.id, err));
   await logPrActivity(approved, pr, files, false);
-  return approved;
+  return { doc: approved, changed: true };
+}
+
+function normalizeFrontmatterForComparison(frontmatter: DocFrontmatter | null | undefined): string {
+  return JSON.stringify(sortJson(frontmatter ?? { tags: [] }));
+}
+
+function sortJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortJson);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => [k, sortJson(v)]),
+  );
 }
 
 async function touchReviewedAt(id: string): Promise<Doc> {

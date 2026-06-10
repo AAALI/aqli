@@ -68,7 +68,10 @@ export async function POST(req: NextRequest) {
 
 async function processInBackground(eventId: string, event: unknown) {
   try {
-    const result = await processComposioWebhookPayload(event as Parameters<typeof processComposioWebhookPayload>[0]);
+    const result = await processComposioWebhookPayload(
+      event as Parameters<typeof processComposioWebhookPayload>[0],
+      { webhookEventId: eventId },
+    );
     console.log("[composio webhook] result", eventId, JSON.stringify(result));
     await finishWebhookEvent({
       id: eventId,

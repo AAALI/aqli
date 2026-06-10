@@ -5,6 +5,10 @@ export type WebhookClaim =
   | { status: "claimed"; id: string }
   | { status: "already_processed"; existing: { status: string; result: unknown } };
 
+export type PullRequestMergeClaim =
+  | { status: "claimed" }
+  | { status: "already_processed"; existing: { status: string; result: unknown } };
+
 /**
  * Best-effort idempotency claim for a Composio webhook delivery.
  *
@@ -79,4 +83,46 @@ export async function finishWebhookEvent(input: {
     })
     .eq("id", input.id);
   if (error) console.error("[integration_webhook_events] finish failed:", error.message);
+}
+
+export async function claimPullRequestMerge(input: {
+  eventId: string;
+  provider: Extract<IntegrationProvider, "github">;
+  workspaceId: string;
+  prUrl: string;
+  mergedAt: string | null;
+}): Promise<PullRequestMergeClaim> {
+  const supabase = createServiceClient();
+  const { error } = await supabase
+    .from("integration_webhook_events")
+    .update({
+      workspace_id: input.workspaceId,
+      pr_url: input.prUrl,
+      pr_merged_at: input.mergedAt,
+    })
+    .eq("id", input.eventId);
+
+  if (!error) return { status: "claimed" };
+
+  if (error.code === "23505") {
+    const query = supabase
+      .from("integration_webhook_events")
+      .select("status, result")
+      .eq("provider", input.provider)
+      .eq("workspace_id", input.workspaceId)
+      .eq("pr_url", input.prUrl);
+    const { data: existing } = input.mergedAt
+      ? await query.eq("pr_merged_at", input.mergedAt).maybeSingle()
+      : await query.is("pr_merged_at", null).maybeSingle();
+
+    return {
+      status: "already_processed",
+      existing: {
+        status: (existing?.status as string) ?? "pending",
+        result: existing?.result ?? null,
+      },
+    };
+  }
+
+  throw error;
 }
