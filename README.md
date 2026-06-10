@@ -72,4 +72,4 @@ MIT — github.com/AAALI/aqli
 
 This tiny change exists only to trigger a real GitHub PR-merged webhook through Composio so we can verify end-to-end docs creation. Safe to delete.
 
-Probe ping #2 — verifying slim-payload merge handling end-to-end.
+Probe ping #3 — testing idempotent webhook handler + fast ack + doc creation flow.
