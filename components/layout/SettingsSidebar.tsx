@@ -17,9 +17,10 @@ type Props = {
   base: string;
   workspaceName: string;
   userName?: string;
+  roleLabel?: string;
 };
 
-export default function SettingsSidebar({ base, workspaceName, userName = "You" }: Props) {
+export default function SettingsSidebar({ base, workspaceName, userName = "You", roleLabel = "Member" }: Props) {
   const pathname = usePathname();
   const settingsBase = `${base}/settings`;
   const workspaceSlug = base.split("/").filter(Boolean).at(1) ?? "";
@@ -64,7 +65,7 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You" 
         base={base}
         userName={userName}
         workspaceSlug={workspaceSlug}
-        roleLabel="Admin"
+        roleLabel={roleLabel}
       />
     </aside>
   );
