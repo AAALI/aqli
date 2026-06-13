@@ -740,3 +740,85 @@ html, body {
   border-top: 1px solid var(--border);
   margin: 28px 0;
 }
+
+/* ───────── Landing page (LP1) — Aqli Loop demo ───────── */
+@keyframes lpFadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes lpStageIn {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes lpBlink {
+  50% { opacity: 0; }
+}
+
+/* Reveals — opacity/transform only, compositor-friendly */
+@keyframes lpReveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes lpRevealX {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes lpRevealCode {
+  from { opacity: 0.1; transform: translateX(-4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes lpRevealFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Step pill progress fill — one sweep per step */
+@keyframes lpFill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Connector dash + travelling pulse */
+@keyframes lpDash {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 220; }
+}
+@keyframes lpDashRev {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -220; }
+}
+/* Pulse travels the 200px connector column via transform (compositor-only) */
+@keyframes lpPulse {
+  from { transform: translate(-50%, -50%) translateX(0); }
+  to { transform: translate(-50%, -50%) translateX(200px); }
+}
+@keyframes lpPulseRev {
+  from { transform: translate(-50%, -50%) translateX(200px); }
+  to { transform: translate(-50%, -50%) translateX(0); }
+}
+
+/* Typing caret hides when the next line starts (fill overrides the blink) */
+@keyframes lpCaretOff {
+  to { opacity: 0; }
+}
+
+/* Approve button glow — a static ring layer whose opacity fades in/holds/out */
+@keyframes lpHintFade {
+  0%, 100% { opacity: 0; }
+  18%, 82% { opacity: 1; }
+}
+
+/* Review outcome cross-fade */
+@keyframes lpSwapOut {
+  to { opacity: 0; visibility: hidden; }
+}
+@keyframes lpSwapIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Hovering the demo freezes every CSS animation inside it */
+.lp-flow-paused *,
+.lp-flow-paused svg path {
+  animation-play-state: paused !important;
+}

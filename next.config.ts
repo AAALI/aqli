@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Pin the workspace root: a stray lockfile in $HOME makes Turbopack infer
+  // the wrong root, which breaks file watching/cache invalidation.
+  turbopack: {
+    root: __dirname,
+  },
   async rewrites() {
     return [
       {
