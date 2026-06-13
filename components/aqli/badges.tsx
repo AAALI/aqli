@@ -1,4 +1,4 @@
-import { IconRobot } from "./icons";
+import { IconRobot, IconGitMerge } from "./icons";
 
 export type DocStatus = "Draft" | "Review" | "Approved" | "Stale" | "Archived";
 
@@ -22,6 +22,26 @@ export function StatusBadge({ status }: { status: string }) {
 
 export function TypeBadge({ type }: { type: string }) {
   return <span className="badge badge-type">{type}</span>;
+}
+
+/**
+ * Distinct from the `Approved` status badge: marks a doc that entered as
+ * Approved via the GitHub auto-approve path, so an auditor can tell at a glance.
+ */
+export function AutoApprovedChip() {
+  return (
+    <span
+      className="badge"
+      style={{
+        background: "var(--approved-bg)",
+        color: "var(--approved-text)",
+        borderColor: "var(--approved-border)",
+      }}
+    >
+      <IconGitMerge size={12} />
+      Auto-approved
+    </span>
+  );
 }
 
 export function AgentChip({ label = "Agent" }: { label?: string }) {

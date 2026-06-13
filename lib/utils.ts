@@ -20,6 +20,12 @@ export function formatDate(input: string | Date): string {
   });
 }
 
+/** True when a doc hasn't been verified within `days` (or never has). */
+export function isStale(lastReviewedAt: string | null, days = 90): boolean {
+  if (!lastReviewedAt) return true;
+  return Date.now() - new Date(lastReviewedAt).getTime() > days * 24 * 60 * 60 * 1000;
+}
+
 export function formatRelative(input: string | Date): string {
   const d = typeof input === "string" ? new Date(input) : input;
   const diff = Date.now() - d.getTime();
