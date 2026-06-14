@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { IconChevRight, IconPlus } from "@/components/aqli/icons";
+import CmdKButton from "@/components/cmdk/CmdKButton";
 
 export type Crumb = { label: string; href?: string };
 
@@ -52,6 +53,7 @@ export default function AppTopBar({
             {primary.label}
           </Link>
         )}
+        <CmdKButton />
         <div className="avatar avatar-sm avatar-ali">{userInitial}</div>
       </div>
     </div>
