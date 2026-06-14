@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Space } from "@/types/space";
 import { AqliWordmark } from "@/components/aqli/AqliMark";
-import { IconHome, IconSearch, IconCheck, IconClock, IconRobot } from "@/components/aqli/icons";
+import { IconHome, IconSearch, IconCheck, IconClock, IconRobot, IconEdit } from "@/components/aqli/icons";
 import NewSpaceButton from "./NewSpaceButton";
 import AccountMenu from "./AccountMenu";
 
@@ -30,6 +30,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const base = `/w/${workspaceSlug}`;
   const isHome = pathname === base;
+  const isDrafts = pathname.startsWith(`${base}/drafts`);
   const isSearch = pathname.startsWith(`${base}/search`);
   const isReview = pathname.startsWith(`${base}/review`);
   const isStale = pathname.startsWith(`${base}/stale`);
@@ -44,16 +45,27 @@ export default function Sidebar({
         <div className="sb-workspace">{workspaceName} · Workspace</div>
       </div>
 
+      {/* Knowledge-first: what you know, write, and find come first. */}
       <div className="sb-nav">
         <Link href={base} className={`sb-item ${isHome ? "is-active" : ""}`}>
           <span className="sb-icon"><IconHome /></span>
           <span>Home</span>
+        </Link>
+        <Link href={`${base}/drafts`} className={`sb-item ${isDrafts ? "is-active" : ""}`}>
+          <span className="sb-icon"><IconEdit /></span>
+          <span>Drafts</span>
         </Link>
         <Link href={`${base}/search`} className={`sb-item ${isSearch ? "is-active" : ""}`}>
           <span className="sb-icon"><IconSearch /></span>
           <span>Search</span>
           <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>⌘K</span>
         </Link>
+      </div>
+
+      {/* Process surfaces are tools for the job, not the destination — demoted
+          below the knowledge-first nav. Reviews also surface on Home. */}
+      <div className="sb-section-label">Workflow</div>
+      <div className="sb-nav" style={{ paddingTop: 0 }}>
         <Link href={`${base}/review`} className={`sb-item ${isReview ? "is-active" : ""}`}>
           <span className="sb-icon"><IconCheck /></span>
           <span>Review Queue</span>
