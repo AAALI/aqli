@@ -2,18 +2,19 @@ import Link from "next/link";
 import { Fragment } from "react";
 import { IconChevRight, IconPlus } from "@/components/aqli/icons";
 import CmdKButton from "@/components/cmdk/CmdKButton";
+import NotificationsButton from "./NotificationsButton";
 
 export type Crumb = { label: string; href?: string };
 
 export default function AppTopBar({
   crumbs,
+  base,
   saved,
   primary,
   share,
   userInitial = "Y",
 }: {
-  /** Workspace base path (e.g. `/w/acme`). Accepted by callers; reserved for
-   *  top-bar features that need workspace context. */
+  /** Workspace base path (e.g. `/w/acme`). Used by the notifications bell. */
   base?: string;
   crumbs: Crumb[];
   saved?: string | null;
@@ -54,6 +55,7 @@ export default function AppTopBar({
           </Link>
         )}
         <CmdKButton />
+        {base && <NotificationsButton base={base} />}
         <div className="avatar avatar-sm avatar-ali">{userInitial}</div>
       </div>
     </div>

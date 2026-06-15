@@ -1,4 +1,4 @@
-import { createServiceClient } from "./server";
+import { createServerSupabaseClient, createServiceClient } from "./server";
 import type {
   ActivityAction,
   ActorType,
@@ -117,7 +117,7 @@ export async function getWorkspaceAgentActivity(
   workspaceId: string,
   limit = 100,
 ): Promise<DocActivityWithDoc[]> {
-  const supabase = createServiceClient();
+  const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("doc_activity")
     .select("*, doc:docs(id, title, type, status, space_id)")
