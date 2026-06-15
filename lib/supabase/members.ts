@@ -1,4 +1,20 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { WorkspaceMember } from "@/types/invitation";
+
+/**
+ * List members of a workspace with their auth email. Backed by a SECURITY
+ * DEFINER RPC that checks the caller is a member before returning emails.
+ */
+export async function listWorkspaceMembers(
+  workspaceId: string,
+): Promise<WorkspaceMember[]> {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase.rpc("list_workspace_members", {
+    p_workspace_id: workspaceId,
+  });
+  if (error) throw error;
+  return (data ?? []) as WorkspaceMember[];
+}
 
 /**
  * Return the signed-in user's role in a workspace, or null if not a member.

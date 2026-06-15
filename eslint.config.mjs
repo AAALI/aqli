@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated deploy artifacts (OpenNext / Cloudflare adapter output).
+    ".open-next/**",
     // Design handoff bundle — reference prototypes, not app source.
     "aqli_Design_Handoff/**",
   ]),
