@@ -1,4 +1,4 @@
-import { createServiceClient } from "./server";
+import { createServerSupabaseClient, createServiceClient } from "./server";
 import { logActivity } from "./activity";
 import type { DocWithSpace } from "@/types/doc";
 
@@ -8,7 +8,7 @@ const REVIEW_SELECT = "*, space:spaces(id, workspace_id, name, slug, icon, creat
 export async function getPendingReviewDocs(
   workspaceId: string,
 ): Promise<DocWithSpace[]> {
-  const supabase = createServiceClient();
+  const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("docs")
     .select(REVIEW_SELECT)

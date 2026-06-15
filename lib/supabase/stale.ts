@@ -1,4 +1,4 @@
-import { createServiceClient } from "./server";
+import { createServerSupabaseClient, createServiceClient } from "./server";
 import type { Doc, DocWithSpace } from "@/types/doc";
 
 export const DEFAULT_STALE_DAYS = 90;
@@ -17,7 +17,7 @@ export async function getStaleDocs(
   workspaceId: string,
   staleDays = DEFAULT_STALE_DAYS,
 ): Promise<DocWithSpace[]> {
-  const supabase = createServiceClient();
+  const supabase = await createServerSupabaseClient();
   const cutoff = cutoffISO(staleDays);
 
   const { data, error } = await supabase
