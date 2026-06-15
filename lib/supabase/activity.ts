@@ -128,3 +128,45 @@ export async function getWorkspaceAgentActivity(
   if (error) throw error;
   return (data ?? []) as DocActivityWithDoc[];
 }
+
+/** doc_activity row joined with enough doc context to render the Home feed. */
+export type FeedActivity = DocActivity & {
+  doc: {
+    id: string;
+    title: string;
+    type: string;
+    status: string;
+    frontmatter: { source_pr_url?: string; source_repo?: string } | null;
+    space: { name: string; slug: string } | null;
+  } | null;
+};
+
+/**
+ * Recent workspace activity for the Home "What's new" feed — every actor, most
+ * meaningful actions only (the autosave-noise `updated`/`embedded` rows and
+ * routine `reviewed` pings are filtered out).
+ */
+export async function getWorkspaceActivity(
+  workspaceId: string,
+  limit = 25,
+): Promise<FeedActivity[]> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("doc_activity")
+    .select(
+      "*, doc:docs(id, title, type, status, frontmatter, space:spaces(name, slug))",
+    )
+    .eq("workspace_id", workspaceId)
+    .in("action", [
+      "created",
+      "approved",
+      "status_changed",
+      "review_requested",
+      "changes_requested",
+      "rejected",
+    ])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as unknown as FeedActivity[];
+}
