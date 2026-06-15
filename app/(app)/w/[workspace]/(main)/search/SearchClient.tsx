@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { StatusBadge, TypeBadge } from "@/components/aqli/badges";
@@ -39,29 +40,47 @@ export default function SearchClient({
   workspaceSlug: string;
 }) {
   const base = `/w/${workspaceSlug}`;
-  const [query, setQuery] = useState("");
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") ?? "";
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Result[]>([]);
   const [searched, setSearched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ms, setMs] = useState(0);
 
-  async function run(e: React.FormEvent) {
+  const doSearch = useCallback(
+    async (q: string) => {
+      if (!q.trim()) return;
+      setBusy(true);
+      const t0 = performance.now();
+      try {
+        const res = await fetch(
+          `/api/search?q=${encodeURIComponent(q)}&workspace_id=${workspaceId}`,
+        );
+        const data = await res.json();
+        setResults(data.results ?? []);
+        setMs(Math.round(performance.now() - t0));
+        setSearched(true);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [workspaceId],
+  );
+
+  function run(e: React.FormEvent) {
     e.preventDefault();
-    if (!query.trim()) return;
-    setBusy(true);
-    const t0 = performance.now();
-    try {
-      const res = await fetch(
-        `/api/search?q=${encodeURIComponent(query)}&workspace_id=${workspaceId}`,
-      );
-      const data = await res.json();
-      setResults(data.results ?? []);
-      setMs(Math.round(performance.now() - t0));
-      setSearched(true);
-    } finally {
-      setBusy(false);
-    }
+    doSearch(query);
   }
+
+  // Honour an initial ?q= (e.g. handed off from the ⌘K palette's "Ask Aqli").
+  // `query` is seeded from the param above; this only kicks off the fetch
+  // (deferred so the state updates land outside the effect body).
+  useEffect(() => {
+    if (!initialQuery) return;
+    const t = setTimeout(() => doSearch(initialQuery), 0);
+    return () => clearTimeout(t);
+  }, [initialQuery, doSearch]);
 
   return (
     <>
