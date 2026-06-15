@@ -182,6 +182,34 @@ export async function snapshotVersion(
   if (error) console.error("snapshotVersion failed:", error.message);
 }
 
+export type Backlink = {
+  id: string;
+  title: string;
+  type: DocType;
+  status: DocStatus;
+  space: { name: string; slug: string } | null;
+};
+
+/**
+ * Docs that link to this one — the "Cited by" backlinks in the viewer.
+ * Internal citations are stored in `body_md` as links whose target contains
+ * `/docs/<id>` (see the editor's cite/quote inserts), so a substring match on
+ * the rendered markdown is enough to find them.
+ */
+export async function getBacklinks(docId: string, workspaceId: string) {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("docs")
+    .select("id, title, type, status, space:spaces(name, slug)")
+    .eq("workspace_id", workspaceId)
+    .neq("id", docId)
+    .ilike("body_md", `%/docs/${docId}%`)
+    .order("updated_at", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return (data ?? []) as unknown as Backlink[];
+}
+
 export async function searchDocs(workspaceId: string, query: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase

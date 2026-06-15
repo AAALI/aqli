@@ -1,6 +1,6 @@
 "use client";
 
-import Button from "@/components/ui/Button";
+import { IconFile } from "@/components/aqli/icons";
 import { slugify } from "@/lib/utils";
 import type { Doc } from "@/types/doc";
 
@@ -38,8 +38,13 @@ export default function DownloadMarkdownButton({ doc }: { doc: Doc }) {
   }
 
   return (
-    <Button variant="secondary" onClick={download}>
-      ⬇ Markdown
-    </Button>
+    <button
+      onClick={download}
+      className="btn btn-ghost btn-icon"
+      title="Download as Markdown"
+      aria-label="Download as Markdown"
+    >
+      <IconFile size={15} />
+    </button>
   );
 }
