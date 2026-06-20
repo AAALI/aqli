@@ -1,5 +1,6 @@
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getDocs } from "@/lib/supabase/docs";
+import { getOwnerDirectory } from "@/lib/supabase/owners";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import DocList from "@/components/docs/DocList";
 import AppTopBar from "@/components/layout/AppTopBar";
@@ -16,7 +17,10 @@ export default async function DraftsPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const allDrafts = await getDocs(workspace.id, { status: "draft", limit: 200 });
+  const [allDrafts, owners] = await Promise.all([
+    getDocs(workspace.id, { status: "draft", limit: 200 }),
+    getOwnerDirectory(workspace.id),
+  ]);
   const mine = user ? allDrafts.filter((d) => d.owner_id === user.id) : [];
   const others = allDrafts.filter((d) => !mine.includes(d));
   const base = `/w/${workspace.slug}`;
@@ -39,14 +43,14 @@ export default async function DraftsPage({
             <>
               <SubHead label={mine.length > 0 ? "Yours" : "No drafts owned by you"} />
               {mine.length > 0 && (
-                <DocList docs={mine} workspaceSlug={workspace.slug} emptyLabel="" />
+                <DocList docs={mine} workspaceSlug={workspace.slug} emptyLabel="" owners={owners} />
               )}
               {others.length > 0 && (
                 <>
                   <div style={{ marginTop: mine.length > 0 ? 28 : 0 }}>
                     <SubHead label="Elsewhere in the workspace" />
                   </div>
-                  <DocList docs={others} workspaceSlug={workspace.slug} emptyLabel="" />
+                  <DocList docs={others} workspaceSlug={workspace.slug} emptyLabel="" owners={owners} />
                 </>
               )}
             </>

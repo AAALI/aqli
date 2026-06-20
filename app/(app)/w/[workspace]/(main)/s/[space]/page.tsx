@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getSpaceBySlug } from "@/lib/supabase/spaces";
 import { getDocs } from "@/lib/supabase/docs";
+import { getOwnerDirectory } from "@/lib/supabase/owners";
 import DocList from "@/components/docs/DocList";
 import AppTopBar from "@/components/layout/AppTopBar";
 import SpaceTabs from "@/components/spaces/SpaceTabs";
@@ -21,7 +22,10 @@ export default async function SpacePage({
   const space = await getSpaceBySlug(workspace.id, spaceSlug).catch(() => null);
   if (!space) notFound();
 
-  const docs = await getDocs(workspace.id, { spaceId: space.id, limit: 200 });
+  const [docs, owners] = await Promise.all([
+    getDocs(workspace.id, { spaceId: space.id, limit: 200 }),
+    getOwnerDirectory(workspace.id),
+  ]);
   const base = `/w/${workspace.slug}`;
   const newHref = `${base}/s/${space.slug}/new`;
 
@@ -50,7 +54,7 @@ export default async function SpacePage({
                 {...buildShelves(docs)}
               />
             }
-            list={<DocList docs={docs} workspaceSlug={workspace.slug} emptyLabel="No docs in this space yet." />}
+            list={<DocList docs={docs} workspaceSlug={workspace.slug} emptyLabel="No docs in this space yet." owners={owners} />}
           />
         </div>
       )}

@@ -33,6 +33,7 @@ export default function Onboarding() {
   const supabase = createClient();
 
   const [step, setStep] = useState<StepKey>("account");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
@@ -69,14 +70,19 @@ export default function Onboarding() {
     setNotice(null);
     setBusy(true);
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const name = fullName.trim();
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name } },
+      });
       if (error) throw error;
       if (!data.session) {
         setNotice("Account created. Check your email to confirm, then log in to finish setup.");
         return;
       }
-      posthog.identify(data.user!.id, { email });
-      posthog.capture("user_signed_up", { email });
+      posthog.identify(data.user!.id, { email, name });
+      posthog.capture("user_signed_up", { email, name });
       setStep("workspace");
     } catch (err) {
       posthog.captureException(err);
@@ -170,6 +176,9 @@ export default function Onboarding() {
             topRight={<span>Already have an account? <Link href="/login" style={{ color: "var(--accent)", fontWeight: 500, textDecoration: "none" }}>Log in</Link></span>}
           >
             <form onSubmit={submitAccount} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              <Field label="Full name" hint="So your team and agents can see who wrote what.">
+                <TextInput value={fullName} onChange={setFullName} placeholder="Ada Lovelace" required autoFocus />
+              </Field>
               <Field label="Work email">
                 <TextInput type="email" value={email} onChange={setEmail} placeholder="you@team.com" required />
               </Field>
@@ -179,7 +188,7 @@ export default function Onboarding() {
               {error && <Msg tone="error">{error}</Msg>}
               {notice && <Msg tone="ok">{notice}</Msg>}
               <Footer
-                right={<button type="submit" className="btn btn-primary" style={{ height: 38, padding: "0 18px" }} disabled={busy}>{busy ? "Creating…" : "Continue →"}</button>}
+                right={<button type="submit" className="btn btn-primary" style={{ height: 38, padding: "0 18px" }} disabled={busy || !fullName.trim()}>{busy ? "Creating…" : "Continue →"}</button>}
                 left={<span style={{ fontSize: 12, color: "var(--text-muted)", maxWidth: 320 }}>By continuing you agree to the Terms and Privacy policy.</span>}
               />
             </form>

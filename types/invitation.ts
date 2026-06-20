@@ -15,6 +15,7 @@ export type Invitation = {
 export type WorkspaceMember = {
   user_id: string;
   email: string;
+  full_name: string | null;
   role: Role;
   created_at: string;
 };

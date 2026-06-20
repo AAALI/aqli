@@ -3,14 +3,17 @@ import { StatusBadge, TypeBadge } from "@/components/aqli/badges";
 import { IconDots, IconRobot } from "@/components/aqli/icons";
 import { typeLabel, statusLabel } from "@/lib/doc-display";
 import { formatRelative } from "@/lib/utils";
+import type { OwnerInfo } from "@/lib/supabase/owners";
 import type { DocWithSpace } from "@/types/doc";
 
 export default function DocCard({
   doc,
   workspaceSlug,
+  owner,
 }: {
   doc: DocWithSpace;
   workspaceSlug: string;
+  owner?: OwnerInfo;
 }) {
   const isAgent = doc.author_type === "agent";
   return (
@@ -45,8 +48,10 @@ export default function DocCard({
           </>
         ) : (
           <>
-            <span className="avatar avatar-sm avatar-ali">·</span>
-            <span>Member</span>
+            <span className="avatar avatar-sm avatar-ali">{owner?.initial ?? "·"}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {owner?.name ?? "Member"}
+            </span>
           </>
         )}
       </div>

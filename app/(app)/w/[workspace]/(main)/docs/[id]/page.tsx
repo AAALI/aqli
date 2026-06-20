@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDoc, getDocVersions, getBacklinks } from "@/lib/supabase/docs";
+import { getOwnerDirectory } from "@/lib/supabase/owners";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import AppTopBar from "@/components/layout/AppTopBar";
 import DownloadMarkdownButton from "@/components/docs/DownloadMarkdownButton";
@@ -26,22 +27,22 @@ export default async function DocViewPage({
   const doc = await getDoc(id).catch(() => null);
   if (!doc) notFound();
 
-  const [versions, backlinks, supabase] = await Promise.all([
+  const [versions, backlinks, owners, supabase] = await Promise.all([
     getDocVersions(id),
     getBacklinks(id, doc.workspace_id),
+    getOwnerDirectory(doc.workspace_id),
     createServerSupabaseClient(),
   ]);
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const ownerName =
-    doc.owner_id && user?.id === doc.owner_id
+  const ownerName = doc.owner_id
+    ? user?.id === doc.owner_id
       ? ((user.user_metadata?.full_name as string | undefined) ??
-        user.email?.split("@")[0] ??
+        owners[doc.owner_id]?.name ??
         "You")
-      : doc.owner_id
-        ? "Team member"
-        : null;
+      : (owners[doc.owner_id]?.name ?? "Team member")
+    : null;
 
   const base = `/w/${wsSlug}`;
   const version = versions.length || 1;
@@ -159,7 +160,7 @@ export default async function DocViewPage({
             />
 
             <div id="doc-body" style={{ marginTop: 32 }}>
-              <DocBody content={doc.body_json} />
+              <DocBody content={doc.body_json} title={doc.title} />
             </div>
           </article>
         </div>
