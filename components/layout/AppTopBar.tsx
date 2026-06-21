@@ -12,7 +12,6 @@ export default function AppTopBar({
   saved,
   primary,
   share,
-  userInitial = "Y",
 }: {
   /** Workspace base path (e.g. `/w/acme`). Used by the notifications bell. */
   base?: string;
@@ -20,7 +19,6 @@ export default function AppTopBar({
   saved?: string | null;
   primary?: { label: string; href: string } | null;
   share?: boolean;
-  userInitial?: string;
 }) {
   return (
     <div className="tb">
@@ -56,7 +54,6 @@ export default function AppTopBar({
         )}
         <CmdKButton />
         {base && <NotificationsButton base={base} />}
-        <div className="avatar avatar-sm avatar-ali">{userInitial}</div>
       </div>
     </div>
   );
