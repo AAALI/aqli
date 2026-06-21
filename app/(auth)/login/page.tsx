@@ -57,7 +57,7 @@ export default function LoginPage() {
           </p>
           <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 999, fontSize: 12, color: "var(--text-secondary)", width: "fit-content" }}>
             <span style={{ width: 8, height: 8, borderRadius: 999, background: "var(--accent)" }} />
-            <span>3 docs awaiting your review</span>
+            <span>Humans write. Agents read and write. You review.</span>
           </div>
         </>
       }
