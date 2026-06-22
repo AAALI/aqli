@@ -32,6 +32,11 @@ function excerptParts(body: string | null, query: string): [string, string, stri
   return [pre, match, post];
 }
 
+type AiAnswer = {
+  answer: string;
+  sources: { doc_id: string; doc_title: string; heading: string | null; source_url: string | null; score: number }[];
+} | null;
+
 export default function SearchClient({
   workspaceId,
   workspaceSlug,
@@ -47,11 +52,14 @@ export default function SearchClient({
   const [searched, setSearched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ms, setMs] = useState(0);
+  const [aiAnswer, setAiAnswer] = useState<AiAnswer>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const doSearch = useCallback(
     async (q: string) => {
       if (!q.trim()) return;
       setBusy(true);
+      setAiAnswer(null);
       const t0 = performance.now();
       try {
         const res = await fetch(
@@ -63,6 +71,24 @@ export default function SearchClient({
         setSearched(true);
       } finally {
         setBusy(false);
+      }
+
+      // Fire AI Ask in parallel — don't block the search results
+      setAiLoading(true);
+      try {
+        const aiRes = await fetch("/api/ai/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: q, workspace_id: workspaceId }),
+        });
+        if (aiRes.ok) {
+          const aiData = await aiRes.json();
+          setAiAnswer({ answer: aiData.answer, sources: aiData.sources ?? [] });
+        }
+      } catch {
+        // AI ask is best-effort; search results already shown
+      } finally {
+        setAiLoading(false);
       }
     },
     [workspaceId],
@@ -188,7 +214,7 @@ export default function SearchClient({
                 })}
               </div>
 
-              <AiAnswerPanel query={query} results={results} base={base} />
+              <AiAnswerPanel query={query} results={results} base={base} aiAnswer={aiAnswer} aiLoading={aiLoading} workspaceId={workspaceId} />
             </div>
           )}
         </div>
@@ -197,9 +223,20 @@ export default function SearchClient({
   );
 }
 
-function AiAnswerPanel({ query, results, base }: { query: string; results: Result[]; base: string }) {
-  const approved = results.filter((r) => r.status === "approved");
-  const sources = (approved.length ? approved : results).slice(0, 3);
+function AiAnswerPanel({
+  query,
+  results,
+  base,
+  aiAnswer,
+  aiLoading,
+}: {
+  query: string;
+  results: Result[];
+  base: string;
+  aiAnswer: AiAnswer;
+  aiLoading: boolean;
+  workspaceId: string;
+}) {
   return (
     <aside
       style={{
@@ -218,28 +255,54 @@ function AiAnswerPanel({ query, results, base }: { query: string; results: Resul
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ color: "var(--accent)" }}><IconSparkle size={16} /></span>
         <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>Aqli Answer</span>
-        <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)" }}>Synthesised</span>
+        {aiLoading && (
+          <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)" }}>Thinking…</span>
+        )}
+        {!aiLoading && aiAnswer && (
+          <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)" }}>Synthesised</span>
+        )}
       </div>
-      <p style={{ margin: 0, fontFamily: "var(--font-serif)", fontSize: 18, lineHeight: 1.5, color: "var(--text-primary)", letterSpacing: "-0.005em" }}>
-        Found {results.length} doc{results.length === 1 ? "" : "s"} matching “{query}”
-        {sources[0] ? <>, most relevant being <em style={{ fontStyle: "italic" }}>{sources[0].title}</em></> : null}. Aqli&apos;s
-        synthesised answers — combining these sources into one direct response — arrive with the agent API.
-      </p>
-      <div>
-        <div style={{ fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 600, marginBottom: 8 }}>
-          Sources
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {sources.map((s) => (
-            <Link key={s.id} href={`${base}/docs/${s.id}`} className="tag" style={{ background: "var(--accent-light)", borderColor: "rgba(15,110,86,0.18)", color: "var(--accent)", textDecoration: "none" }}>
-              {s.title.length > 28 ? s.title.slice(0, 28) + "…" : s.title}
-              <IconArrowUpRight size={11} style={{ marginLeft: 4 }} />
-            </Link>
+
+      {aiLoading && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[100, 85, 60].map((w, i) => (
+            <div key={i} style={{ height: 14, borderRadius: 4, background: "var(--border)", width: `${w}%`, opacity: 0.6 }} />
           ))}
         </div>
-      </div>
+      )}
+
+      {!aiLoading && aiAnswer && (
+        <>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: "var(--text-primary)", whiteSpace: "pre-wrap" }}>
+            {aiAnswer.answer}
+          </p>
+          {aiAnswer.sources.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 600, marginBottom: 8 }}>
+                Sources
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {aiAnswer.sources.slice(0, 4).map((s) => (
+                  <Link key={s.doc_id} href={`${base}/docs/${s.doc_id}`} className="tag" style={{ background: "var(--accent-light)", borderColor: "rgba(15,110,86,0.18)", color: "var(--accent)", textDecoration: "none" }}>
+                    {s.doc_title.length > 28 ? s.doc_title.slice(0, 28) + "…" : s.doc_title}
+                    <IconArrowUpRight size={11} style={{ marginLeft: 4 }} />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {!aiLoading && !aiAnswer && (
+        <p style={{ margin: 0, fontFamily: "var(--font-serif)", fontSize: 16, lineHeight: 1.5, color: "var(--text-secondary)", letterSpacing: "-0.005em" }}>
+          Found {results.length} doc{results.length === 1 ? "" : "s"} matching &ldquo;{query}&rdquo;.
+          Ask a question to get a synthesised answer from approved docs.
+        </p>
+      )}
+
       <div style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.5, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
-        Answers draw from approved docs. Full-text search runs over the same index your agents query.
+        Answers draw only from approved docs. The same index your agents query via the API.
       </div>
     </aside>
   );

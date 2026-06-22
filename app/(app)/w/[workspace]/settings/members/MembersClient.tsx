@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconPlus, IconMail, IconTrash, IconLink, IconCheck, IconClock } from "@/components/aqli/icons";
 import { SettingsHeader } from "@/components/settings/primitives";
+import { avatarColor } from "@/lib/utils";
 import type { Role, WorkspaceMember } from "@/types/invitation";
 
 type InviteRow = {
@@ -140,7 +141,7 @@ function MemberRow({ m, isYou }: { m: WorkspaceMember; isYou: boolean }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 200px", gap: 16, alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--border)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-        <span style={{ width: 32, height: 32, borderRadius: 999, background: "var(--accent-light)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, flex: "0 0 32px" }}>{initialOf(m.email)}</span>
+        <span style={{ width: 32, height: 32, borderRadius: 999, background: avatarColor(m.email), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, flex: "0 0 32px" }}>{initialOf(m.email)}</span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {m.email}
           {isYou && <span style={{ marginLeft: 8, fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>You</span>}

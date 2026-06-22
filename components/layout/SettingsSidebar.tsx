@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  IconBell,
   IconGear,
   IconKey,
   IconLink,
@@ -25,13 +24,14 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You",
   const settingsBase = `${base}/settings`;
   const workspaceSlug = base.split("/").filter(Boolean).at(1) ?? "";
 
+  const agentLogHref = `/w/${workspaceSlug}/agent-log`;
+
   const nav = [
     { id: "general", href: settingsBase, icon: <IconGear />, label: "Workspace", exact: true },
     { id: "keys", href: `${settingsBase}/keys`, icon: <IconKey />, label: "API keys" },
     { id: "members", href: `${settingsBase}/members`, icon: <IconUsers />, label: "Members" },
     { id: "integrations", href: `${settingsBase}/integrations`, icon: <IconLink />, label: "Integrations" },
-    { id: "agents", href: `${settingsBase}/agents`, icon: <IconRobot />, label: "Agent activity" },
-    { id: "notifications", href: `${settingsBase}/notifications`, icon: <IconBell />, label: "Notifications" },
+    { id: "agents", href: agentLogHref, icon: <IconRobot />, label: "Agent log" },
   ];
 
   return (

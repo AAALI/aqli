@@ -61,6 +61,11 @@ export default function NotificationsButton({ base }: { base: string }) {
   const today = (notifs ?? []).filter((n) => n.today);
   const earlier = (notifs ?? []).filter((n) => !n.today);
 
+  function markAllRead() {
+    if (!notifs) return;
+    setNotifs(notifs.map((n) => ({ ...n, unread: false })));
+  }
+
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button className="iconbtn" onClick={() => setOpen((o) => !o)} aria-label="Notifications">
@@ -90,7 +95,11 @@ export default function NotificationsButton({ base }: { base: string }) {
             <h3 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 18, letterSpacing: "-0.01em" }}>
               Notifications
             </h3>
-            <button style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 12, color: "var(--text-secondary)", fontWeight: 500 }}>
+            <button
+              onClick={markAllRead}
+              disabled={!hasUnread}
+              style={{ background: "transparent", border: "none", cursor: hasUnread ? "pointer" : "default", fontSize: 12, color: hasUnread ? "var(--text-secondary)" : "var(--text-muted)", fontWeight: 500, opacity: hasUnread ? 1 : 0.5 }}
+            >
               Mark all read
             </button>
           </div>
