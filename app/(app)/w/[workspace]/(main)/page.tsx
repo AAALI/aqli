@@ -10,7 +10,7 @@ import { greeting, todayLong, withinHours, dayBucket } from "@/lib/home";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { AgentChip } from "@/components/aqli/badges";
 import { typeLabel } from "@/lib/doc-display";
-import { formatRelative } from "@/lib/utils";
+import { formatRelative, avatarColor } from "@/lib/utils";
 import {
   IconEdit,
   IconBook,
@@ -534,7 +534,7 @@ function FeedIcon({
       </span>
     );
   }
-  return <span className="avatar avatar-sm avatar-ali">{initial}</span>;
+  return <span className="avatar avatar-sm" style={{ background: avatarColor(initial) }}>{initial}</span>;
 }
 
 // ── Shared bits ───────────────────────────────────────────────────────

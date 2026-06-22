@@ -2,7 +2,7 @@ import Link from "next/link";
 import { StatusBadge, TypeBadge } from "@/components/aqli/badges";
 import { IconDots, IconRobot } from "@/components/aqli/icons";
 import { typeLabel, statusLabel } from "@/lib/doc-display";
-import { formatRelative } from "@/lib/utils";
+import { formatRelative, avatarColor } from "@/lib/utils";
 import type { OwnerInfo } from "@/lib/supabase/owners";
 import type { DocWithSpace } from "@/types/doc";
 
@@ -48,7 +48,7 @@ export default function DocCard({
           </>
         ) : (
           <>
-            <span className="avatar avatar-sm avatar-ali">{owner?.initial ?? "·"}</span>
+            <span className="avatar avatar-sm" style={{ background: avatarColor(owner?.name ?? owner?.initial ?? "?") }}>{owner?.initial ?? "·"}</span>
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {owner?.name ?? "Member"}
             </span>

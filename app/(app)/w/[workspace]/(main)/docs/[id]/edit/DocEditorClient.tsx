@@ -16,7 +16,7 @@ import { IconLink } from "@/components/aqli/icons";
 import type { KeyHandlerRegistry } from "@/components/editor/v2/types";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
 import { typeLabel } from "@/lib/doc-display";
-import { formatDate, formatRelative } from "@/lib/utils";
+import { formatDate, formatRelative, avatarColor } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
 
 export default function DocEditorClient({
@@ -328,7 +328,7 @@ function EditorMetaBar({
       <MetaField label="Owner">
         {ownerName ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <span className="avatar avatar-sm avatar-ali">
+            <span className="avatar avatar-sm" style={{ background: avatarColor(ownerName) }}>
               {ownerName.charAt(0).toUpperCase()}
             </span>
             <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>

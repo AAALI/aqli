@@ -235,7 +235,7 @@ function NewKeyModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onCreate()}
-          placeholder="Claude Code · Ali's laptop"
+          placeholder="e.g. Claude Code · CI runner"
           style={{ height: 36, padding: "0 12px", background: "var(--bg-base)", border: "1px solid var(--accent)", boxShadow: "0 0 0 3px rgba(15,110,86,0.12)", borderRadius: 6, fontSize: 13.5, color: "var(--text-primary)", fontFamily: "inherit", outline: "none" }}
         />
       </FormField>

@@ -9,6 +9,7 @@ import {
   IconGear,
   IconLogOut,
 } from "@/components/aqli/icons";
+import { avatarColor } from "@/lib/utils";
 
 type Props = {
   base: string;
@@ -65,7 +66,7 @@ export default function AccountMenu({
         }}
         aria-label="Account menu"
       >
-        <span className="avatar avatar-ali">{initial}</span>
+        <span className="avatar" style={{ background: avatarColor(userName) }}>{initial}</span>
         <span className="meta">
           <span className="n">{userName}</span>
           <span className="w">{roleLabel}</span>

@@ -1,6 +1,6 @@
 import { AgentChip } from "@/components/aqli/badges";
 import { IconGitMerge, IconArrowUpRight } from "@/components/aqli/icons";
-import { formatDate } from "@/lib/utils";
+import { formatDate, avatarColor } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
 
 /**
@@ -75,11 +75,11 @@ export default function ProvenanceBar({
     <Bar>
       <span>Drafted by</span>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-        <span className="avatar avatar-sm avatar-ali">
+        <span className="avatar avatar-sm" style={{ background: avatarColor(ownerName ?? "?") }}>
           {(ownerName ?? "?").charAt(0).toUpperCase()}
         </span>
         <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-          {ownerName ?? "Unknown"}
+          {ownerName ?? "Team member"}
         </span>
       </span>
       {doc.status === "approved" && (
