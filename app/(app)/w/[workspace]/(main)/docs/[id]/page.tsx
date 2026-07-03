@@ -11,7 +11,6 @@ import ProvenanceBar from "@/components/docs/ProvenanceBar";
 import TrustLine from "@/components/docs/TrustLine";
 import WhatChangedBanner from "@/components/docs/WhatChangedBanner";
 import ReadingRail from "@/components/docs/ReadingRail";
-import DocAskChat from "@/components/docs/DocAskChat";
 import { AutoApprovedChip, TypeBadge } from "@/components/aqli/badges";
 import DocBody from "@/components/docs/DocBody";
 import { IconEdit, IconHistory } from "@/components/aqli/icons";
@@ -166,9 +165,6 @@ export default async function DocViewPage({
         </div>
 
         <ReadingRail base={base} backlinks={backlinks} />
-
-        {/* Floating Ask Aqli — child of main-body so it isn't clipped by the scroll column */}
-        <DocAskChat workspaceId={doc.workspace_id} docTitle={doc.title} />
       </div>
     </>
   );

@@ -1,32 +1,65 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { IconChat, IconArrowUpRight, IconX } from "@/components/aqli/icons";
 
-type Source = { doc_id: string; doc_title: string; heading: string | null; source_url: string };
+type Source = { doc_id: string; doc_title: string; heading: string | null };
 type Turn = { role: "user" | "aqli"; text: string; sources?: Source[] };
 
 /**
- * "Ask Aqli about this doc" — the reader's killer JTBD: a precise answer
- * without leaving the page. Floats over the doc as a pill that expands into a
- * chat. Questions are biased toward this doc; answers cite approved docs.
+ * Ask Aqli — the workspace-wide Q&A chat. Mounted once in the workspace
+ * layout so it floats on every page (home, spaces, search, settings, docs)
+ * and the conversation survives navigation. On doc pages the question is
+ * biased toward the doc being read; answers always cite approved docs.
  */
-export default function DocAskChat({
+export default function AqliChatWidget({
   workspaceId,
-  docTitle,
+  workspaceSlug,
 }: {
   workspaceId: string;
-  docTitle: string;
+  workspaceSlug: string;
 }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [loading, setLoading] = useState(false);
+  // The doc the user dismissed scoping for — scoping re-enables on the next doc.
+  const [scopeOffDocId, setScopeOffDocId] = useState<string | null>(null);
+  const [docTitles, setDocTitles] = useState<Record<string, string>>({});
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  const pathname = usePathname();
+  const docMatch = pathname?.match(
+    new RegExp(`^/w/${workspaceSlug}/docs/([^/]+)`),
+  );
+  const docId = docMatch?.[1] ?? null;
+  const docTitle = docId ? docTitles[docId] : undefined;
+
+  useEffect(() => {
+    if (!open || !docId || docTitles[docId] !== undefined) return;
+    let cancelled = false;
+    fetch(`/api/docs/${docId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const title = data?.doc?.title;
+        setDocTitles((t) => ({ ...t, [docId]: typeof title === "string" ? title : "" }));
+      })
+      .catch(() => {
+        if (!cancelled) setDocTitles((t) => ({ ...t, [docId]: "" }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, docId, docTitles]);
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
-  }, [turns, loading]);
+  }, [turns, loading, open]);
+
+  const scopedToDoc = Boolean(docId && docTitle && scopeOffDocId !== docId);
 
   async function ask(question: string) {
     const q = question.trim();
@@ -39,7 +72,9 @@ export default function DocAskChat({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: `In the context of the doc "${docTitle}": ${q}`,
+          question: scopedToDoc
+            ? `In the context of the doc "${docTitle}": ${q}`
+            : q,
           workspace_id: workspaceId,
         }),
       });
@@ -60,10 +95,10 @@ export default function DocAskChat({
       <button
         onClick={() => setOpen(true)}
         style={{
-          position: "absolute",
+          position: "fixed",
           bottom: 24,
           right: 24,
-          zIndex: 10,
+          zIndex: 100,
           display: "inline-flex",
           alignItems: "center",
           gap: 8,
@@ -92,7 +127,7 @@ export default function DocAskChat({
         >
           <IconChat size={12} />
         </span>
-        Ask about this doc
+        Ask Aqli
       </button>
     );
   }
@@ -100,16 +135,16 @@ export default function DocAskChat({
   return (
     <div
       style={{
-        position: "absolute",
+        position: "fixed",
         bottom: 24,
         right: 24,
         width: 360,
-        maxHeight: "min(560px, calc(100% - 48px))",
+        maxHeight: "min(560px, calc(100vh - 48px))",
         background: "var(--bg-card)",
         border: "1px solid var(--border-strong)",
         borderRadius: 14,
         boxShadow: "0 24px 48px -12px rgba(20,20,18,0.22), 0 4px 12px rgba(20,20,18,0.08)",
-        zIndex: 10,
+        zIndex: 100,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -142,7 +177,7 @@ export default function DocAskChat({
         </span>
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
           <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
-            Ask about this doc
+            Ask Aqli
           </span>
           <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>
             Answers cite approved docs
@@ -172,8 +207,8 @@ export default function DocAskChat({
       >
         {turns.length === 0 && !loading && (
           <div style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.55 }}>
-            Ask anything about this doc — e.g. &ldquo;what changed in the latest
-            version?&rdquo; Answers are drawn from approved docs.
+            Ask anything about this workspace&rsquo;s knowledge — e.g. &ldquo;how
+            does our auth flow work?&rdquo; Answers are drawn from approved docs.
           </div>
         )}
         {turns.map((t, i) =>
@@ -221,11 +256,9 @@ export default function DocAskChat({
                   >
                     <span style={{ marginRight: 2 }}>Cited:</span>
                     {t.sources.map((s) => (
-                      <a
+                      <Link
                         key={`${s.doc_id}-${s.heading ?? ""}`}
-                        href={s.source_url}
-                        target="_blank"
-                        rel="noreferrer"
+                        href={`/w/${workspaceSlug}/docs/${s.doc_id}`}
                         style={{
                           fontSize: 11,
                           padding: "1px 6px",
@@ -242,7 +275,7 @@ export default function DocAskChat({
                         <IconArrowUpRight size={10} />
                         {s.doc_title}
                         {s.heading ? ` · ${s.heading}` : ""}
-                      </a>
+                      </Link>
                     ))}
                   </div>
                 )}
@@ -257,11 +290,67 @@ export default function DocAskChat({
         )}
       </div>
 
+      {/* Doc scope chip — questions are biased toward the doc being read */}
+      {scopedToDoc && (
+        <div
+          style={{
+            padding: "6px 12px 0",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            background: "var(--bg-base)",
+            borderTop: "1px solid var(--border)",
+          }}
+        >
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              fontSize: 10.5,
+              padding: "2px 8px",
+              borderRadius: 999,
+              background: "var(--accent-light, var(--bg-sidebar))",
+              border: "1px solid var(--border)",
+              color: "var(--text-secondary)",
+              maxWidth: "100%",
+              minWidth: 0,
+            }}
+          >
+            <span style={{ whiteSpace: "nowrap" }}>Asking about:</span>
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontWeight: 500,
+              }}
+            >
+              {docTitle}
+            </span>
+            <button
+              onClick={() => setScopeOffDocId(docId)}
+              title="Ask the whole workspace instead"
+              style={{
+                background: "transparent",
+                border: 0,
+                padding: 0,
+                cursor: "pointer",
+                color: "var(--text-muted)",
+                display: "inline-flex",
+              }}
+            >
+              <IconX size={10} />
+            </button>
+          </span>
+        </div>
+      )}
+
       {/* Composer */}
       <div
         style={{
           padding: "10px 12px",
-          borderTop: "1px solid var(--border)",
+          borderTop: scopedToDoc ? 0 : "1px solid var(--border)",
           display: "flex",
           alignItems: "center",
           gap: 8,
@@ -273,7 +362,7 @@ export default function DocAskChat({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && ask(input)}
-          placeholder="Ask a follow-up…"
+          placeholder={turns.length ? "Ask a follow-up…" : "Ask a question…"}
           autoFocus
           style={{
             flex: 1,

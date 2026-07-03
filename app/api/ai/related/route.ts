@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getMyRole } from "@/lib/supabase/members";
 import { queryContext } from "@/lib/ai/context";
 
 /**
@@ -20,6 +21,12 @@ export async function POST(req: NextRequest) {
       { error: "workspace_id and text required" },
       { status: 400 },
     );
+
+  // queryContext runs on the service-role client (bypasses RLS), so verify
+  // the caller actually belongs to the workspace they're querying.
+  const role = await getMyRole(workspace_id);
+  if (!role)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
     const results = await queryContext(workspace_id, text.slice(0, 2000), {

@@ -10,7 +10,7 @@
 >
 > **Legend:** ✅ done/merged · 🟢 in review (PR open) · 🟡 in progress · ⬜ todo · ⛔ blocked · 🔮 deferred (needs data/infra)
 
-_Last updated: 2026-06-15._
+_Last updated: 2026-07-04._
 
 ---
 
@@ -25,11 +25,11 @@ _Last updated: 2026-06-15._
 | [#21](https://github.com/AAALI/aqli/pull/21) | **Sidebar v2** | Knowledge-first nav (Home/Drafts/Search), Drafts page, Review Queue demoted to "Workflow" | ✅ merged |
 | [#22](https://github.com/AAALI/aqli/pull/22) | **⌘K palette** | Global command palette, top-bar trigger, `?q=` search handoff, Tab focus-trap fix | 🟢 open (rebased) |
 | [#23](https://github.com/AAALI/aqli/pull/23) | **Notifications (de-mock)** | Real bell feed (`getNotifications`), `/api/notifications`, re-adds the now-real bell to the top bar, removed `lib/mock/agents` | 🟢 open (rebased) |
-| [#24](https://github.com/AAALI/aqli/pull/24) | This tracker | `IMPLEMENTATION.md` | 🟢 open (rebased) |
-
-> **Merge note:** #22 and #23 both add a button to `AppTopBar`'s action row, so
-> whichever merges second has a trivial one-line conflict there — resolve by
-> keeping both `<CmdKButton />` and `<NotificationsButton />`.
+| [#24](https://github.com/AAALI/aqli/pull/24) | This tracker | `IMPLEMENTATION.md` | ✅ merged |
+| [#25](https://github.com/AAALI/aqli/pull/25) | **Author names** | Real author attribution on doc view/cards (`getOwnerDirectory`), nav avatar, collect full name at signup (`member_full_name` migration) | ✅ merged |
+| [#26](https://github.com/AAALI/aqli/pull/26) | **Launch cleanup** | Search "Aqli Answer" wired to real `/api/ai/ask`, settings persistence (`SettingsGeneralClient` + `/api/workspaces/[id]`), dead settings nav removed, hardcoded login copy fixed, `avatarColor` hash, mark-all-read | ✅ merged |
+| [#27](https://github.com/AAALI/aqli/pull/27) | **Middleware** | Session-refresh middleware restored + `/w/*` route protection | ✅ merged |
+| [#28](https://github.com/AAALI/aqli/pull/28) | **App-wide Ask Aqli** | Global chat widget mounted in the workspace layout (every page, incl. settings); replaces per-doc `DocAskChat`; auto-scopes to the doc being read with a dismissible chip; internal citation links use `/w/{slug}/docs/{id}`. Adds a workspace-membership guard to all five `/api/ai/*` routes (they hit the service-role `queryContext` with a caller-supplied `workspace_id`). | 🟢 open |
 
 ---
 
@@ -38,8 +38,8 @@ _Last updated: 2026-06-15._
 | Item | Notes | Status |
 |---|---|---|
 | Notification bell → real data | review + agent activity + stale | ✅ [#23](https://github.com/AAALI/aqli/pull/23) |
-| Search "Aqli Answer" → real `/api/ai/ask` | panel is a "arrives with the agent API" stub; endpoint already exists | ⛔ overlaps `SearchClient` in #22 |
-| Hidden settings stubs (Members 16 / Agent activity 23 / Notifications 26) | currently `redirect()` to overview (mock-only) | ⛔ Members has a real impl on the `feat/invites-members-and-beta-cleanup` branch |
+| Search "Aqli Answer" → real `/api/ai/ask` | fires alongside full-text search, best-effort | ✅ [#26](https://github.com/AAALI/aqli/pull/26) |
+| Hidden settings stubs | Members is real; Agent activity redirects to `/agent-log`; Notifications settings page is a redirect stub but is no longer linked anywhere — delete it | 🟡 mostly resolved |
 
 ---
 
@@ -47,13 +47,14 @@ _Last updated: 2026-06-15._
 
 | Item | Notes | Status |
 |---|---|---|
-| Dead settings nav items | sidebar links Members/Agent activity/Notifications → all redirect | ⬜ (decide vs invites branch) |
-| Hardcoded demo data | invite prefill `Khalid Rashid`; login "3 docs awaiting review" | ⬜ overlaps invites branch |
-| Dead `lib/mock` code | `agents.ts` removed in #23; `settings.ts` (`SAMPLE_KEYS`/`AGENT_ACTIVITY`/`INTEGRATIONS`/`STALE_DOCS`) still unused | 🟡 |
-| Avatar name→colour hash | only `avatar-ali/sara/khalid` gradients exist | ⬜ |
-| Unify search entry points | sidebar "Search ⌘K" navigates; top-bar icon opens palette | ⛔ needs #21 + #22 |
-| Viewer display-name resolution | viewer shows "Team member"/"Unknown"; Home feed shows real names | ⛔ touches #18 |
-| Drop v1 `SpaceHeader` + type filters | dead once Space v2 lands | ⛔ after #20 |
+| Dead settings nav items | sidebar now links only real pages (Workspace/API keys/Members/Integrations/Agent log) | ✅ [#26](https://github.com/AAALI/aqli/pull/26) |
+| Hardcoded demo data | invite prefill + login ornament both fixed | ✅ [#26](https://github.com/AAALI/aqli/pull/26) |
+| Dead `lib/mock` code | directory removed entirely | ✅ |
+| Avatar name→colour hash | `avatarColor` utility in `lib/utils.ts` | ✅ [#26](https://github.com/AAALI/aqli/pull/26) |
+| Viewer display-name resolution | real names via `getOwnerDirectory` | ✅ [#25](https://github.com/AAALI/aqli/pull/25) |
+| **Agent citation URLs broken** | `lib/ai/context.ts` builds `source_url` as `{app}/docs/{id}` — missing the `/w/{workspace}` prefix. In-app consumers now build their own links; the agent API (`/api/agent/context`) still hands out dead links. Needs the workspace slug plumbed into `search_doc_chunks` results. | ⬜ |
+| Unify search entry points | sidebar "Search ⌘K" navigates to `/search`; top-bar icon opens the palette — make the sidebar row open the palette | ⬜ |
+| Drop v1 `SpaceHeader` + type filters | `components/aqli/SpaceHeader.tsx` has zero references — delete | ⬜ |
 | Audit correction | `design-alignment.md` marks 16/23/26 ✅; they're hidden redirects | ⬜ |
 
 ---
@@ -79,11 +80,20 @@ mobile read-only viewer · public read-only space · SOC2 audit export.
 
 ---
 
-## 6. Suggested order from here
+## 6. Launch blockers — ops (not code)
 
-1. **Merge the open stack (#17–#23)** to unblock the rest.
-2. After merge: search "Aqli Answer" → real ask · unify search entry points ·
-   viewer display-name · drop v1 SpaceHeader · dead-nav + hardcoded-data cleanup.
-3. **GitHub 25b settings** (can be done now — independent).
+| Item | Notes | Status |
+|---|---|---|
+| **Supabase email confirmation** | ON in prod with no SMTP configured — new signups and invite acceptances stall waiting for emails that never arrive. Configure SMTP or disable confirmation for beta. | ⬜ |
+| **Prod secrets in wrangler** | `OPENAI_API_KEY` + Composio keys must be in `wrangler secret list` (not `.env`) or AI chat and GitHub connect fail silently on Cloudflare. | ⬜ verify |
+
+---
+
+## 7. Suggested order from here
+
+1. **Ops blockers (§6)** — SMTP/confirmation decision + `wrangler secret list` check.
+2. Agent citation URL fix (`lib/ai/context.ts`) · unify search entry points ·
+   drop v1 `SpaceHeader` · delete the unlinked notifications-settings stub.
+3. **GitHub 25b settings** (independent — teams connecting GitHub will look for it).
 4. 08c viewer variant · Review Detail · Slack configure.
 5. Deferred items as their data/infra lands.
