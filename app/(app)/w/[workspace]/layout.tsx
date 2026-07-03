@@ -4,6 +4,7 @@ import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getSpaces } from "@/lib/supabase/spaces";
 import { getDocs } from "@/lib/supabase/docs";
 import CommandPalette from "@/components/cmdk/CommandPalette";
+import AqliChatWidget from "@/components/ai/AqliChatWidget";
 
 export default async function WorkspaceLayout({
   children,
@@ -42,6 +43,7 @@ export default async function WorkspaceLayout({
           space_id: d.space_id,
         }))}
       />
+      <AqliChatWidget workspaceId={workspace.id} workspaceSlug={workspace.slug} />
     </div>
   );
 }

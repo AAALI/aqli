@@ -6,24 +6,31 @@
 >
 > **Legend:** ✅ done · 🟡 in progress · ⬜ to-do · ⛔ blocked (needs a merge / new data)
 
-_Created 2026-06-15. The four v2 core surfaces (#18–#21) and ⌘K (#22) are merged._
+_Created 2026-06-15, updated 2026-07-04. All of #18–#27 are merged; #28
+(app-wide Ask Aqli + AI route membership guard) is open._
 
 ---
 
 ## A. Mock data still wired into shipped UI (build from real data)
 
-- ✅ **Notifications bell → real data** — the top-bar bell now reads from `getNotifications()` (review queue + stale + agent activity) via `/api/notifications`; the `lib/mock/agents` placeholder is removed. _(this PR)_
-- ⛔ **Search "Aqli Answer" → real `/api/ai/ask`** — the panel is a placeholder that reads "…answers arrive with the agent API" rather than calling the existing ask endpoint. _(overlaps `SearchClient`; do now that #22 is merged)_
+- ✅ **Notifications bell → real data** — the top-bar bell now reads from `getNotifications()` (review queue + stale + agent activity) via `/api/notifications`; the `lib/mock/agents` placeholder is removed. _(#23)_
+- ✅ **Search "Aqli Answer" → real `/api/ai/ask`** — fires alongside full-text search, best-effort. _(#26)_
 
 ## B. Broken / inconsistent (fix)
 
-- ⬜ **Dead settings nav items** — the Settings sidebar links to Members, Agent activity, and Notifications, but those pages `redirect()` to the overview. Remove the dead links (or build the pages).
-- ⬜ **Hardcoded demo data** — invite landing prefills `Khalid Rashid / khalid@acme.com`; login ornament hardcodes "3 docs awaiting your review". Make real or remove.
-- 🟡 **Dead mock code** — `lib/mock/agents.ts` is deleted in this PR; `lib/mock/settings.ts` (`SAMPLE_KEYS`, `AGENT_ACTIVITY`, `INTEGRATIONS`, `STALE_DOCS`) is still unused — delete as a follow-up.
-- ⬜ **Avatar colours** — only `avatar-ali/sara/khalid` gradients exist; everyone else falls back to green/none. Add a name→colour hash.
-- ⛔ **Unify search entry points** — sidebar "Search ⌘K" navigates to `/search`; the top-bar icon opens the palette. Make the sidebar row open the palette. _(needs #21 sidebar-v2 + #22 cmdk)_
-- ⛔ **Display-name resolution** — Home feed shows real `actor_name`, but the viewer's provenance/trust line show "Team member" / "Unknown" / no reviewer. Pick one source of truth. _(touches Doc Viewer v2 #18)_
-- ⛔ **Two `SpaceHeader`s** — v1 `components/aqli/SpaceHeader` + type filters become dead once Space v2 (#20) lands. Remove. _(after #20)_
+- ✅ **Dead settings nav items** — sidebar now links only real pages. _(#26)_ Follow-up: the unlinked `settings/notifications` redirect stub can be deleted.
+- ✅ **Hardcoded demo data** — invite prefill and the login "3 docs awaiting your review" ornament are gone. _(#26)_
+- ✅ **Dead mock code** — `lib/mock/` removed entirely.
+- ✅ **Avatar colours** — deterministic `avatarColor` hash in `lib/utils.ts`. _(#26)_
+- ✅ **Display-name resolution** — real names via `getOwnerDirectory`. _(#25)_
+- ⬜ **Agent citation URLs broken** — `lib/ai/context.ts` builds `source_url` as `{app}/docs/{id}`, missing the `/w/{workspace}` prefix. In-app surfaces (#26 search, #28 chat) build their own links; `/api/agent/context` still hands agents dead links. Plumb the workspace slug into `search_doc_chunks` results.
+- ⬜ **Unify search entry points** — sidebar "Search ⌘K" navigates to `/search`; the top-bar icon opens the palette. Make the sidebar row open the palette.
+- ⬜ **Drop v1 `SpaceHeader`** — `components/aqli/SpaceHeader.tsx` has zero references — delete.
+
+## B2. Launch blockers — ops (not code)
+
+- ⬜ **Supabase email confirmation** — ON in prod with no SMTP: signups and invite acceptances stall. Configure SMTP or disable confirmation for beta.
+- ⬜ **Prod secrets** — verify `OPENAI_API_KEY` + Composio keys are in `wrangler secret list`; without them AI chat and GitHub connect fail silently on Cloudflare.
 
 ## C. Designed but unbuilt
 

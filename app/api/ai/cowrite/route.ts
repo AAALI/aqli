@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getMyRole } from "@/lib/supabase/members";
 import { queryContext } from "@/lib/ai/context";
 import { getPostHogClient } from "@/lib/posthog-server";
 
@@ -26,6 +27,12 @@ export async function POST(req: NextRequest) {
       { error: "workspace_id and messages required" },
       { status: 400 },
     );
+
+  // queryContext runs on the service-role client (bypasses RLS), so verify
+  // the caller actually belongs to the workspace they're querying.
+  const role = await getMyRole(workspace_id);
+  if (!role)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const chat = (messages as ChatMessage[])
     .filter(
