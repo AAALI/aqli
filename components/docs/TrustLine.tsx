@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconCheckCircle, IconWarn, IconHistory } from "@/components/aqli/icons";
+import { IconCheckCircle, IconWarn, IconHistory, IconShield } from "@/components/aqli/icons";
 import { formatRelative } from "@/lib/utils";
 
 /**
@@ -15,12 +15,15 @@ export default function TrustLine({
   lastReviewedAt,
   reviewerName,
   stale,
+  prSource,
 }: {
   docId: string;
   lastReviewedAt: string | null;
   reviewerName: string | null;
   /** Computed on the server (>90d since verification, or never). */
   stale: boolean;
+  /** 08c: set when the doc was published by a merged PR — the shield variant. */
+  prSource?: { repo: string | null; prNumber: string | null } | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -51,10 +54,19 @@ export default function TrustLine({
       }}
     >
       <span style={{ color: stale ? "var(--stale-text)" : "var(--approved-text)", display: "inline-flex" }}>
-        {stale ? <IconWarn size={14} /> : <IconCheckCircle size={14} sw={1.8} />}
+        {stale ? <IconWarn size={14} /> : prSource ? <IconShield size={14} sw={1.7} /> : <IconCheckCircle size={14} sw={1.8} />}
       </span>
       <span>
-        {lastReviewedAt ? (
+        {prSource && !stale ? (
+          <>
+            Verified by PR review
+            <span style={{ color: "var(--text-secondary)" }}>
+              {prSource.repo ? ` — merged in ${prSource.repo}` : ""}
+              {prSource.prNumber ? ` #${prSource.prNumber}` : ""}
+            </span>
+            {lastReviewedAt ? ` · ${formatRelative(lastReviewedAt)}` : ""}
+          </>
+        ) : lastReviewedAt ? (
           <>
             Last verified{" "}
             <span style={{ color: "var(--text-secondary)" }}>

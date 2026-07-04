@@ -11,9 +11,11 @@
 >
 > **Legend:** ✅ implemented · 🟡 partial / diverges · ⬜ not started
 >
-> _Audited: 2026-06-13. Code state: `main` + the in-flight
-> `feat/invites-members-and-beta-cleanup` branch (real invites/members, pending
-> merge)._
+> _Audited: 2026-06-13; targeted corrections 2026-07-04 (16/23/26 statuses,
+> sidebar v2, merged invites/members). This is a point-in-time audit — the
+> **live** tracker is [`IMPLEMENTATION.md`](../IMPLEMENTATION.md), which
+> supersedes stale rows here (Home/Space/Viewer v2 have since shipped in
+> #18–#21)._
 
 ---
 
@@ -52,7 +54,7 @@ is "a workflow tool with docs attached" and should flip to knowledge-first.
 | 03b/03c | **Editor v2 — the writing instrument** | ✅ | Shipped as the real editor: [DocEditorClient.tsx](<app/(app)/w/[workspace]/(main)/docs/[id]/edit/DocEditorClient.tsx>) wires [SlashMenu](components/editor/v2/SlashMenu.tsx), [SelectionToolbar](components/editor/v2/SelectionToolbar.tsx) (highlight-to-act: rewrite/cite/expand), [EditorRail](components/editor/v2/EditorRail.tsx) (live Outline + Related approved passages), floating [CowriteChat](components/editor/v2/CowriteChat.tsx) (⌘J), and [ProcessStrip](components/editor/v2/ProcessStrip.tsx) (dim status/owner footer). **Minor divergence:** brief put Outline+Related on the *left* and Co-write on the *right*; impl puts the structural rail on the right and Co-write as a floating panel. Functionally equivalent. |
 | 08b/08b₂ | **Doc Viewer v2 — the knowledge node** | 🟡 | [docs/[id]/page.tsx](<app/(app)/w/[workspace]/(main)/docs/[id]/page.tsx>) has the **Ask-Aqli rail** ([AskQuestion](components/ai/AskQuestion.tsx)) and [DocSummary](components/ai/DocSummary.tsx) ✅. Missing from the brief: left-rail **Outline (TOC)**, **"Cited by N docs" backlinks**, the **trust line** ("Last verified 14d ago · Re-verify"), the **"What changed in v4" banner**, and the **annotation gutter** (threaded Q&A per section). |
 | 02b | **Space v2 — shelves, not folders** | ⬜ | [s/[space]/page.tsx](<app/(app)/w/[workspace]/(main)/s/[space]/page.tsx>) is the v1 flat list with the exact "bureaucratic" type filters the brief critiques (All / PRD / ADR / Runbook / Fix Note). None of the v2 views exist: *Start here* (3 canonical docs), *Reading paths*, *By topic* shelves, *Gaps* (unanswered questions → "Draft this"). |
-| — | **Sidebar v2 — demote Review Queue** | 🟡 | [Sidebar.tsx](components/layout/Sidebar.tsx) still lists **Review Queue as a top-level peer of Home** (the one thing the brief explicitly wants removed). Also missing the proposed **Drafts** and **Library** items. Current nav: Home · Search (⌘K hint) · Review Queue · Stale docs · Agent log · Spaces. |
+| — | **Sidebar v2 — demote Review Queue** | ✅ | Shipped in #21: Home · Drafts · Search up top; Review Queue, Stale docs, and Agent log demoted under a "Workflow" section. **Library** remains deferred (needs bookmarks/read-history data). |
 | — | **Maintenance woven in** | 🟡 | Stale dashboard exists ([stale/](<app/(app)/w/[workspace]/(main)/stale>)) ✅, but the brief's *woven* maintenance is absent: no trust line / re-verify CTA on the viewer, no inline stale badges in doc lists, no Home auto-pings when an upstream-cited doc or Linear ticket changes (blocked on Home v2). |
 
 ---
@@ -84,19 +86,19 @@ exist in the repo.
 |---|---|---|
 | J·01 First-time setup (OB1–OB5 + empty home) | ✅ | [Onboarding.tsx](components/auth/Onboarding.tsx), [signup](<app/(auth)/signup/page.tsx>), empty-home state in main page. |
 | J·02 Returning user (sign in → home) | ✅ | [login](<app/(auth)/login/page.tsx>). |
-| J·03 Invited teammate (accept invite → set password) | ✅* | [invite/](<app/(auth)/invite>) + [api/invitations](app/api/invitations/route.ts). *Real impl lands with the in-flight `feat/invites-members-and-beta-cleanup` branch. Email-invite HTML template still mock-only.* |
+| J·03 Invited teammate (accept invite → set password) | ✅ | [invite/](<app/(auth)/invite>) + [api/invitations](app/api/invitations/route.ts). Merged. Email-invite HTML template still not built — invites are link-based. |
 | J·04 Browse & read a doc | ✅ | Space list → viewer → editor all present. |
 | J·05 Create a new doc (type/template picker) | ✅ | [s/[space]/new](<app/(app)/w/[workspace]/(main)/s/[space]/new>) + [templates](components/editor/templates/index.ts). |
 | J·06 Doc lifecycle (Draft→Review→Approved→Stale) | 🟡 | [DocStatusControl](components/docs/DocStatusControl.tsx), [RequestReviewButton](components/docs/RequestReviewButton.tsx), version snapshots on create/status-change all exist. No dedicated snapshot-confirm UI (as in v1 design). |
 | J·07 Review agent output | 🟡 | Queue with **inline** approve / reject / request-changes ([ReviewQueueClient.tsx](<app/(app)/w/[workspace]/(main)/review/ReviewQueueClient.tsx>)) ✅. **Gaps:** no dedicated **Review Detail** screen (12 — side-by-side diff + comments + agent context), and no **Notifications panel** (11). |
 | J·08 Search & ask | 🟡 | Search + AI answer with citations ✅ ([SearchClient.tsx](<app/(app)/w/[workspace]/(main)/search/SearchClient.tsx>)). **Multi-doc Q&A chat** is explicitly deferred to the agent API (P1) — not built. |
 | J·09 Add another AI agent (API keys) | ✅ | [settings/keys](<app/(app)/w/[workspace]/settings/keys>) — list, create, reveal-once. Revoke uses an inline action. |
-| J·10 Invite a teammate (members) | ✅* | [settings/members](<app/(app)/w/[workspace]/settings/members>) — list, invite, role select, pending/active. *Lands with the in-flight invites/members branch.* |
+| J·10 Invite a teammate (members) | ✅ | [settings/members](<app/(app)/w/[workspace]/settings/members>) — list, invite, role select, pending/active. Merged. |
 | J·11 Add another Space | ✅ | [NewSpaceButton](components/layout/NewSpaceButton.tsx) + create-space dialog + empty state. |
 | J·12 Connect integrations | 🟡 | Integrations list ([settings/integrations](<app/(app)/w/[workspace]/settings/integrations>)) + **Linear** and **GitHub** configure detail ✅. **Slack configure (24)** detail page not built — provider route only accepts `github`/`linear`. |
 | J·13 Version history & audit | ✅ | [docs/[id]/history](<app/(app)/w/[workspace]/(main)/docs/[id]/history>) — timeline + diff + restore. |
 | J·14 Stale doc hygiene | ✅ | [stale/](<app/(app)/w/[workspace]/(main)/stale>) — dashboard, bulk actions, agent-refresh hint. |
-| J·15 Notifications | 🟡 | Notification **settings page (26)** ✅ ([settings/notifications](<app/(app)/w/[workspace]/settings/notifications>)). **Gaps:** no **bell with dot** in the top bar, no **Notifications panel (11)** dropdown. |
+| J·15 Notifications | 🟡 | Top-bar **bell + dropdown feed** ✅ ([NotificationsButton](components/layout/NotificationsButton.tsx), real data via `/api/notifications`, #23). **Gap:** notification **settings page (26)** was never built — the earlier ✅ here pointed at a `redirect()` stub, removed 2026-07-04. |
 
 ---
 

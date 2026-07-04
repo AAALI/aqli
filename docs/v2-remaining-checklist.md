@@ -18,14 +18,14 @@ _Created 2026-06-15, updated 2026-07-04. All of #18–#27 are merged; #28
 
 ## B. Broken / inconsistent (fix)
 
-- ✅ **Dead settings nav items** — sidebar now links only real pages. _(#26)_ Follow-up: the unlinked `settings/notifications` redirect stub can be deleted.
+- ✅ **Dead settings nav items** — sidebar now links only real pages _(#26)_; the unlinked `settings/notifications` redirect stub deleted _(#28)_.
 - ✅ **Hardcoded demo data** — invite prefill and the login "3 docs awaiting your review" ornament are gone. _(#26)_
 - ✅ **Dead mock code** — `lib/mock/` removed entirely.
 - ✅ **Avatar colours** — deterministic `avatarColor` hash in `lib/utils.ts`. _(#26)_
 - ✅ **Display-name resolution** — real names via `getOwnerDirectory`. _(#25)_
-- ⬜ **Agent citation URLs broken** — `lib/ai/context.ts` builds `source_url` as `{app}/docs/{id}`, missing the `/w/{workspace}` prefix. In-app surfaces (#26 search, #28 chat) build their own links; `/api/agent/context` still hands agents dead links. Plumb the workspace slug into `search_doc_chunks` results.
-- ⬜ **Unify search entry points** — sidebar "Search ⌘K" navigates to `/search`; the top-bar icon opens the palette. Make the sidebar row open the palette.
-- ⬜ **Drop v1 `SpaceHeader`** — `components/aqli/SpaceHeader.tsx` has zero references — delete.
+- ✅ **Agent citation URLs** — `queryContext` resolves the workspace slug and builds `/w/{slug}/docs/{id}` links, so `/api/agent/context` consumers get working URLs. _(#28)_
+- ✅ **Unify search entry points** — the sidebar "Search ⌘K" row opens the palette via the same `aqli:open-cmdk` event as the top-bar icon. _(#28)_
+- ✅ **Drop v1 `SpaceHeader`** — deleted. _(#28)_
 
 ## B2. Launch blockers — ops (not code)
 
@@ -34,12 +34,12 @@ _Created 2026-06-15, updated 2026-07-04. All of #18–#27 are merged; #28
 
 ## C. Designed but unbuilt
 
-- ⬜ **GitHub 25b settings** — policy hero + 3 stats (auto-approved/quarter, reviews self-reported, median PR→doc latency) + off-toggle + per-repo table. Backend exists.
-- ⬜ **08c PR-sourced viewer variant** — shield trust line + "What this PR changed" diff banner. _(builds on Doc Viewer v2 #18)_
-- ⬜ **Review Detail (12)** — side-by-side diff + comments (review is inline-only today).
-- ⬜ **Slack configure (24)** — provider route only accepts `github`/`linear`.
-- ⬜ **Viewer annotation gutter** — needs a comments data model.
-- ⬜ **Per-agent `AuthorBadge` tint** — we have one generic `AgentChip`.
+- 🟢 **GitHub 25b settings** — policy hero with a real auto-approve off-toggle (webhook path honors it: PR docs route to Review Queue when off), 3 stats, per-repo table. _(#29)_
+- 🟢 **08c PR-sourced viewer variant** — shield trust line + "What this PR changed" banner; Auto-approved chip gated on actual status. _(#29)_
+- 🟢 **Per-agent `AuthorBadge` tint** — `AgentChip` icon well tinted by agent id. _(#29)_
+- ⛔ **Review Detail (12)** — deferred: needs a comments data model; inline review covers beta. Build together with the annotation gutter post-launch.
+- ⛔ **Viewer annotation gutter** — deferred: same comments-model dependency.
+- ⛔ **Slack configure (24)** — deferred: no Slack toolkit in the Composio layer; not in the launch story.
 
 ## D. Deferred — need data/infra that doesn't exist yet
 

@@ -68,6 +68,9 @@ export const IconRobot = (p: IcProps) => (
   <Ic {...p} d={<><rect x="4" y="8" width="16" height="11" rx="2.5" /><path d="M12 4v4" /><circle cx="12" cy="3.5" r="1" fill="currentColor" /><circle cx="9" cy="13" r="1.2" fill="currentColor" stroke="none" /><circle cx="15" cy="13" r="1.2" fill="currentColor" stroke="none" /><path d="M9.5 16h5" /><path d="M2 13v2M22 13v2" /></>} />
 );
 export const IconCheck = (p: IcProps) => <Ic {...p} d={<path d="m5 12 5 5 9-11" />} sw={p.sw ?? 2} />;
+export const IconShield = (p: IcProps) => (
+  <Ic {...p} d={<><path d="M12 3 5 6v5c0 4.4 3 7.9 7 9.5 4-1.6 7-5.1 7-9.5V6l-7-3Z" /><path d="m9 11.5 2 2 4-4.5" /></>} />
+);
 export const IconX = (p: IcProps) => <Ic {...p} d={<path d="M6 6 18 18M18 6 6 18" />} sw={p.sw ?? 1.8} />;
 export const IconArrowUpRight = (p: IcProps) => (
   <Ic {...p} d={<><path d="M7 17 17 7" /><path d="M9 7h8v8" /></>} sw={p.sw ?? 1.7} />

@@ -11,6 +11,8 @@ import ProvenanceBar from "@/components/docs/ProvenanceBar";
 import TrustLine from "@/components/docs/TrustLine";
 import WhatChangedBanner from "@/components/docs/WhatChangedBanner";
 import ReadingRail from "@/components/docs/ReadingRail";
+import PrChangedBanner from "@/components/docs/PrChangedBanner";
+import { getDocActivity } from "@/lib/supabase/activity";
 import { AutoApprovedChip, TypeBadge } from "@/components/aqli/badges";
 import DocBody from "@/components/docs/DocBody";
 import { IconEdit, IconHistory } from "@/components/aqli/icons";
@@ -45,8 +47,19 @@ export default async function DocViewPage({
 
   const base = `/w/${wsSlug}`;
   const version = versions.length || 1;
-  const isAutoApproved = Boolean(doc.frontmatter?.source_pr_url);
+  const prUrl = doc.frontmatter?.source_pr_url;
+  // "Auto-approved" is a claim about status, not just origin — a PR-sourced
+  // doc routed to review (auto-approve off) must not carry the chip.
+  const isAutoApproved = Boolean(prUrl) && doc.status === "approved";
   const stale = isStale(doc.last_reviewed_at);
+
+  // 08c: the doc's latest PR merge event powers the "What this PR changed"
+  // banner. Only fetched for PR-sourced docs.
+  const prEvent = prUrl
+    ? (await getDocActivity(doc.id, 25).catch(() => [])).find(
+        (a) => a.metadata?.source === "github_pr",
+      ) ?? null
+    : null;
   const historyHref = `${base}/docs/${doc.id}/history`;
   const spaceCrumb = doc.space
     ? { label: doc.space.name, href: `${base}/s/${doc.space.slug}` }
@@ -149,7 +162,29 @@ export default async function DocViewPage({
               lastReviewedAt={doc.last_reviewed_at}
               reviewerName={null}
               stale={stale}
+              prSource={
+                isAutoApproved
+                  ? {
+                      repo: doc.frontmatter?.source_repo ?? null,
+                      prNumber: prUrl?.match(/\/pull\/(\d+)/)?.[1] ?? null,
+                    }
+                  : null
+              }
             />
+
+            {prUrl && prEvent && (
+              <PrChangedBanner
+                prUrl={prUrl}
+                repo={doc.frontmatter?.source_repo ?? null}
+                filesChanged={
+                  typeof prEvent.metadata?.files_changed === "number"
+                    ? prEvent.metadata.files_changed
+                    : null
+                }
+                eventAt={prEvent.created_at}
+                created={prEvent.action === "created"}
+              />
+            )}
 
             <WhatChangedBanner
               docId={doc.id}
