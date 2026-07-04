@@ -67,9 +67,9 @@ _Last updated: 2026-07-04._
 
 | Screen | Item | Status |
 |---|---|---|
-| 25b | **GitHub settings** — auto-approve policy hero with a **real off-toggle** (webhook path routes PR docs to Review Queue when off), 3 stats (auto-approved this quarter · docs touched · median PR→doc latency from webhook timestamps), per-repo table | 🟢 `feat/github-25b-viewer-08c` |
-| 08c | Doc Viewer "auto-created from PR" variant — shield trust line ("Verified by PR review"), "What this PR changed" banner from activity metadata; Auto-approved chip/copy now gated on actual `approved` status | 🟢 `feat/github-25b-viewer-08c` |
-| — | Per-agent `AuthorBadge` tint — `AgentChip` icon well tinted by agent id via `avatarColor` | 🟢 `feat/github-25b-viewer-08c` |
+| 25b | **GitHub settings** — auto-approve policy hero with a **real off-toggle** (webhook path routes PR docs to Review Queue when off), 3 stats (auto-approved this quarter · docs touched · median PR→doc latency from webhook timestamps), per-repo table | 🟢 [#29](https://github.com/AAALI/aqli/pull/29) |
+| 08c | Doc Viewer "auto-created from PR" variant — shield trust line ("Verified by PR review"), "What this PR changed" banner from activity metadata; Auto-approved chip/copy now gated on actual `approved` status | 🟢 [#29](https://github.com/AAALI/aqli/pull/29) |
+| — | Per-agent `AuthorBadge` tint — `AgentChip` icon well tinted by agent id via `avatarColor` | 🟢 [#29](https://github.com/AAALI/aqli/pull/29) |
 | 12 | Review Detail — side-by-side diff + comments | ⛔ **deferred**: needs a comments data model that doesn't exist; inline review queue covers beta. Pair with the annotation gutter post-launch. |
 | — | Viewer annotation gutter | ⛔ **deferred**: same comments model dependency as Review Detail — build both on one model. |
 | 24 | Slack configure | ⛔ **deferred**: no Slack toolkit wired in the Composio layer and Slack isn't in the launch story (GitHub + Linear are). |
