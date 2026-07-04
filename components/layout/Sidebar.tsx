@@ -55,11 +55,18 @@ export default function Sidebar({
           <span className="sb-icon"><IconEdit /></span>
           <span>Drafts</span>
         </Link>
-        <Link href={`${base}/search`} className={`sb-item ${isSearch ? "is-active" : ""}`}>
+        {/* Opens the ⌘K palette (same as the top-bar icon); the palette hands
+            off to /search for full results. */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("aqli:open-cmdk"))}
+          className={`sb-item ${isSearch ? "is-active" : ""}`}
+          style={{ background: "transparent", border: 0, width: "100%", textAlign: "left", fontFamily: "inherit" }}
+        >
           <span className="sb-icon"><IconSearch /></span>
           <span>Search</span>
           <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>⌘K</span>
-        </Link>
+        </button>
       </div>
 
       {/* Process surfaces are tools for the job, not the destination — demoted
