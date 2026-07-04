@@ -61,14 +61,18 @@ _Last updated: 2026-07-04._
 
 ## 4. Remaining — designed but unbuilt
 
+> **Product call (2026-07-04):** built the three items that serve the launch's
+> GitHub trust loop; deferred the three that need a comments data model or a
+> provider we don't support yet. Rationale inline.
+
 | Screen | Item | Status |
 |---|---|---|
-| 25b | **GitHub settings** — policy hero + 3 stats + off-toggle + per-repo table (backend exists) | ⬜ **independent** |
-| 08c | Doc Viewer "auto-created from PR" variant — shield trust line + "What this PR changed" banner | ⬜ builds on #18 |
-| 12 | Review Detail — side-by-side diff + comments (review is inline-only today) | ⬜ |
-| 24 | Slack configure — provider route only accepts `github`/`linear` | ⬜ |
-| — | Viewer annotation gutter | ⬜ needs comments model |
-| — | Per-agent `AuthorBadge` tint | ⬜ |
+| 25b | **GitHub settings** — auto-approve policy hero with a **real off-toggle** (webhook path routes PR docs to Review Queue when off), 3 stats (auto-approved this quarter · docs touched · median PR→doc latency from webhook timestamps), per-repo table | 🟢 [#29](https://github.com/AAALI/aqli/pull/29) |
+| 08c | Doc Viewer "auto-created from PR" variant — shield trust line ("Verified by PR review"), "What this PR changed" banner from activity metadata; Auto-approved chip/copy now gated on actual `approved` status | 🟢 [#29](https://github.com/AAALI/aqli/pull/29) |
+| — | Per-agent `AuthorBadge` tint — `AgentChip` icon well tinted by agent id via `avatarColor` | 🟢 [#29](https://github.com/AAALI/aqli/pull/29) |
+| 12 | Review Detail — side-by-side diff + comments | ⛔ **deferred**: needs a comments data model that doesn't exist; inline review queue covers beta. Pair with the annotation gutter post-launch. |
+| — | Viewer annotation gutter | ⛔ **deferred**: same comments model dependency as Review Detail — build both on one model. |
+| 24 | Slack configure | ⛔ **deferred**: no Slack toolkit wired in the Composio layer and Slack isn't in the launch story (GitHub + Linear are). |
 
 ---
 
@@ -92,6 +96,6 @@ mobile read-only viewer · public read-only space · SOC2 audit export.
 ## 7. Suggested order from here
 
 1. **Ops blockers (§6)** — SMTP/confirmation decision + `wrangler secret list` check.
-2. **GitHub 25b settings** (independent — teams connecting GitHub will look for it).
-3. 08c viewer variant · Review Detail · Slack configure.
-4. Deferred items as their data/infra lands.
+2. **Merge the open stack** — #28 (app-wide chat + AI route guard) then #29 (25b + 08c).
+3. Post-launch: comments data model → Review Detail (12) + annotation gutter together · Slack configure (24) when a Slack toolkit lands.
+4. Deferred items (§5) as their data/infra lands.

@@ -93,6 +93,15 @@ export async function processComposioWebhookPayload(
   });
 }
 
+/**
+ * Workspace policy: merged PRs auto-approve by default (they were reviewed in
+ * GitHub). Admins can turn this off on the GitHub settings page, routing
+ * PR-sourced docs to the review queue instead.
+ */
+export function isAutoApproveEnabled(connection: IntegrationConnection): boolean {
+  return connection.metadata?.auto_approve !== false;
+}
+
 export async function processPullRequestData(
   connection: IntegrationConnection,
   eventData: unknown,
@@ -169,9 +178,10 @@ export async function processPullRequestData(
       existingMarkdown: match?.body_md ?? null,
     });
 
+    const autoApprove = isAutoApproveEnabled(connection);
     const result = match
-      ? await updateMatchedDoc(match, pr, files, implementedText, linearIssueKey)
-      : { doc: await createChangeDoc(connection, pr, files, implementedText, linearIssueKey), changed: true };
+      ? await updateMatchedDoc(match, pr, files, implementedText, linearIssueKey, autoApprove)
+      : { doc: await createChangeDoc(connection, pr, files, implementedText, linearIssueKey, autoApprove), changed: true };
 
     await updateIntegrationConnection(connection.id, {
       last_event_at: new Date().toISOString(),
@@ -299,6 +309,7 @@ async function updateMatchedDoc(
   files: PullRequestFileSummary[],
   implementedText: string,
   linearIssueKey: string | null,
+  autoApprove: boolean,
 ) {
   const bodyMd = patchImplementedSection(doc.body_md ?? `# ${doc.title}\n`, implementedText);
   const frontmatter: DocFrontmatter = {
@@ -313,6 +324,9 @@ async function updateMatchedDoc(
     normalizeFrontmatterForComparison(doc.frontmatter) !== normalizeFrontmatterForComparison(frontmatter);
 
   if (!changed) {
+    // Nothing to review — with auto-approve off, leave the doc exactly as it
+    // is rather than flipping its status over a no-op merge.
+    if (!autoApprove) return { doc, changed: false };
     const approved =
       doc.status === "approved"
         ? await touchReviewedAt(doc.id)
@@ -322,15 +336,20 @@ async function updateMatchedDoc(
 
   const updated = await updateAgentDoc(doc.id, { body_md: bodyMd, frontmatter });
   // Merged PRs are already trusted — auto-approve so the doc is live context
-  // immediately. Skip the status flip (and its `status_change` snapshot) when
-  // the doc is already approved so we don't add a no-op version entry.
-  const approved =
-    updated.status === "approved"
-      ? await touchReviewedAt(updated.id)
-      : await setAgentDocStatus(updated.id, "approved", { markReviewed: true });
-  await embedDoc(approved).catch((err) => console.error("Embed failed for integration doc", approved.id, err));
-  await logPrActivity(approved, pr, files, false);
-  return { doc: approved, changed: true };
+  // immediately (unless the workspace turned the policy off, in which case the
+  // patched doc goes to the review queue). Skip the status flip (and its
+  // `status_change` snapshot) when the status is already right so we don't add
+  // a no-op version entry.
+  const targetStatus = autoApprove ? "approved" : "review";
+  const resolved =
+    updated.status === targetStatus
+      ? autoApprove
+        ? await touchReviewedAt(updated.id)
+        : updated
+      : await setAgentDocStatus(updated.id, targetStatus, { markReviewed: autoApprove });
+  await embedDoc(resolved).catch((err) => console.error("Embed failed for integration doc", resolved.id, err));
+  await logPrActivity(resolved, pr, files, false, autoApprove);
+  return { doc: resolved, changed: true };
 }
 
 function normalizeFrontmatterForComparison(frontmatter: DocFrontmatter | null | undefined): string {
@@ -366,21 +385,22 @@ async function createChangeDoc(
   files: PullRequestFileSummary[],
   implementedText: string,
   linearIssueKey: string | null,
+  autoApprove: boolean,
 ) {
   const spaceId = await resolveDefaultSpaceId(connection);
   const bodyMd = buildFixNoteMarkdown({ pr, files, implementedText, linearIssueKey });
-  // Merged PRs are already trusted, so create the doc directly as `approved`.
-  // This skips the redundant `draft -> approved` status snapshot that used to
-  // show up as a no-op v2 entry in the doc's version history.
-  const approved = await createAgentDoc({
+  // Merged PRs are already trusted, so create the doc directly as `approved`
+  // (skipping the redundant `draft -> approved` status snapshot) — unless the
+  // workspace disabled auto-approve, in which case it enters the review queue.
+  const doc = await createAgentDoc({
     workspace_id: connection.workspace_id,
     space_id: spaceId,
     title: pr.title,
     type: "fix_note",
     body_md: bodyMd,
     agent_id: "composio-github",
-    status: "approved",
-    markReviewed: true,
+    status: autoApprove ? "approved" : "review",
+    markReviewed: autoApprove,
     frontmatter: {
       tags: ["github", "auto-update"],
       linear_issue_id: linearIssueKey ?? undefined,
@@ -388,9 +408,9 @@ async function createChangeDoc(
       source_repo: pr.repoFullName,
     },
   });
-  await embedDoc(approved).catch((err) => console.error("Embed failed for integration doc", approved.id, err));
-  await logPrActivity(approved, pr, files, true);
-  return approved;
+  await embedDoc(doc).catch((err) => console.error("Embed failed for integration doc", doc.id, err));
+  await logPrActivity(doc, pr, files, true, autoApprove);
+  return doc;
 }
 
 async function resolveDefaultSpaceId(connection: IntegrationConnection) {
@@ -410,10 +430,11 @@ async function logPrActivity(
   pr: PullRequestSummary,
   files: PullRequestFileSummary[],
   created: boolean,
+  autoApproved: boolean,
 ) {
   // One activity row per merge — the auto-approval is already implied by the
-  // metadata (`auto_approved: true`) and the doc's `approved` status, so we
-  // don't emit a separate `approved` entry that would double the feed.
+  // metadata (`auto_approved`) and the doc's status, so we don't emit a
+  // separate `approved` entry that would double the feed.
   await logActivity({
     docId: doc.id,
     workspaceId: doc.workspace_id,
@@ -426,7 +447,7 @@ async function logPrActivity(
       pr_url: pr.url,
       repo: pr.repoFullName,
       files_changed: files.length,
-      auto_approved: true,
+      auto_approved: autoApproved,
     },
   });
 }
