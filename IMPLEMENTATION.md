@@ -96,6 +96,6 @@ mobile read-only viewer · public read-only space · SOC2 audit export.
 ## 7. Suggested order from here
 
 1. **Ops blockers (§6)** — SMTP/confirmation decision + `wrangler secret list` check.
-2. **GitHub 25b settings** (independent — teams connecting GitHub will look for it).
-3. 08c viewer variant · Review Detail · Slack configure.
-4. Deferred items as their data/infra lands.
+2. **Merge the open stack** — #28 (app-wide chat + AI route guard) then #29 (25b + 08c).
+3. Post-launch: comments data model → Review Detail (12) + annotation gutter together · Slack configure (24) when a Slack toolkit lands.
+4. Deferred items (§5) as their data/infra lands.
