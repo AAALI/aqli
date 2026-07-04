@@ -61,14 +61,18 @@ _Last updated: 2026-07-04._
 
 ## 4. Remaining — designed but unbuilt
 
+> **Product call (2026-07-04):** built the three items that serve the launch's
+> GitHub trust loop; deferred the three that need a comments data model or a
+> provider we don't support yet. Rationale inline.
+
 | Screen | Item | Status |
 |---|---|---|
-| 25b | **GitHub settings** — policy hero + 3 stats + off-toggle + per-repo table (backend exists) | ⬜ **independent** |
-| 08c | Doc Viewer "auto-created from PR" variant — shield trust line + "What this PR changed" banner | ⬜ builds on #18 |
-| 12 | Review Detail — side-by-side diff + comments (review is inline-only today) | ⬜ |
-| 24 | Slack configure — provider route only accepts `github`/`linear` | ⬜ |
-| — | Viewer annotation gutter | ⬜ needs comments model |
-| — | Per-agent `AuthorBadge` tint | ⬜ |
+| 25b | **GitHub settings** — auto-approve policy hero with a **real off-toggle** (webhook path routes PR docs to Review Queue when off), 3 stats (auto-approved this quarter · docs touched · median PR→doc latency from webhook timestamps), per-repo table | 🟢 `feat/github-25b-viewer-08c` |
+| 08c | Doc Viewer "auto-created from PR" variant — shield trust line ("Verified by PR review"), "What this PR changed" banner from activity metadata; Auto-approved chip/copy now gated on actual `approved` status | 🟢 `feat/github-25b-viewer-08c` |
+| — | Per-agent `AuthorBadge` tint — `AgentChip` icon well tinted by agent id via `avatarColor` | 🟢 `feat/github-25b-viewer-08c` |
+| 12 | Review Detail — side-by-side diff + comments | ⛔ **deferred**: needs a comments data model that doesn't exist; inline review queue covers beta. Pair with the annotation gutter post-launch. |
+| — | Viewer annotation gutter | ⛔ **deferred**: same comments model dependency as Review Detail — build both on one model. |
+| 24 | Slack configure | ⛔ **deferred**: no Slack toolkit wired in the Composio layer and Slack isn't in the launch story (GitHub + Linear are). |
 
 ---
 

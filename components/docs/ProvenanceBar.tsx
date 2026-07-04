@@ -46,9 +46,16 @@ export default function ProvenanceBar({
           <IconArrowUpRight size={11} />
         </a>
         <Sep />
-        <span style={{ color: "var(--approved-text)", fontWeight: 500 }}>
-          Auto-approved
-        </span>
+        {/* A PR-sourced doc can sit in review when auto-approve is off. */}
+        {doc.status === "approved" ? (
+          <span style={{ color: "var(--approved-text)", fontWeight: 500 }}>
+            Auto-approved
+          </span>
+        ) : (
+          <span style={{ color: "var(--review-text)", fontWeight: 500 }}>
+            Awaiting review
+          </span>
+        )}
         <Sep />
         <span>{formatDate(doc.created_at)}</span>
       </Bar>
