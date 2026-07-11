@@ -19,11 +19,14 @@ export async function getAgentWorkspaceMeta(
   workspaceId: string,
 ): Promise<AgentWorkspaceMeta> {
   const supabase = createServiceClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("workspaces")
     .select("slug, settings")
     .eq("id", workspaceId)
     .maybeSingle();
+  // Surface DB failures instead of silently degrading to a broken fallback
+  // docUrl and agentAutoApprove=false.
+  if (error) throw error;
 
   const slug = data?.slug ?? null;
   const settings = (data?.settings ?? {}) as Record<string, unknown>;
