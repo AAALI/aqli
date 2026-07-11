@@ -26,7 +26,7 @@ This problem gets worse as teams add more agents. Aqli solves it.
 
 ## Product Vision
 
-> Aqli is the open source team knowledge base built for the reality that your team now includes both humans and AI agents. A single place where humans write docs, agents read context, agents write output, and humans review and approve — all in one structured, searchable, self-hostable system.
+> Aqli is the team knowledge base built for the reality that your team now includes both humans and AI agents. A single place where humans write docs, agents read context, agents write output, and humans review and approve — all in one structured, searchable, hosted system.
 
 ---
 
@@ -35,7 +35,7 @@ This problem gets worse as teams add more agents. Aqli solves it.
 1. **Human writing experience is as clean as Notion** — non-engineers write and review docs without friction, no markdown syntax required
 2. **Agents get a reliable, structured API** — any agent (Claude, GPT, Cursor, LangChain) can query context, create docs, update docs, and flag for review via a simple REST API with predictable responses
 3. **The human-agent review loop is a first-class feature** — agent-authored content enters a Draft state and requires human approval before becoming part of the trusted knowledge base
-4. **Self-hostable in under 10 minutes** — Docker Compose, one command, BYO API keys, no vendor lock-in
+4. **Zero-ops for teams** — Aqli is a hosted product (Cloudflare Workers + Supabase); a team onboards in minutes with nothing to deploy or operate
 5. **Portable storage** — all docs stored as Markdown with structured frontmatter, exportable, readable without Aqli
 
 ---
@@ -50,14 +50,14 @@ This problem gets worse as teams add more agents. Aqli solves it.
 | Plugin/extension marketplace | Over-engineering for an early product |
 | Whiteboard or database views | This is not Notion; scope must stay tight |
 | Complex RBAC permissions | Role: Admin / Editor / Viewer is enough for V1 |
-| Billing / hosted SaaS tier | Open source V1 first; hosted tier is Phase 2 — aqli.app |
+| Self-hosted / on-prem distribution | **Descoped (July 2026):** Aqli ships as a hosted product only. Markdown-native storage and per-doc export keep data portable; there is no Docker/self-host target to build or support. |
 
 ---
 
 ## Target Users
 
 ### Primary: Engineering leads and PMs at AI-native teams
-Teams of 3–30 people actively using AI coding agents (Cursor, Claude Code, Copilot) who feel the pain of agents having no persistent context. They're technical enough to self-host but don't want to build their own solution.
+Teams of 3–30 people actively using AI coding agents (Cursor, Claude Code, Copilot) who feel the pain of agents having no persistent context. They want this working out of the box — not another internal tool to build and operate.
 
 ### Secondary: Compliance and operations team members
 Non-engineers who need to write, review, and approve docs without touching a terminal. They open the browser editor, read docs, leave comments, and change status. They don't care about the Git backend.
@@ -145,11 +145,11 @@ Claude Code, GPT-4o, custom LangChain agents. They interact entirely through the
 - [ ] Reviewer can Approve, Request Changes, or Reject
 - [ ] Status changes are versioned and timestamped
 
-**Self-host**
-- [ ] Docker Compose with all services (app, Postgres, pgvector)
+**Deployment** *(replaced the former Self-host P0 — there is no self-hosted version)*
+- [ ] Hosted on Cloudflare Workers via OpenNext (`wrangler deploy`), Supabase for Postgres/pgvector/Auth
 - [ ] `.env.example` with all required environment variables documented
-- [ ] Single command startup: `docker compose up`
-- [ ] BYO OpenAI API key, Supabase optional (can run local Postgres)
+- [ ] Production secrets managed via `wrangler secret` (OpenAI, Composio, Supabase service key)
+- [ ] Database schema fully reproducible from checked-in migrations (dev/staging environments)
 
 ### P1 — Nice to Have (ship soon after MVP)
 
@@ -212,8 +212,8 @@ Multi-workspace support. Linear integration. Notifications. Stale doc detection.
 ### Phase 3 — Open Source Release (Weeks 9–12)
 Clean README. Demo video. Setup docs. Public GitHub repo under SIRO org. ProductHunt launch. Gather community feedback.
 
-### Phase 4 — Hosted Tier (Post-OSS, if demand)
-Managed infrastructure. SSO. Advanced audit logs. Stripe billing.
+### Phase 4 — Paid Tier (Post-launch, if demand)
+Aqli is hosted-only from day one, so this phase is about monetising the managed product: SSO. Advanced audit logs. Stripe billing.
 
 ---
 
@@ -289,7 +289,7 @@ Managed infrastructure. SSO. Advanced audit logs. Stripe billing.
 | Storage | Supabase Storage (primary) / GitHub API (optional) | Supabase for simplicity; GitHub backend for teams who want Git-native portability |
 | Embeddings | OpenAI text-embedding-3-small | Best cost/quality tradeoff; BYO key |
 | AI completions | OpenAI GPT-4o-mini | For AI summaries and Q&A; BYO key |
-| Self-host | Docker Compose | One command, no Kubernetes, no cloud account needed |
+| Hosting | Cloudflare Workers (OpenNext) + Supabase | Zero-ops managed deployment; no self-hosted distribution |
 | Styling | Tailwind CSS | Fast iteration, consistent with existing SIRO tooling |
 
 ---
@@ -621,49 +621,21 @@ The AED withdrawal flow allows users to...
 
 ---
 
-## Self-Host Architecture (Docker Compose)
+## Deployment Architecture (Hosted)
 
-```yaml
-# docker-compose.yml
-version: '3.8'
+> The original v1.0 plan shipped a Docker Compose self-host target. That was
+> **descoped in July 2026** — Aqli is a hosted product only. The deployment
+> story as built:
 
-services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - STORAGE_BACKEND=${STORAGE_BACKEND:-supabase}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
-    depends_on:
-      - postgres
-
-  postgres:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_DB: aqli
-      POSTGRES_USER: aqli
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
-
-  worker:
-    build: .
-    command: node workers/embedder.js
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-    depends_on:
-      - postgres
-
-volumes:
-  postgres_data:
-```
+- **App**: Next.js 16 compiled with OpenNext and deployed to **Cloudflare
+  Workers** (`wrangler.jsonc`; `pnpm deploy` → `opennextjs-cloudflare build && deploy`).
+- **Database / Auth / vectors**: hosted **Supabase** project (Postgres +
+  pgvector + Auth). Schema managed via `supabase/migrations/`.
+- **Secrets**: `wrangler secret` for `OPENAI_API_KEY`, `SUPABASE_SERVICE_KEY`,
+  and Composio keys; public config (`NEXT_PUBLIC_*`) in build-time env.
+- **Webhooks**: Composio delivers GitHub/Linear events to
+  `/api/integrations/composio/webhook` on the Worker; long-running processing
+  uses `ctx.waitUntil` after a fast ack.
 
 ---
 
@@ -687,9 +659,8 @@ MIT
 aqli/
 ├── README.md
 ├── LICENSE
-├── docker-compose.yml
-├── docker-compose.dev.yml
-├── Dockerfile
+├── wrangler.jsonc
+├── open-next.config.ts
 ├── .env.example
 ├── package.json
 ├── tsconfig.json
@@ -870,7 +841,6 @@ aqli/
 └── docs/                           # Product documentation (in Markdown)
     ├── getting-started.md
     ├── agent-api.md                # Full agent API reference
-    ├── self-hosting.md
     ├── doc-types.md
     └── integrations/
         └── linear.md
@@ -920,8 +890,8 @@ SLACK_REVIEW_CHANNEL=#doc-review
 ```
 Tasks:
 - Set up Next.js 15 project with Tailwind + TypeScript
-- Docker Compose with Postgres + pgvector
-- Run init.sql schema
+- Supabase project (Postgres + pgvector + Auth)
+- Apply core schema migration
 - Supabase Auth setup (email/password)
 - Spaces CRUD: create, list, sidebar nav
 - Docs CRUD: create, read, update, delete
@@ -965,18 +935,18 @@ Tasks:
 Deliverable: Full human-agent review loop working end to end.
 ```
 
-### Week 4 — Polish + Self-Host
+### Week 4 — Polish + Launch (hosted)
 ```
 Tasks:
-- Docker Compose file + Dockerfile
+- Cloudflare Workers deployment (OpenNext + wrangler), production secrets
 - .env.example documentation
-- README: setup guide, agent API reference, self-hosting
+- README: setup guide, agent API reference
 - Seed script (demo workspace with sample docs)
-- Storage backend abstraction (Supabase Storage or GitHub)
 - GitHub Actions CI (lint, type-check, test)
 - Settings: workspace name, member invite, API key management
 
-Deliverable: Anyone can clone the repo, run docker compose up, and have a working Aqli instance.
+Deliverable: Aqli running in production at aqli.app; a new team can sign up,
+invite members, mint an agent key, and use the full loop with nothing to deploy.
 ```
 
 ---
@@ -1006,18 +976,16 @@ missing shared context layer.
 - Built-in RAG: every doc is embedded and searchable by agents
 - Human-agent review loop: agent docs are flagged for human approval
 - Linear integration: link docs to projects and issues
-- Self-hostable: Docker Compose, BYO AI keys, no vendor lock-in
-- Portable: all docs stored as Markdown + YAML frontmatter
+- Hosted: nothing to deploy or operate — sign up and go
+- Portable: all docs stored as Markdown + YAML frontmatter, exportable per doc
 
 ## Quick Start
 
-    git clone https://github.com/AAALI/aqli
-    cd aqli
-    cp .env.example .env
-    # Add your OPENAI_API_KEY and database credentials
-    docker compose up
+    1. Sign up at https://aqli.app (creates your workspace + default spaces)
+    2. Invite your team from Settings → Members
+    3. Mint an agent API key from Settings → API keys
 
-Open http://localhost:3000
+Point your agents at the API below.
 
 ## Agent API
 

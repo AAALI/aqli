@@ -290,9 +290,10 @@ grant (`invitation_details` legitimately needs anon; the others don't).
    `20260608` (integration tables). The Week 1–3 schema — `workspaces`,
    `spaces`, `docs`, `doc_versions`, `doc_chunks`, `doc_comments`,
    `doc_activity`, `api_keys`, `members`, all RLS policies, and the four RPCs —
-   exists only in the live project. This breaks the PRD's own P0 self-host
-   promise ("docker compose up") and means no one can stand up a second
-   environment. Run `supabase db pull` and commit the baseline migration.
+   exists only in the live project. Even with self-hosting descoped
+   (hosted-only as of July 2026), this means no dev/staging environment can be
+   stood up and there is no disaster-recovery path for the schema. Run
+   `supabase db pull` and commit the baseline migration.
 2. **CLAUDE.md is two product-phases stale.** It still says "no agent API,
    RAG, embeddings, or AI features yet (those are Week 2)" and "service-role
    client … unused in Week 1". Any agent session starting from CLAUDE.md gets
@@ -326,10 +327,11 @@ grant (`invitation_details` legitimately needs anon; the others don't).
   beta whose pitch is "humans approve what agents write," default the trust
   policy to *review* and let teams earn their way to auto-approve — that also
   makes the (nicely built) queue UI visible in demos.
-- **P0 gaps still open**: templates per doc type exist, but self-host
-  (Docker Compose) and bulk Markdown/Notion import don't; filters (owner/tag)
-  are missing from search. Either build them or formally descope in the PRD —
-  right now the PRD reads as commitments.
+- **P0 gaps still open**: templates per doc type exist, but bulk
+  Markdown/Notion import doesn't; filters (owner/tag) are missing from search.
+  Either build them or formally descope in the PRD — right now the PRD reads
+  as commitments. (Self-host was one of these gaps; it has since been
+  formally descoped — the PRD now documents Aqli as hosted-only.)
 - **Invitations without email delivery** — invites exist only as copy-paste
   links, and the ops blocker (Supabase confirm-email ON with no SMTP) is
   already tracked in `IMPLEMENTATION.md` §6. This is the single biggest

@@ -62,7 +62,8 @@ curl -X POST https://your-aqli.app/api/agent/docs \
 - [x] Week 1: Editor, spaces, docs, search
 - [x] Week 2: Agent API, RAG, embeddings
 - [x] Week 3: Review loop, AI features, stale detection
-- [ ] Week 4: Self-host, Docker Compose, open source release
+- [x] GitHub & Linear integrations (Composio), invitations, app-wide AI chat
+- [ ] Production launch at aqli.app (hosted only — the self-host/Docker target is descoped)
 
 ## License
 
