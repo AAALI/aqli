@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAgent } from "../../../_auth";
+import { getAgentWorkspaceMeta } from "../../../_workspace";
 import { getAgentDoc, setAgentDocStatus } from "@/lib/supabase/agent-docs";
 import { logActivity } from "@/lib/supabase/activity";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const agent = await authenticateAgent(req);
@@ -29,9 +28,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Notifications (email / Slack) are intentionally out of scope for Week 3.
 
+  const workspace = await getAgentWorkspaceMeta(agent.workspaceId);
   return NextResponse.json({
     status: "review_requested",
     message: "Human review requested. Doc will not enter trusted context until approved.",
-    review_url: `${APP_URL}/docs/${id}`,
+    review_url: workspace.docUrl(id),
   });
 }

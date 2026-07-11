@@ -274,11 +274,11 @@ async function findMatchingDoc(
   const supabase = createServiceClient();
   const selectCols = "*, space:spaces(id, workspace_id, name, slug, icon, created_at)";
 
-  if (input.linearIssueKey) {
-    const key = input.linearIssueKey;
-    // jsonb keys are stored as-is; match both exact `linear_issue_id` and any
-    // `linked_project_url` containing the key (case-insensitive).
-    const safeKey = key.replace(/[%,]/g, "");
+  // The key is interpolated into a PostgREST .or() filter string below, so
+  // only accept the strict Linear shape (ABC-123) — anything else could smuggle
+  // filter syntax.
+  if (input.linearIssueKey && /^[A-Z][A-Z0-9]*-\d+$/.test(input.linearIssueKey)) {
+    const safeKey = input.linearIssueKey;
     const { data, error } = await supabase
       .from("docs")
       .select(selectCols)

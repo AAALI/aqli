@@ -33,10 +33,16 @@ export default function DocEditorClient({
   const base = `/w/${workspaceSlug}`;
   const [title, setTitle] = useState(doc.title);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatPrefill, setChatPrefill] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Unsent (or failed) field updates, merged across edits. Cleared only after
+  // the PUT that carried them succeeds, so the unload warning and the
+  // unmount/next-edit retry stay armed on failure.
+  const pendingUpdates = useRef<Record<string, unknown> | null>(null);
+  const saveInFlight = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Children (slash menu, selection toolbar) register key handlers that run
@@ -52,22 +58,59 @@ export default function DocEditorClient({
     [],
   );
 
-  const persist = useCallback(
-    async (updates: Record<string, unknown>) => {
+  const persistOnce = useCallback(
+    async (updates: Record<string, unknown>): Promise<boolean> => {
       setSaving(true);
       try {
-        await fetch(`/api/docs/${doc.id}`, {
+        const res = await fetch(`/api/docs/${doc.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updates),
         });
+        if (!res.ok) throw new Error(`Save failed (${res.status})`);
         setLastSaved(new Date());
+        setSaveError(false);
+        return true;
+      } catch (err) {
+        // Expired session, RLS denial, offline — the next edit retries, but
+        // the label must not claim "Saved" in the meantime.
+        console.error("Autosave failed:", err);
+        setSaveError(true);
+        return false;
       } finally {
         setSaving(false);
       }
     },
     [doc.id],
   );
+
+  // Single-flight save pump: one PUT at a time, always carrying the latest
+  // merged snapshot, so an older request can never land after a newer one.
+  // On failure the snapshot is restored (newer edits win field-by-field) for
+  // the unmount flush / unload warning / next-edit retry.
+  const pumpSaves = useCallback(async () => {
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
+    try {
+      while (pendingUpdates.current) {
+        const updates = pendingUpdates.current;
+        pendingUpdates.current = null;
+        const ok = await persistOnce(updates);
+        if (!ok) {
+          pendingUpdates.current = { ...updates, ...(pendingUpdates.current ?? {}) };
+          break;
+        }
+      }
+    } finally {
+      saveInFlight.current = false;
+    }
+  }, [persistOnce]);
+
+  // Merge field updates into the pending snapshot; sending happens via the
+  // pump (immediately, or debounced by the caller's timer).
+  const queueUpdates = useCallback((updates: Record<string, unknown>) => {
+    pendingUpdates.current = { ...(pendingUpdates.current ?? {}), ...updates };
+  }, []);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -83,10 +126,11 @@ export default function DocEditorClient({
     content: doc.body_json ?? { type: "doc", content: [{ type: "paragraph" }] },
     onUpdate: ({ editor }) => {
       const json = editor.getJSON() as Record<string, unknown>;
+      // Queue immediately (arms the unload warning during the debounce
+      // window); the timer only decides when the pump sends it.
+      queueUpdates({ body_json: json, body_md: tiptapToMarkdown(json) });
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        persist({ body_json: json, body_md: tiptapToMarkdown(json) });
-      }, 2000); // 2s debounce
+      saveTimer.current = setTimeout(() => void pumpSaves(), 2000); // 2s debounce
     },
     editorProps: {
       attributes: { class: "ed2-prose" },
@@ -105,6 +149,26 @@ export default function DocEditorClient({
     };
   }, [editor]);
 
+  // Client-side navigation unmounts mid-debounce: send the pending edits
+  // immediately instead of dropping the last ≤2s of typing. (The fetch
+  // outlives the component on soft navigations.)
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      void pumpSaves();
+    };
+  }, [pumpSaves]);
+
+  // Hard unloads (tab close, refresh) can't be flushed reliably — warn while
+  // edits are unsent or a save is still in flight.
+  useEffect(() => {
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      if (pendingUpdates.current || saveInFlight.current) e.preventDefault();
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
   // ⌘J toggles the Co-write chat from anywhere on the screen.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -120,9 +184,11 @@ export default function DocEditorClient({
   const saveTitle = useCallback(
     (newTitle: string) => {
       if (newTitle === doc.title) return;
-      persist({ title: newTitle || "Untitled" });
+      // Through the same queue so a title PUT can't race a body PUT.
+      queueUpdates({ title: newTitle || "Untitled" });
+      void pumpSaves();
     },
-    [persist, doc.title],
+    [queueUpdates, pumpSaves, doc.title],
   );
 
   const askAgent = useCallback(() => {
@@ -145,9 +211,11 @@ export default function DocEditorClient({
 
   const savedLabel = saving
     ? "Saving…"
-    : lastSaved
-      ? `Saved ${formatRelative(lastSaved)}`
-      : `Saved ${formatRelative(doc.updated_at)}`;
+    : saveError
+      ? "Couldn't save — retrying on next edit"
+      : lastSaved
+        ? `Saved ${formatRelative(lastSaved)}`
+        : `Saved ${formatRelative(doc.updated_at)}`;
 
   const spaceCrumb = doc.space
     ? { label: doc.space.name, href: `${base}/s/${doc.space.slug}` }

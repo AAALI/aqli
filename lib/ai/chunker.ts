@@ -8,8 +8,23 @@ export type Chunk = {
  * Split Markdown into chunks at h2/h3 heading boundaries.
  * Each chunk gets its heading as context, plus a metadata prefix so the
  * embedding captures the doc-level context (title, space, type, status).
- * Max ~400 words per chunk — well within the embedding model's token limit.
+ * Sections longer than MAX_CHUNK_WORDS are split into multiple chunks that
+ * share the same heading — without the cap, a long doc with no h2/h3 becomes
+ * one giant chunk that blows the embedding model's token limit and fails the
+ * whole embed call.
  */
+export const MAX_CHUNK_WORDS = 400;
+
+function splitByWords(text: string): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length <= MAX_CHUNK_WORDS) return [text];
+  const parts: string[] = [];
+  for (let i = 0; i < words.length; i += MAX_CHUNK_WORDS) {
+    parts.push(words.slice(i, i + MAX_CHUNK_WORDS).join(" "));
+  }
+  return parts;
+}
+
 export function chunkMarkdown(
   markdown: string,
   docTitle: string,
@@ -41,7 +56,8 @@ export function chunkMarkdown(
     sections.push(current);
   }
 
-  return sections.map((section, index) => {
+  const chunks: Chunk[] = [];
+  for (const section of sections) {
     const metaPrefix = [
       `[Doc: ${docTitle}]`,
       `[Space: ${docSpace}]`,
@@ -52,11 +68,13 @@ export function chunkMarkdown(
       .filter(Boolean)
       .join(" ");
 
-    const content = [metaPrefix, "", section.heading ?? "", section.lines.join("\n")]
-      .filter((s) => s !== null)
-      .join("\n")
-      .trim();
-
-    return { heading: section.heading, content, index };
-  });
+    for (const part of splitByWords(section.lines.join("\n"))) {
+      const content = [metaPrefix, "", section.heading ?? "", part]
+        .filter((s) => s !== null)
+        .join("\n")
+        .trim();
+      chunks.push({ heading: section.heading, content, index: chunks.length });
+    }
+  }
+  return chunks;
 }
