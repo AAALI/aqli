@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { LegalPage, LegalSection, LegalP, LegalList } from "@/components/landing/LegalPage";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Aqli",
+  title: "Privacy Policy",
   description: "How Aqli Cloud collects, uses, and protects your data.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {
