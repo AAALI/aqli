@@ -43,36 +43,36 @@ const FLOW_STEPS: FlowStepDef[] = [
     id: "ask",
     eyebrow: "01 · The trigger",
     title: "A question shows up — or a PR lands.",
-    body: "Aqli watches the places knowledge actually starts: Slack threads, command-bar questions, and PRs merging into your codebase.",
-    url: "github.com/mercury/banking-core · pull/1247",
+    body: "Aqli watches the places knowledge actually starts: questions asked in your workspace and pull requests merging into your codebase.",
+    url: "github.com/acme/banking-core · pull/1247",
   },
   {
     id: "read",
     eyebrow: "02 · Grounding",
     title: "The agent reads only what's approved.",
-    body: "Through one MCP endpoint, your agent pulls the exact chunks of canonical knowledge it needs — no scraping, no stale wikis, no leaks.",
-    url: "aqli.app/api/context · MCP",
+    body: "Through one context endpoint, your agent pulls the exact chunks of canonical knowledge it needs — no scraping, no stale wikis, no leaks.",
+    url: "aqli.app/api/agent/context",
   },
   {
     id: "draft",
     eyebrow: "03 · Co-writing",
     title: "Co-write drafts with citations inline.",
     body: "The agent drafts a section in your editor, suggests quotes from approved docs, and waits for you to accept — line by line.",
-    url: "mercury.aqli.app/engineering/ach-r09-routing",
+    url: "acme.aqli.app/engineering/ach-r09-routing",
   },
   {
     id: "review",
     eyebrow: "04 · The human call",
     title: "One click. Diff, provenance, and decision.",
-    body: "Every agent draft lands with the docs it read, a clean diff, and a one-tap Approve / Request changes / Reject. No more guessing what was generated.",
-    url: "mercury.aqli.app/review/2491",
+    body: "Every agent draft lands in the review queue with a one-tap Approve / Request changes / Reject. No more guessing what was generated — every decision is logged.",
+    url: "acme.aqli.app/review/2491",
   },
   {
     id: "know",
     eyebrow: "05 · The compound effect",
     title: "Approved → part of the corpus. Cited by the next draft.",
     body: "Every approval enriches the library. The next teammate — or the next agent — gets a sharper answer with citations, backlinks, and a freshness signal.",
-    url: "mercury.aqli.app/engineering/ach-r09-routing",
+    url: "acme.aqli.app/engineering/ach-r09-routing",
   },
 ];
 
@@ -568,7 +568,7 @@ function FlowStage_Ask({ isMobile }: { isMobile: boolean }) {
               <IconGitHub size={12} />
             </span>
             <span style={{ fontSize: 11.5, color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
-              mercury/banking-core
+              acme/banking-core
             </span>
             <span
               style={{
@@ -718,7 +718,7 @@ function FlowStage_Ask({ isMobile }: { isMobile: boolean }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// STAGE 02 · Aqli reads approved context (MCP call + retrieved chunks)
+// STAGE 02 · Aqli reads approved context (context API call + retrieved chunks)
 // ─────────────────────────────────────────────────────────────────────
 
 function FlowStage_Read({ isMobile }: { isMobile: boolean }) {
@@ -735,7 +735,7 @@ function FlowStage_Read({ isMobile }: { isMobile: boolean }) {
         gap: isMobile ? 16 : 0,
       }}
     >
-      {/* Left — MCP/curl call */}
+      {/* Left — context API call */}
       <div
         style={{
           background: "#1A1916",
@@ -775,12 +775,12 @@ function FlowStage_Read({ isMobile }: { isMobile: boolean }) {
           >
             <IconRobot size={11} />
           </span>
-          Claude Code · mercury/banking-core
+          Claude Code · acme/banking-core
         </div>
 
         <CodeLine delay={260}>
-          <span style={{ color: "#9CC2A8" }}>POST</span>{" "}
-          <span style={{ color: "#E8E6DF" }}>https://aqli.app/mcp/v1/context</span>
+          <span style={{ color: "#9CC2A8" }}>GET</span>{" "}
+          <span style={{ color: "#E8E6DF" }}>https://aqli.app/api/agent/context</span>
         </CodeLine>
         <CodeLine delay={936}>
           <span style={{ color: "rgba(255,255,255,0.50)" }}>Authorization:</span>{" "}
@@ -1064,7 +1064,7 @@ function FlowStage_Draft({ isMobile }: { isMobile: boolean }) {
             }}
           >
             I drafted §1 with three citations from <strong>Payout Retry ADR v3</strong> and the{" "}
-            <strong>ACH Runbook</strong>. Want me to draft §2 — &ldquo;Rollout plan&rdquo; — using the Mercury pattern?
+            <strong>ACH Runbook</strong>. Want me to draft §2 — &ldquo;Rollout plan&rdquo; — using the same pattern?
             <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
               <span
                 style={{
