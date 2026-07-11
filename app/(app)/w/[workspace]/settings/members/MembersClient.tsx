@@ -43,9 +43,10 @@ export default function MembersClient({
   initialInvitations: InviteRow[];
 }) {
   const router = useRouter();
-  const [members] = useState<WorkspaceMember[]>(initialMembers);
+  const [members, setMembers] = useState<WorkspaceMember[]>(initialMembers);
   const [invites, setInvites] = useState<InviteRow[]>(initialInvitations);
   const [open, setOpen] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const origin = appUrl || (typeof window !== "undefined" ? window.location.origin : "");
   const inviteLink = (token: string) => `${origin}/invite?token=${token}`;
@@ -66,12 +67,50 @@ export default function MembersClient({
     if (res.ok) setInvites((prev) => prev.filter((i) => i.id !== id));
   }
 
+  async function changeRole(userId: string, role: Role) {
+    setBusyId(userId);
+    try {
+      const res = await fetch(`/api/members/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_id: workspaceId, role }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Could not change role");
+      setMembers((prev) => prev.map((m) => (m.user_id === userId ? { ...m, role } : m)));
+      router.refresh();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Could not change role");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function removeMember(m: WorkspaceMember) {
+    if (!window.confirm(`Remove ${m.email} from ${workspaceName}? They lose access immediately.`)) return;
+    setBusyId(m.user_id);
+    try {
+      const res = await fetch(
+        `/api/members/${m.user_id}?workspace_id=${encodeURIComponent(workspaceId)}`,
+        { method: "DELETE" },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Could not remove member");
+      setMembers((prev) => prev.filter((x) => x.user_id !== m.user_id));
+      router.refresh();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Could not remove member");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div className="content" style={{ padding: "32px 44px", position: "relative", overflow: open ? "hidden" : "auto" }}>
       <div style={{ maxWidth: 920, margin: "0 auto", opacity: open ? 0.4 : 1 }}>
         <SettingsHeader
           title="Members"
-          sub={`Everyone in ${workspaceName} can read, write, and review docs. Admins also manage members, settings, and API keys.`}
+          sub={`Admins manage members, settings, and API keys; editors read, write, and review docs; viewers are read-only.`}
           action={
             canManage ? (
               <button className="btn btn-primary" onClick={() => setOpen(true)}>
@@ -91,13 +130,22 @@ export default function MembersClient({
         </div>
 
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 200px", gap: 16, padding: "12px 20px", background: "var(--bg-sidebar)", borderBottom: "1px solid var(--border)", fontSize: 10.5, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: canManage ? "1fr 140px 170px 100px" : "1fr 120px 200px", gap: 16, padding: "12px 20px", background: "var(--bg-sidebar)", borderBottom: "1px solid var(--border)", fontSize: 10.5, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-muted)" }}>
             <span>Member</span>
             <span>Role</span>
             <span>Joined</span>
+            {canManage && <span />}
           </div>
           {members.map((m) => (
-            <MemberRow key={m.user_id} m={m} isYou={m.user_id === currentUserId} />
+            <MemberRow
+              key={m.user_id}
+              m={m}
+              isYou={m.user_id === currentUserId}
+              canManage={canManage}
+              busy={busyId === m.user_id}
+              onChangeRole={(role) => changeRole(m.user_id, role)}
+              onRemove={() => removeMember(m)}
+            />
           ))}
         </div>
 
@@ -137,9 +185,26 @@ export default function MembersClient({
   );
 }
 
-function MemberRow({ m, isYou }: { m: WorkspaceMember; isYou: boolean }) {
+function MemberRow({
+  m,
+  isYou,
+  canManage,
+  busy,
+  onChangeRole,
+  onRemove,
+}: {
+  m: WorkspaceMember;
+  isYou: boolean;
+  canManage: boolean;
+  busy: boolean;
+  onChangeRole: (role: Role) => void;
+  onRemove: () => void;
+}) {
+  // Own row stays read-only: self-demotion locks you out of this very page,
+  // and the last-admin guard lives in the RPC for everyone else.
+  const editable = canManage && !isYou;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 200px", gap: 16, alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--border)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: canManage ? "1fr 140px 170px 100px" : "1fr 120px 200px", gap: 16, alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--border)", opacity: busy ? 0.55 : 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
         <span style={{ width: 32, height: 32, borderRadius: 999, background: avatarColor(m.email), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, flex: "0 0 32px" }}>{initialOf(m.email)}</span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -147,8 +212,33 @@ function MemberRow({ m, isYou }: { m: WorkspaceMember; isYou: boolean }) {
           {isYou && <span style={{ marginLeft: 8, fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>You</span>}
         </span>
       </div>
-      <div><RoleChip role={m.role} /></div>
+      <div>
+        {editable ? (
+          <select
+            value={m.role}
+            disabled={busy}
+            onChange={(e) => onChangeRole(e.target.value as Role)}
+            style={{ height: 26, padding: "0 6px", background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 12, color: "var(--text-primary)", fontFamily: "inherit", cursor: busy ? "wait" : "pointer" }}
+          >
+            {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
+              <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+            ))}
+          </select>
+        ) : (
+          <RoleChip role={m.role} />
+        )}
+      </div>
       <div style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>{fmtDate(m.created_at)}</div>
+      {canManage && (
+        <div style={{ justifySelf: "end" }}>
+          {editable && (
+            <button className="btn btn-ghost btn-ghost-danger" disabled={busy} onClick={onRemove}>
+              <IconTrash size={13} />
+              <span>Remove</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
