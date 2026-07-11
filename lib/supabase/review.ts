@@ -20,7 +20,7 @@ export async function getPendingReviewDocs(
 }
 
 export async function getReviewCount(workspaceId: string): Promise<number> {
-  const supabase = createServiceClient();
+  const supabase = await createServerSupabaseClient();
   const { count, error } = await supabase
     .from("docs")
     .select("*", { count: "exact", head: true })
@@ -37,10 +37,14 @@ export async function approveDoc(
   workspaceId: string,
 ): Promise<void> {
   const supabase = createServiceClient();
+  // Callers must have verified the reviewer's membership; the workspace_id
+  // predicate makes a doc-id/workspace mismatch a no-op rather than a
+  // cross-tenant write.
   await supabase
     .from("docs")
     .update({ status: "approved", last_reviewed_at: new Date().toISOString() })
-    .eq("id", docId);
+    .eq("id", docId)
+    .eq("workspace_id", workspaceId);
 
   await logActivity({
     docId,
@@ -62,7 +66,11 @@ export async function rejectDoc(
 ): Promise<void> {
   const supabase = createServiceClient();
   // Rejected docs return to draft — the agent can revise and re-request review.
-  await supabase.from("docs").update({ status: "draft" }).eq("id", docId);
+  await supabase
+    .from("docs")
+    .update({ status: "draft" })
+    .eq("id", docId)
+    .eq("workspace_id", workspaceId);
 
   await supabase.from("doc_comments").insert({
     doc_id: docId,

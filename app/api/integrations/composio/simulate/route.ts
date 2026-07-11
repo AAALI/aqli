@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getMyRole } from "@/lib/supabase/members";
 import { getIntegrationConnection, upsertIntegrationConnection } from "@/lib/supabase/integration-connections";
 import { processPullRequestData } from "@/lib/integrations/source/feature-doc";
 
+// Dev/test-only harness for the PR→doc pipeline: the caller supplies the
+// GitHub-shaped event instead of Composio delivering a signed webhook. It
+// writes docs through the service-role client, so it stays off in production
+// unless explicitly enabled, and is admin-only in every environment.
 export async function POST(req: NextRequest) {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_INTEGRATION_SIMULATE !== "true"
+  ) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
@@ -13,6 +25,13 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   if (!body.workspace_id || !body.event) {
     return NextResponse.json({ error: "workspace_id and event required" }, { status: 400 });
+  }
+
+  // Everything below bypasses RLS (connection upsert + doc writes), so the
+  // caller must be an admin of the target workspace.
+  const role = await getMyRole(body.workspace_id);
+  if (role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const existing = await getIntegrationConnection(body.workspace_id, "github");

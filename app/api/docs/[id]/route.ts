@@ -36,7 +36,27 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const updates = await req.json();
+  const body = (await req.json()) as Record<string, unknown>;
+
+  // Whitelist the client-editable fields. Everything else — provenance
+  // (author_type, agent_id), freshness (last_reviewed_at, set only via
+  // /reviewed), workspace_id — is server-controlled; passing the raw body to
+  // .update() would let any member forge those columns.
+  const EDITABLE = [
+    "title",
+    "type",
+    "status",
+    "owner_id",
+    "body_json",
+    "body_md",
+    "frontmatter",
+    "space_id",
+  ] as const;
+  const updates = Object.fromEntries(
+    EDITABLE.filter((k) => k in body).map((k) => [k, body[k]]),
+  ) as Parameters<typeof updateDoc>[1];
+  if (Object.keys(updates).length === 0)
+    return NextResponse.json({ error: "No editable fields provided" }, { status: 400 });
 
   // Read the prior status so we can tell a status change from a content edit.
   const before = await getDoc(id).catch(() => null);

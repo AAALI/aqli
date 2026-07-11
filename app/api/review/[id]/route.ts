@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { approveDoc, rejectDoc, requestChanges } from "@/lib/supabase/review";
+import { getMyRole } from "@/lib/supabase/members";
 import { getDoc } from "@/lib/supabase/docs";
 import { embedDoc } from "@/lib/ai/embedder";
 import { logActivity } from "@/lib/supabase/activity";
@@ -16,21 +17,27 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const { action, reason, note, workspace_id } = await req.json();
+  const { action, reason, note } = await req.json();
 
-  if (!workspace_id)
-    return NextResponse.json(
-      { error: "workspace_id required" },
-      { status: 400 },
-    );
+  // The review mutations below run on the service-role client, so the doc and
+  // the caller's rights must be established here first. Fetching the doc via
+  // the RLS client both proves it exists and that the caller can see it, and
+  // gives us the authoritative workspace_id (never trust one from the body).
+  const doc = await getDoc(id).catch(() => null);
+  if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const role = await getMyRole(doc.workspace_id);
+  if (role !== "admin" && role !== "editor")
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const workspaceId = doc.workspace_id;
   const reviewerName =
     (user.user_metadata?.full_name as string | undefined) ??
     user.email ??
     user.id;
 
   if (action === "approve") {
-    await approveDoc(id, user.id, reviewerName, workspace_id);
+    await approveDoc(id, user.id, reviewerName, workspaceId);
 
     // Re-embed now that the doc is approved — agents can find it in context
     // queries immediately. Fire-and-forget; log `embedded` once it lands.
@@ -39,7 +46,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         embedDoc(doc).then(() =>
           logActivity({
             docId: id,
-            workspaceId: workspace_id,
+            workspaceId,
             actorType: "human",
             actorId: user.id,
             actorName: reviewerName,
@@ -53,12 +60,12 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   if (action === "reject") {
-    await rejectDoc(id, user.id, reviewerName, workspace_id, reason ?? "No reason given");
+    await rejectDoc(id, user.id, reviewerName, workspaceId, reason ?? "No reason given");
     return NextResponse.json({ status: "rejected" });
   }
 
   if (action === "request_changes") {
-    await requestChanges(id, user.id, reviewerName, workspace_id, note ?? "");
+    await requestChanges(id, user.id, reviewerName, workspaceId, note ?? "");
     return NextResponse.json({ status: "changes_requested" });
   }
 

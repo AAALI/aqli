@@ -53,7 +53,18 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
 
-  const doc = await createDoc({ ...body, owner_id: user.id });
+  // Build the insert payload explicitly — spreading the raw body would let
+  // callers set server-controlled columns (author_type, agent_id, status…).
+  const doc = await createDoc({
+    workspace_id: body.workspace_id,
+    space_id: body.space_id ?? null,
+    title: body.title,
+    type: body.type,
+    body_json: body.body_json,
+    body_md: body.body_md,
+    frontmatter: body.frontmatter,
+    owner_id: user.id,
+  });
 
   await logActivity({
     docId: doc.id,
