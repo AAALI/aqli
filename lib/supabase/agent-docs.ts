@@ -26,15 +26,18 @@ export async function listAgentDocs(
   const supabase = createServiceClient();
   let q = supabase
     .from("docs")
-    .select("*, space:spaces(slug, name)")
+    .select("*, space:spaces(slug, name)", { count: "exact" })
     .eq("workspace_id", workspaceId)
     .order("updated_at", { ascending: false })
     .range(opts.offset, opts.offset + opts.limit - 1);
   if (opts.type) q = q.eq("type", opts.type);
   if (opts.status) q = q.eq("status", opts.status);
-  const { data, error } = await q;
+  const { data, error, count } = await q;
   if (error) throw error;
-  return (data ?? []) as (Doc & { space: { slug: string; name: string } | null })[];
+  return {
+    docs: (data ?? []) as (Doc & { space: { slug: string; name: string } | null })[],
+    total: count ?? 0,
+  };
 }
 
 export async function getAgentDoc(id: string) {

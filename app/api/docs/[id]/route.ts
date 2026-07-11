@@ -23,7 +23,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const doc = await getDoc(id);
+  // getDoc throws when the doc doesn't exist or RLS hides it — that's a 404,
+  // not a 500.
+  const doc = await getDoc(id).catch(() => null);
+  if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ doc });
 }
 
@@ -59,7 +62,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "No editable fields provided" }, { status: 400 });
 
   // Read the prior status so we can tell a status change from a content edit.
+  // A missing/RLS-hidden doc is a 404 here too — updateDoc's .single() would
+  // otherwise surface it as a 500.
   const before = await getDoc(id).catch(() => null);
+  if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const doc = await updateDoc(id, updates);
 
   // Re-embed when the doc body changes. Fire-and-forget so we don't block

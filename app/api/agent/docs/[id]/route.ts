@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAgent } from "../../_auth";
+import { getAgentWorkspaceMeta } from "../../_workspace";
 import { getAgentDoc, updateAgentDoc } from "@/lib/supabase/agent-docs";
 import { embedDoc } from "@/lib/ai/embedder";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const agent = await authenticateAgent(req);
@@ -38,6 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .filter(Boolean)
     .join("\n");
 
+  const workspace = await getAgentWorkspaceMeta(agent.workspaceId);
   return NextResponse.json({
     id: doc.id,
     title: doc.title,
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     status: doc.status,
     frontmatter: doc.frontmatter,
     body_md: `${frontmatter}\n\n${doc.body_md ?? ""}`,
-    url: `${APP_URL}/docs/${doc.id}`,
+    url: workspace.docUrl(doc.id),
   });
 }
 
@@ -67,8 +67,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       : undefined,
   });
 
+  // Embedding failures must not fail the update — the write already landed.
   if (typeof updates.body_md === "string") {
-    await embedDoc(updated, existing.space?.name);
+    await embedDoc(updated, existing.space?.name).catch((err) =>
+      console.error("Embed failed for agent doc", updated.id, err),
+    );
   }
 
   return NextResponse.json({ id: updated.id, updated_at: updated.updated_at });

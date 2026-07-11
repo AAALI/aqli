@@ -18,7 +18,9 @@ export async function POST(req: NextRequest) {
   if (!doc_id)
     return NextResponse.json({ error: "doc_id required" }, { status: 400 });
 
-  const doc = await getDoc(doc_id);
+  const doc = await getDoc(doc_id).catch(() => null);
+  if (!doc)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!doc.body_md)
     return NextResponse.json(
       { error: "Doc has no content to summarise" },

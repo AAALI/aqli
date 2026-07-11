@@ -41,7 +41,7 @@ export async function validateApiKey(
 
   const { data } = await supabase
     .from("api_keys")
-    .select("id, workspace_id, revoked_at")
+    .select("id, workspace_id, revoked_at, last_used_at")
     .eq("key_hash", keyHash)
     .single();
 
@@ -49,11 +49,16 @@ export async function validateApiKey(
     return { valid: false, workspaceId: null, keyId: null };
   }
 
-  // Best-effort last-used timestamp; don't block auth on it.
-  await supabase
-    .from("api_keys")
-    .update({ last_used_at: new Date().toISOString() })
-    .eq("id", data.id);
+  // Best-effort last-used timestamp. It's a UI freshness signal, so skip the
+  // write unless it's stale — otherwise every agent request pays for an extra
+  // DB write on the auth path.
+  const lastUsed = data.last_used_at ? Date.parse(data.last_used_at) : 0;
+  if (Date.now() - lastUsed > 60_000) {
+    await supabase
+      .from("api_keys")
+      .update({ last_used_at: new Date().toISOString() })
+      .eq("id", data.id);
+  }
 
   return { valid: true, workspaceId: data.workspace_id, keyId: data.id };
 }

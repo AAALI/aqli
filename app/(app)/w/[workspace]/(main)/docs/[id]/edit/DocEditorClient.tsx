@@ -33,10 +33,14 @@ export default function DocEditorClient({
   const base = `/w/${workspaceSlug}`;
   const [title, setTitle] = useState(doc.title);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatPrefill, setChatPrefill] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Debounced-but-unsent edits, so navigation can flush them and tab close
+  // can warn. Null when everything typed so far has been handed to fetch.
+  const pendingFlush = useRef<(() => void) | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Children (slash menu, selection toolbar) register key handlers that run
@@ -56,12 +60,19 @@ export default function DocEditorClient({
     async (updates: Record<string, unknown>) => {
       setSaving(true);
       try {
-        await fetch(`/api/docs/${doc.id}`, {
+        const res = await fetch(`/api/docs/${doc.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updates),
         });
+        if (!res.ok) throw new Error(`Save failed (${res.status})`);
         setLastSaved(new Date());
+        setSaveError(false);
+      } catch (err) {
+        // Expired session, RLS denial, offline — the next edit retries, but
+        // the label must not claim "Saved" in the meantime.
+        console.error("Autosave failed:", err);
+        setSaveError(true);
       } finally {
         setSaving(false);
       }
@@ -83,10 +94,13 @@ export default function DocEditorClient({
     content: doc.body_json ?? { type: "doc", content: [{ type: "paragraph" }] },
     onUpdate: ({ editor }) => {
       const json = editor.getJSON() as Record<string, unknown>;
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
+      const flush = () => {
+        pendingFlush.current = null;
         persist({ body_json: json, body_md: tiptapToMarkdown(json) });
-      }, 2000); // 2s debounce
+      };
+      pendingFlush.current = flush;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(flush, 2000); // 2s debounce
     },
     editorProps: {
       attributes: { class: "ed2-prose" },
@@ -104,6 +118,26 @@ export default function DocEditorClient({
       editor?.destroy();
     };
   }, [editor]);
+
+  // Client-side navigation unmounts mid-debounce: send the pending edits
+  // immediately instead of dropping the last ≤2s of typing. (The fetch
+  // outlives the component on soft navigations.)
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      pendingFlush.current?.();
+    };
+  }, []);
+
+  // Hard unloads (tab close, refresh) can't be flushed reliably — warn while
+  // edits are still unsent.
+  useEffect(() => {
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      if (pendingFlush.current) e.preventDefault();
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
 
   // ⌘J toggles the Co-write chat from anywhere on the screen.
   useEffect(() => {
@@ -145,9 +179,11 @@ export default function DocEditorClient({
 
   const savedLabel = saving
     ? "Saving…"
-    : lastSaved
-      ? `Saved ${formatRelative(lastSaved)}`
-      : `Saved ${formatRelative(doc.updated_at)}`;
+    : saveError
+      ? "Couldn't save — retrying on next edit"
+      : lastSaved
+        ? `Saved ${formatRelative(lastSaved)}`
+        : `Saved ${formatRelative(doc.updated_at)}`;
 
   const spaceCrumb = doc.space
     ? { label: doc.space.name, href: `${base}/s/${doc.space.slug}` }

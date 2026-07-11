@@ -1,26 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAgent } from "../_auth";
+import { getAgentWorkspaceMeta } from "../_workspace";
 import { listAgentDocs, createAgentDoc, getServiceSpaceBySlug } from "@/lib/supabase/agent-docs";
 import { embedDoc } from "@/lib/ai/embedder";
 import { logActivity } from "@/lib/supabase/activity";
 import type { DocType, DocStatus } from "@/types/doc";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
+function readPageParam(value: string | null, fallback: number, max: number) {
+  const n = Number(value ?? fallback);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(Math.trunc(n), 0), max);
+}
 
 export async function GET(req: NextRequest) {
   const agent = await authenticateAgent(req);
   if (!agent) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const limit = Number(searchParams.get("limit") ?? 20);
-  const offset = Number(searchParams.get("offset") ?? 0);
+  const limit = Math.max(readPageParam(searchParams.get("limit"), 20, 100), 1);
+  const offset = readPageParam(searchParams.get("offset"), 0, Number.MAX_SAFE_INTEGER);
 
-  const docs = await listAgentDocs(agent.workspaceId, {
-    type: (searchParams.get("type") as DocType) ?? undefined,
-    status: (searchParams.get("status") as DocStatus) ?? undefined,
-    limit,
-    offset,
-  });
+  const [{ docs, total }, workspace] = await Promise.all([
+    listAgentDocs(agent.workspaceId, {
+      type: (searchParams.get("type") as DocType) ?? undefined,
+      status: (searchParams.get("status") as DocStatus) ?? undefined,
+      limit,
+      offset,
+    }),
+    getAgentWorkspaceMeta(agent.workspaceId),
+  ]);
 
   return NextResponse.json({
     docs: docs.map((d) => ({
@@ -32,10 +40,10 @@ export async function GET(req: NextRequest) {
       tags: d.frontmatter?.tags ?? [],
       author_type: d.author_type,
       updated_at: d.updated_at,
-      url: `${APP_URL}/docs/${d.id}`,
+      url: workspace.docUrl(d.id),
     })),
-    total: docs.length,
-    has_more: docs.length === limit,
+    total,
+    has_more: offset + docs.length < total,
   });
 }
 
@@ -49,6 +57,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "title is required" }, { status: 400 });
   }
 
+  const workspace = await getAgentWorkspaceMeta(agent.workspaceId);
+
   // Resolve space slug → id (scoped to this agent's workspace).
   let spaceId: string | null = null;
   let spaceName = "Unknown";
@@ -60,6 +70,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Workspace policy decides whether agent docs publish immediately or enter
+  // the review queue (the default — humans approve before agents' output
+  // becomes trusted context, per the PRD's review loop).
+  const autoApprove = workspace.agentAutoApprove;
   const doc = await createAgentDoc({
     workspace_id: agent.workspaceId,
     space_id: spaceId,
@@ -68,13 +82,10 @@ export async function POST(req: NextRequest) {
     body_md,
     agent_id: agent_id ?? "unknown",
     frontmatter: { tags: tags ?? [] },
-    status: "approved",
-    markReviewed: true,
+    status: autoApprove ? "approved" : "review",
+    markReviewed: autoApprove,
   });
 
-  // Agent-authored docs are trusted on write — auto-approve so they become
-  // live context immediately. The created row carries the approval metadata
-  // instead of emitting a redundant status-change version and activity row.
   await logActivity({
     docId: doc.id,
     workspaceId: doc.workspace_id,
@@ -82,11 +93,17 @@ export async function POST(req: NextRequest) {
     actorId: doc.agent_id,
     actorName: doc.agent_id,
     action: "created",
-    metadata: { auto_approved: true, reason: "agent_authored", to_status: "approved" },
+    metadata: autoApprove
+      ? { auto_approved: true, reason: "workspace_policy", to_status: "approved" }
+      : { to_status: "review" },
   });
 
+  // Embedding failures must not fail the request — the doc already exists,
+  // and a 500 here makes well-behaved agents retry and create duplicates.
   if (doc.body_md) {
-    await embedDoc(doc, spaceName);
+    await embedDoc(doc, spaceName).catch((err) =>
+      console.error("Embed failed for agent doc", doc.id, err),
+    );
   }
 
   return NextResponse.json(
@@ -95,8 +112,10 @@ export async function POST(req: NextRequest) {
       title: doc.title,
       status: doc.status,
       author_type: doc.author_type,
-      url: `${APP_URL}/docs/${doc.id}`,
-      message: "Doc created and auto-approved — it is now trusted, searchable context.",
+      url: workspace.docUrl(doc.id),
+      message: autoApprove
+        ? "Doc created and auto-approved — it is now trusted, searchable context."
+        : "Doc created and queued for human review. It will not enter trusted context until approved.",
     },
     { status: 201 },
   );

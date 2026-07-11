@@ -11,7 +11,9 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const payload = await req.text();
   const webhookId = req.headers.get("webhook-id") ?? "";
-  console.log("[composio webhook] received", webhookId, payload.slice(0, 600));
+  // Log identifiers only — payloads carry PR titles/bodies that don't belong
+  // in production logs.
+  console.log("[composio webhook] received", webhookId, `${payload.length} bytes`);
 
   // 1) Signature verification. A failure here is genuinely a 401 (Composio
   //    won't retry an unsigned/forged delivery).
