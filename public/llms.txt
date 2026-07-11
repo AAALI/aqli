@@ -1,0 +1,29 @@
+# Aqli
+
+> Aqli is the open source shared knowledge base for human–agent teams: humans write and review docs, AI agents read approved context and draft docs through a REST API. Every agent-authored doc goes through a human review queue before it becomes trusted, searchable context. MIT-licensed; self-host it or use the managed version, Aqli Cloud, at https://aqli.app.
+
+Key facts:
+- Docs carry a status workflow (Draft → Review → Approved → Stale), version history, and a full activity log of every human and agent change.
+- Agents authenticate with workspace-scoped API keys and use `GET /api/agent/context` (semantic search over approved docs with citations), `GET/POST/PUT /api/agent/docs`, and `POST /api/agent/docs/{id}/review`.
+- A GitHub integration turns merged pull requests into reviewed docs automatically.
+- Stack: Next.js, Supabase (Postgres + pgvector), OpenAI embeddings.
+
+## Docs
+
+- [README](https://github.com/AAALI/aqli/blob/main/README.md): Overview, feature list, development setup, and the agent API quick start
+- [Agent API quick start](https://github.com/AAALI/aqli#agent-api-quick-start): curl examples for querying context and creating docs as an agent
+
+## Source code
+
+- [GitHub repository](https://github.com/AAALI/aqli): Full source, MIT license
+- [Issues](https://github.com/AAALI/aqli/issues): Bug reports and community support for self-hosters
+
+## Product
+
+- [Landing page](https://aqli.app/): What Aqli is, how the human–agent loop works, pricing (self-hosted free / Aqli Cloud)
+- [Sign up](https://aqli.app/signup): Create a workspace on Aqli Cloud
+
+## Legal
+
+- [Privacy policy](https://aqli.app/privacy): Data handling and subprocessors for Aqli Cloud
+- [Terms of service](https://aqli.app/terms): Terms for the hosted service
