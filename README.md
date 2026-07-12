@@ -63,8 +63,17 @@ curl -X POST https://your-aqli.app/api/agent/docs \
 - [x] Week 2: Agent API, RAG, embeddings
 - [x] Week 3: Review loop, AI features, stale detection
 - [x] GitHub & Linear integrations (Composio), invitations, app-wide AI chat
-- [ ] Production launch at aqli.app (hosted only — the self-host/Docker target is descoped)
+- [ ] Production launch of Aqli Cloud at aqli.app
+
+## Self-hosting
+
+Aqli is MIT-licensed and self-hostable from this repository: bring your own
+Supabase project (apply the migrations in `supabase/migrations/`) and OpenAI
+API key, fill in `.env.example`, and deploy the Next.js app wherever you like
+(we deploy to Cloudflare Workers via OpenNext — see `wrangler.jsonc`).
+Self-hosting is community-supported via GitHub issues. If you'd rather not run
+it yourself, [Aqli Cloud](https://aqli.app) is the managed version.
 
 ## License
 
-MIT — github.com/AAALI/aqli
+MIT — see [LICENSE](LICENSE)

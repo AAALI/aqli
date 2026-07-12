@@ -26,6 +26,8 @@ import { useIsMobile } from "./useIsMobile";
 // Fluid horizontal gutter — 20px on phones, up to 56px on desktop.
 const GUTTER = "clamp(20px, 5vw, 56px)";
 
+const GITHUB_URL = "https://github.com/AAALI/aqli";
+
 function IconArrowRight({ size = 16, sw = 1.8 }: { size?: number; sw?: number }) {
   return (
     <svg
@@ -125,9 +127,8 @@ function LandingNav({ isMobile }: { isMobile: boolean }) {
           >
             <a href="#product" style={navLinkStyle}>Product</a>
             <a href="#loop" style={navLinkStyle}>For agents</a>
-            <a href="#how-it-works" style={navLinkStyle}>Docs</a>
+            <a href="#how-it-works" style={navLinkStyle}>How it works</a>
             <a href="#pricing" style={navLinkStyle}>Pricing</a>
-            <a href="#changelog" style={navLinkStyle}>Changelog</a>
           </nav>
         )}
 
@@ -136,6 +137,9 @@ function LandingNav({ isMobile }: { isMobile: boolean }) {
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {!isMobile && (
             <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -146,7 +150,7 @@ function LandingNav({ isMobile }: { isMobile: boolean }) {
               }}
             >
               <IconGitHub size={15} />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>3.2k</span>
+              <span>GitHub</span>
             </a>
           )}
           <Link
@@ -184,7 +188,10 @@ function Hero({ isMobile }: { isMobile: boolean }) {
       }}
     >
       {/* Pre-headline pill */}
-      <div
+      <a
+        href={GITHUB_URL}
+        target="_blank"
+        rel="noreferrer"
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -196,6 +203,7 @@ function Hero({ isMobile }: { isMobile: boolean }) {
           fontSize: isMobile ? 11.5 : 12,
           color: "var(--text-secondary)",
           maxWidth: "100%",
+          textDecoration: "none",
         }}
       >
         <span
@@ -214,11 +222,11 @@ function Hero({ isMobile }: { isMobile: boolean }) {
             flexShrink: 0,
           }}
         >
-          New
+          Open source
         </span>
-        <span>The MCP server is live. Connect any agent in 30 seconds.</span>
+        <span>MIT-licensed and public on GitHub. Star it, fork it, run it.</span>
         <IconArrowUpRight size={12} sw={1.8} style={{ flexShrink: 0 }} />
-      </div>
+      </a>
 
       {/* Headline */}
       <h1
@@ -297,43 +305,26 @@ function Hero({ isMobile }: { isMobile: boolean }) {
         }}
       >
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-          <IconCheck size={12} sw={2.2} /> Free for teams up to 5
+          <IconCheck size={12} sw={2.2} /> Open source · MIT
         </span>
         <span>·</span>
-        <span>Self-host or cloud</span>
+        <span>Self-host or Aqli Cloud</span>
         <span>·</span>
-        <span>Open source · MIT</span>
+        <span>Cloud free while in beta</span>
       </div>
     </section>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Logo strip
+// Open source strip — replaces the old (fabricated) customer logo strip
 // ─────────────────────────────────────────────────────────────────────
 
-function WordLogo({ name, weight = 500, italic }: { name: string; weight?: number; italic?: boolean }) {
-  return (
-    <span
-      style={{
-        fontSize: 19,
-        fontWeight: weight,
-        fontStyle: italic ? "italic" : "normal",
-        letterSpacing: "-0.015em",
-        color: "var(--text-secondary)",
-        fontFamily: italic ? "var(--font-serif)" : "var(--font-sans)",
-      }}
-    >
-      {name}
-    </span>
-  );
-}
-
-function LogosStrip() {
+function OpenSourceStrip() {
   return (
     <SectionShell>
       <div style={{ padding: `0 ${GUTTER} clamp(48px, 9vw, 64px)` }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 22 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
           <div
             style={{
               fontSize: 11,
@@ -343,16 +334,31 @@ function LogosStrip() {
               color: "var(--text-muted)",
             }}
           >
-            Teams using Aqli to ground their agents
+            Built in the open
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 56, opacity: 0.7, flexWrap: "wrap", justifyContent: "center" }}>
-            <WordLogo name="Mercury" weight={500} />
-            <WordLogo name="Linear" italic />
-            <WordLogo name="Ramp" weight={600} />
-            <WordLogo name="Vercel" />
-            <WordLogo name="Replicate" />
-            <WordLogo name="Plaid" weight={600} />
-          </div>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 18px",
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              fontSize: 13.5,
+              color: "var(--text-primary)",
+              fontWeight: 500,
+              textDecoration: "none",
+            }}
+          >
+            <IconGitHub size={16} />
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5 }}>AAALI/aqli</span>
+            <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>· MIT license</span>
+            <IconArrowUpRight size={12} sw={1.8} />
+          </a>
         </div>
       </div>
     </SectionShell>
@@ -426,14 +432,14 @@ function Primitives({ isMobile }: { isMobile: boolean }) {
           <PrimitiveCard
             number="02"
             title="Agents"
-            body="Agents are first-class authors with their own API keys, scopes, and activity logs. They read approved context through one endpoint and write drafts that humans review. Wire up Claude Code, Cursor, GPT, or your own agent in 30 seconds."
+            body="Agents are first-class authors with their own API keys and a full activity log. They read approved context through one REST endpoint and write drafts that humans review. Wire up Claude Code, Cursor, GPT, or your own agent in minutes."
             ornament={<PrimMockAgent />}
             accent
           />
           <PrimitiveCard
             number="03"
             title="Reviews"
-            body="Every agent doc lands in a review queue with a diff, the context it read, and a one-click Approve / Request changes / Reject. The agent learns from your feedback; the doc only goes live when a human says yes."
+            body="Agent docs land in a review queue with one-click Approve / Request changes / Reject. Nothing becomes trusted, searchable context until a human says yes — and every decision is on the record."
             ornament={<PrimMockReview />}
           />
         </div>
@@ -753,22 +759,22 @@ function HowItWorks({ isMobile }: { isMobile: boolean }) {
             <StepRow
               n="01"
               title="Create the workspace"
-              body="Pick a name, invite a teammate or two. Aqli sets up a starter space and a small library of doc templates — PRD, ADR, Runbook, Fix Note, Policy."
+              body="Pick a name, invite a teammate or two. Aqli sets up starter spaces and a library of doc templates — PRD, ADR, Runbook, Fix Note, Decision."
             />
             <StepRow
               n="02"
-              title="Drop in your existing docs"
-              body="Paste them, import from Notion/Confluence, or commit Markdown via the GitHub mirror. Aqli indexes them and marks each one with a status you can change."
+              title="Bring your knowledge in"
+              body="Write in the editor or paste what you have. Connect GitHub and every merged pull request becomes a documented change automatically — reviewed in GitHub, recorded in Aqli."
             />
             <StepRow
               n="03"
               title="Connect your first agent"
-              body="Generate an API key with the scopes you want. Hand it to Claude Code, Cursor, GPT, or any MCP-compatible client. The agent immediately starts reading approved context."
+              body="Mint an API key in Settings and hand it to Claude Code, Cursor, GPT, or any agent that can call a REST API. It immediately starts reading approved context before it acts."
             />
             <StepRow
               n="04"
               title="Review what it writes"
-              body="When the agent has something to share, it drafts a doc and you get a notification. Approve, request changes, or reject — the agent learns from your decision."
+              body="When an agent drafts a doc, it lands in your review queue. Approve, request changes, or reject — nothing enters trusted context without a human yes."
               last
             />
           </ol>
@@ -844,8 +850,9 @@ function Quote() {
               textWrap: "balance",
             }}
           >
-            We stopped guessing whether our agents were writing the right thing. With Aqli, every draft comes with
-            the docs it read and a diff against what we already know.
+            I built Aqli because my agents kept working from stale context and my team kept re-explaining the same
+            decisions. Docs that humans and agents actually share — with a human yes before anything is trusted —
+            turned out to be the missing layer.
           </blockquote>
           <figcaption
             style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13, color: "var(--text-secondary)" }}
@@ -855,7 +862,7 @@ function Quote() {
                 width: 32,
                 height: 32,
                 borderRadius: 999,
-                background: "linear-gradient(135deg, #4A6FB5, #2C4A82)",
+                background: "linear-gradient(135deg, #2F7D62, #0F6E56)",
                 color: "#fff",
                 fontSize: 11,
                 fontWeight: 600,
@@ -864,14 +871,133 @@ function Quote() {
                 justifyContent: "center",
               }}
             >
-              MK
+              A
             </span>
             <span>
-              <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>Maya Krishnan</strong> · Head of
-              Platform, Mercury
+              <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>Ali</strong> · founder, building
+              Aqli in the open
             </span>
           </figcaption>
         </figure>
+      </div>
+    </SectionShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Pricing — open source core, paid cloud (the OSS + cloud model)
+// ─────────────────────────────────────────────────────────────────────
+
+function PlanFeature({ children }: { children: ReactNode }) {
+  return (
+    <li style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, lineHeight: 1.55, color: "var(--text-secondary)" }}>
+      <span style={{ color: "var(--accent)", display: "inline-flex", marginTop: 3 }}>
+        <IconCheck size={12} sw={2.4} />
+      </span>
+      <span>{children}</span>
+    </li>
+  );
+}
+
+function Pricing({ isMobile }: { isMobile: boolean }) {
+  return (
+    <SectionShell id="pricing">
+      <div style={{ padding: `clamp(64px, 11vw, 96px) ${GUTTER}` }}>
+        <SectionEyebrow label="Pricing" />
+        <h2
+          style={{
+            margin: "12px 0 18px",
+            fontFamily: "var(--font-serif)",
+            fontWeight: 400,
+            fontSize: "clamp(30px, 6vw, 44px)",
+            letterSpacing: "-0.02em",
+            lineHeight: 1.05,
+            maxWidth: 720,
+            textWrap: "balance",
+          }}
+        >
+          Open source at the core.
+          <br />
+          <span style={{ color: "var(--text-secondary)" }}>A cloud when you don&apos;t want the ops.</span>
+        </h2>
+        <p style={{ margin: "0 0 clamp(32px, 6vw, 48px)", maxWidth: 620, fontSize: 15.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>
+          The full product is MIT-licensed on GitHub — same code, no gated features. Aqli Cloud is the same
+          product, hosted and kept up to date by the people who build it.
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, maxWidth: 880 }}>
+          {/* Self-hosted */}
+          <article
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              borderRadius: 14,
+              padding: "28px 28px 26px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div>
+              <h3 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 26, letterSpacing: "-0.01em" }}>
+                Self-hosted
+              </h3>
+              <div style={{ marginTop: 6, fontSize: 14, color: "var(--text-secondary)" }}>
+                <strong style={{ color: "var(--text-primary)", fontWeight: 600, fontSize: 20 }}>Free</strong> · MIT license
+              </div>
+            </div>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
+              <PlanFeature>The complete product — editor, agent API, review loop, integrations</PlanFeature>
+              <PlanFeature>Run it on your own infrastructure with your own Supabase and OpenAI keys</PlanFeature>
+              <PlanFeature>Your data never leaves your stack</PlanFeature>
+              <PlanFeature>Community support on GitHub issues</PlanFeature>
+            </ul>
+            <div style={{ flex: 1 }} />
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-secondary"
+              style={{ height: 42, justifyContent: "center", gap: 8 }}
+            >
+              <IconGitHub size={14} />
+              <span>View on GitHub</span>
+            </a>
+          </article>
+
+          {/* Cloud */}
+          <article
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid rgba(15,110,86,0.3)",
+              borderRadius: 14,
+              padding: "28px 28px 26px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div>
+              <h3 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 26, letterSpacing: "-0.01em", color: "var(--accent)" }}>
+                Aqli Cloud
+              </h3>
+              <div style={{ marginTop: 6, fontSize: 14, color: "var(--text-secondary)" }}>
+                <strong style={{ color: "var(--text-primary)", fontWeight: 600, fontSize: 20 }}>Free while in beta</strong> · paid plans later
+              </div>
+            </div>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
+              <PlanFeature>Nothing to deploy — sign up and your workspace is live</PlanFeature>
+              <PlanFeature>Hosting, database, backups, and upgrades handled for you</PlanFeature>
+              <PlanFeature>AI features included — no OpenAI key to manage</PlanFeature>
+              <PlanFeature>Beta workspaces get preferred pricing when paid plans arrive</PlanFeature>
+            </ul>
+            <div style={{ flex: 1 }} />
+            <Link href="/signup" className="btn btn-primary" style={{ height: 42, justifyContent: "center", gap: 8 }}>
+              <span>Start your workspace</span>
+              <IconArrowRight size={13} sw={2} />
+            </Link>
+          </article>
+        </div>
       </div>
     </SectionShell>
   );
@@ -883,7 +1009,7 @@ function Quote() {
 
 function FinalCTA({ isMobile }: { isMobile: boolean }) {
   return (
-    <SectionShell id="pricing" background="var(--bg-card)">
+    <SectionShell background="var(--bg-card)">
       <div style={{ padding: `clamp(72px, 14vw, 120px) ${GUTTER}`, display: "flex", justifyContent: "center" }}>
         <div
           style={{
@@ -913,7 +1039,8 @@ function FinalCTA({ isMobile }: { isMobile: boolean }) {
             <em style={{ color: "var(--accent)" }}>somewhere to think.</em>
           </h2>
           <p style={{ margin: 0, fontSize: 16, color: "var(--text-secondary)", lineHeight: 1.6, maxWidth: 520 }}>
-            Free for teams up to 5. Self-host or use Aqli Cloud. No credit card to get started.
+            Open source under MIT — self-host it from GitHub, or let Aqli Cloud run it for you. Free while in
+            beta, no credit card.
           </p>
           <div
             style={{
@@ -953,7 +1080,10 @@ function FinalCTA({ isMobile }: { isMobile: boolean }) {
 // Footer
 // ─────────────────────────────────────────────────────────────────────
 
-function FooterCol({ title, items }: { title: string; items: string[] }) {
+type FooterLink = { label: string; href: string; external?: boolean };
+
+function FooterCol({ title, items }: { title: string; items: FooterLink[] }) {
+  const linkStyle = { fontSize: 13, color: "var(--text-secondary)", textDecoration: "none" } as const;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div
@@ -967,23 +1097,35 @@ function FooterCol({ title, items }: { title: string; items: string[] }) {
       >
         {title}
       </div>
-      {items.map((it) => (
-        <a key={it} style={{ fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
-          {it}
-        </a>
-      ))}
+      {items.map((it) =>
+        it.external || it.href.startsWith("#") || it.href.startsWith("mailto:") ? (
+          <a
+            key={it.label}
+            href={it.href}
+            target={it.external ? "_blank" : undefined}
+            rel={it.external ? "noreferrer" : undefined}
+            style={linkStyle}
+          >
+            {it.label}
+          </a>
+        ) : (
+          <Link key={it.label} href={it.href} style={linkStyle}>
+            {it.label}
+          </Link>
+        ),
+      )}
     </div>
   );
 }
 
 function LandingFooter({ isMobile }: { isMobile: boolean }) {
   return (
-    <SectionShell as="footer" id="changelog" background="var(--bg-base)" borderBottom={false} borderTop>
+    <SectionShell as="footer" background="var(--bg-base)" borderBottom={false} borderTop>
       <div style={{ padding: `clamp(40px, 8vw, 56px) ${GUTTER} 36px` }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, 1fr)",
+            gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
             gap: isMobile ? "32px 24px" : 28,
             marginBottom: 40,
           }}
@@ -1005,10 +1147,33 @@ function LandingFooter({ isMobile }: { isMobile: boolean }) {
             </p>
           </div>
 
-          <FooterCol title="Product" items={["Editor", "Agents API", "Reviews", "Integrations", "Changelog"]} />
-          <FooterCol title="For agents" items={["MCP server", "REST reference", "Scopes & keys", "Example agents", "Cookbook"]} />
-          <FooterCol title="Company" items={["About", "Blog", "Careers", "Press kit", "Contact"]} />
-          <FooterCol title="Resources" items={["Docs", "Status", "Security", "Terms", "Privacy"]} />
+          <FooterCol
+            title="Product"
+            items={[
+              { label: "Product", href: "#product" },
+              { label: "How it works", href: "#how-it-works" },
+              { label: "Pricing", href: "#pricing" },
+              { label: "Sign in", href: "/login" },
+              { label: "Start free", href: "/signup" },
+            ]}
+          />
+          <FooterCol
+            title="Open source"
+            items={[
+              { label: "GitHub", href: GITHUB_URL, external: true },
+              { label: "Agent API", href: `${GITHUB_URL}#agent-api-quick-start`, external: true },
+              { label: "Issues", href: `${GITHUB_URL}/issues`, external: true },
+              { label: "MIT license", href: `${GITHUB_URL}/blob/main/LICENSE`, external: true },
+            ]}
+          />
+          <FooterCol
+            title="Legal"
+            items={[
+              { label: "Privacy", href: "/privacy" },
+              { label: "Terms", href: "/terms" },
+              { label: "Contact", href: "mailto:hello@aqli.app" },
+            ]}
+          />
         </div>
 
         <div
@@ -1024,14 +1189,8 @@ function LandingFooter({ isMobile }: { isMobile: boolean }) {
             color: "var(--text-muted)",
           }}
         >
-          <span>© 2026 Aqli, Inc · Open source under MIT</span>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: isMobile ? "6px 14px" : 18 }}>
-            <span>San Francisco · Dubai</span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--approved-text)" }} />
-              All systems normal
-            </span>
-          </div>
+          <span>© 2026 Aqli · Open source under MIT</span>
+          <span>Built in Dubai</span>
         </div>
       </div>
     </SectionShell>
@@ -1059,10 +1218,11 @@ export function LandingPage() {
       <LandingNav isMobile={isMobile} />
       <Hero isMobile={isMobile} />
       <FlowDemo />
-      <LogosStrip />
+      <OpenSourceStrip />
       <Primitives isMobile={isMobile} />
       <HowItWorks isMobile={isMobile} />
       <Quote />
+      <Pricing isMobile={isMobile} />
       <FinalCTA isMobile={isMobile} />
       <LandingFooter isMobile={isMobile} />
     </div>
