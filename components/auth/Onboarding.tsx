@@ -13,18 +13,20 @@ type StepKey = "account" | "workspace" | "spaces" | "agent" | "done";
 
 const STEPS: { key: StepKey; n: number; label: string; hint: string }[] = [
   { key: "account", n: 1, label: "Account", hint: "Email + password" },
-  { key: "workspace", n: 2, label: "Workspace", hint: "Team or org" },
+  { key: "workspace", n: 2, label: "Workspace", hint: "Your company or team" },
   { key: "spaces", n: 3, label: "Spaces", hint: "How docs are organised" },
-  { key: "agent", n: 4, label: "Agent", hint: "API key for AI" },
+  { key: "agent", n: 4, label: "AI access", hint: "Optional — connect agents" },
   { key: "done", n: 5, label: "Open workspace", hint: "You're set" },
 ];
 
 const SUGGESTED = [
-  { emoji: "📋", name: "Product", desc: "PRDs, decisions, roadmap" },
-  { emoji: "⚙️", name: "Engineering", desc: "ADRs, runbooks, fix notes" },
-  { emoji: "🛡️", name: "Trust & Safety", desc: "Policies, hold rules, audit" },
-  { emoji: "🔧", name: "Ops", desc: "Runbooks, incident reports" },
-  { emoji: "🏢", name: "Company", desc: "Handbook, onboarding" },
+  { emoji: "🏢", name: "Company", desc: "Handbook, policies, onboarding" },
+  { emoji: "📣", name: "Marketing", desc: "Campaigns, brand, content" },
+  { emoji: "💼", name: "Sales", desc: "Playbooks, pricing, FAQs" },
+  { emoji: "🧭", name: "Product", desc: "Roadmap, specs, decisions" },
+  { emoji: "⚙️", name: "Engineering", desc: "Technical docs, runbooks" },
+  { emoji: "🤝", name: "People", desc: "Hiring, benefits, culture" },
+  { emoji: "🔧", name: "Ops", desc: "Processes, vendors, reports" },
 ];
 
 export default function Onboarding() {
@@ -42,8 +44,10 @@ export default function Onboarding() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [workspaceSlug, setWorkspaceSlug] = useState<string | null>(null);
   const [existingNames, setExistingNames] = useState<string[]>([]);
-  const [picked, setPicked] = useState<string[]>(["Product", "Engineering", "Trust & Safety"]);
-  const [agentName, setAgentName] = useState("Claude Code");
+  const [picked, setPicked] = useState<string[]>(["Company"]);
+  const [customSpaces, setCustomSpaces] = useState<string[]>([]);
+  const [customDraft, setCustomDraft] = useState("");
+  const [agentName, setAgentName] = useState("Claude");
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +143,8 @@ export default function Onboarding() {
     setBusy(true);
     setError(null);
     try {
-      const toCreate = SUGGESTED.filter((s) => picked.includes(s.name) && !existingNames.includes(s.name));
+      const suggestions = [...SUGGESTED, ...customSpaces.map((name) => ({ emoji: "📁", name, desc: "" }))];
+      const toCreate = suggestions.filter((s) => picked.includes(s.name) && !existingNames.includes(s.name));
       await Promise.all(
         toCreate.map((s) =>
           fetch("/api/spaces", {
@@ -169,6 +174,17 @@ export default function Onboarding() {
     setPicked((p) => (p.includes(name) ? p.filter((n) => n !== name) : [...p, name]));
   }
 
+  function addCustomSpace() {
+    const name = customDraft.trim();
+    if (!name) return;
+    const all = [...SUGGESTED.map((s) => s.name), ...customSpaces];
+    if (!all.some((n) => n.toLowerCase() === name.toLowerCase())) {
+      setCustomSpaces((c) => [...c, name]);
+      setPicked((p) => [...p, name]);
+    }
+    setCustomDraft("");
+  }
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", minHeight: "100vh", background: "var(--bg-base)", fontFamily: "var(--font-sans)" }}>
       <StepRail currentKey={step} />
@@ -177,7 +193,7 @@ export default function Onboarding() {
           <StageInner
             eyebrow="Step 1 of 5"
             title="Set up your account."
-            sub="Aqli is the shared context layer for human–agent teams. You'll be writing in under five minutes."
+            sub="Aqli is your company's knowledge base — one your team writes and your AI tools can read. You'll be writing in under five minutes."
             topRight={<span>Already have an account? <Link href="/login" style={{ color: "var(--accent)", fontWeight: 500, textDecoration: "none" }}>Log in</Link></span>}
           >
             <form onSubmit={submitAccount} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -211,13 +227,13 @@ export default function Onboarding() {
               <Field label="Workspace name">
                 <TextInput value={workspaceName} onChange={(v) => setWorkspaceName(v)} placeholder="e.g. ACME" required autoFocus />
               </Field>
-              <Field label="Workspace URL" hint="Used for share links and the agent API base URL.">
+              <Field label="Workspace URL" hint="Used for share links and AI integrations.">
                 <TextInput mono prefix="aqli.app /" value={slugTouched ? slug : effectiveSlug} onChange={(v) => { setSlug(v); setSlugTouched(true); }} placeholder="acme" />
               </Field>
               <div style={{ padding: "16px 18px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", display: "flex", alignItems: "flex-start", gap: 12 }}>
                 <span style={{ color: "var(--accent)", marginTop: 1 }}><IconSparkle size={16} /></span>
                 <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>
-                  We&apos;ll set up your workspace with a few default spaces. Your team and agents share this one source of truth.
+                  We&apos;ll start you off with a Company space for handbooks and policies. You&apos;ll pick spaces for your teams next.
                 </div>
               </div>
               {error && <Msg tone="error">{error}</Msg>}
@@ -233,11 +249,11 @@ export default function Onboarding() {
           <StageInner
             eyebrow="Step 3 of 5"
             title="What lives where?"
-            sub="Spaces are how Aqli organises docs. Start with what fits — add or remove anytime."
+            sub="One space per team usually works. Pick the teams you have — add or remove anytime."
             topRight={workspaceName ? <span>Workspace <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspaceName}</strong></span> : null}
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {SUGGESTED.map((s) => {
+              {[...SUGGESTED, ...customSpaces.map((name) => ({ emoji: "📁", name, desc: "Your own space" }))].map((s) => {
                 const on = picked.includes(s.name);
                 const locked = existingNames.includes(s.name);
                 return (
@@ -263,6 +279,19 @@ export default function Onboarding() {
                   </button>
                 );
               })}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0 0" }}>
+                <div style={{ flex: 1 }}>
+                  <TextInput
+                    value={customDraft}
+                    onChange={setCustomDraft}
+                    placeholder="Add your own — e.g. Legal, Design, Support"
+                    onEnter={addCustomSpace}
+                  />
+                </div>
+                <button type="button" className="btn btn-ghost" style={{ height: 42, padding: "0 16px" }} onClick={addCustomSpace} disabled={!customDraft.trim()}>
+                  Add
+                </button>
+              </div>
             </div>
             {error && <Msg tone="error">{error}</Msg>}
             <Footer
@@ -275,13 +304,13 @@ export default function Onboarding() {
         {step === "agent" && (
           <StageInner
             eyebrow="Step 4 of 5"
-            title="Connect your first agent."
-            sub="An API key lets Claude Code, Cursor, or any agent query Aqli for context and write back what they did. You can do this later from Settings."
+            title="Give your AI access."
+            sub="Aqli works with any AI assistant your team uses — Claude, ChatGPT, Cursor, and more. They read your approved docs for context and draft updates for your review. Entirely optional — you can set this up later."
             topRight={workspaceName ? <span>Workspace <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspaceName}</strong></span> : null}
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <Field label="Agent name" hint="So you can recognise it in audit logs.">
-                <TextInput value={agentName} onChange={setAgentName} placeholder="Claude Code · monorepo" />
+              <Field label="Assistant name" hint="So you can recognise it in the activity log.">
+                <TextInput value={agentName} onChange={setAgentName} placeholder="e.g. Claude, ChatGPT, Cursor" />
               </Field>
               <div style={{ padding: "16px 18px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -290,7 +319,7 @@ export default function Onboarding() {
                   <span className="badge badge-review" style={{ marginLeft: "auto" }}>Set up later</span>
                 </div>
                 <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>
-                  Generate a workspace-scoped API key any time from <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>Settings → API Keys</strong>. Agents authenticate with it to read approved context and submit drafts for review.
+                  Generate a key any time from <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>Settings → API Keys</strong> and paste it into your AI tool. It can then read approved docs and submit drafts — nothing goes live without your review.
                 </div>
               </div>
             </div>
@@ -316,7 +345,7 @@ export default function Onboarding() {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <SummaryRow icon={<IconFolder />} label="Spaces" value={picked.join(" · ") || "Default spaces"} />
               <SummaryRow icon={<IconRobot />} label="Workspace URL" value={`aqli.app/${workspaceSlug ?? ""}`} meta="Live" />
-              <SummaryRow icon={<IconKey />} label="Agent" value={agentName} meta="Add key in Settings" />
+              <SummaryRow icon={<IconKey />} label="AI assistant" value={agentName} meta="Add key in Settings" />
             </div>
             <Footer
               left={<span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>You can change any of this later.</span>}
@@ -435,6 +464,7 @@ function TextInput({
   required,
   autoFocus,
   minLength,
+  onEnter,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -445,6 +475,7 @@ function TextInput({
   required?: boolean;
   autoFocus?: boolean;
   minLength?: number;
+  onEnter?: () => void;
 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", height: 42, padding: "0 12px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", fontFamily: mono ? "var(--font-mono)" : "var(--font-sans)" }}>
@@ -457,6 +488,7 @@ function TextInput({
         required={required}
         autoFocus={autoFocus}
         minLength={minLength}
+        onKeyDown={onEnter ? (e) => { if (e.key === "Enter") { e.preventDefault(); onEnter(); } } : undefined}
         style={{ flex: 1, border: 0, outline: 0, background: "transparent", fontFamily: "inherit", fontSize: mono ? 13 : 14, color: "var(--text-primary)" }}
       />
     </div>
