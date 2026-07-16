@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { AuthStage, AuthField, authInputStyle } from "@/components/auth/AuthShell";
@@ -9,7 +9,22 @@ import { IconMail } from "@/components/aqli/icons";
 import posthog from "posthog-js";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Set by /auth/callback when a confirmation link is opened in a browser
+  // without the signup session (PKCE verifier missing): the email is
+  // confirmed, the user just needs to sign in to continue where they left off.
+  const confirmed = searchParams.get("notice") === "confirmed";
+  const rawNext = searchParams.get("next") ?? "/";
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -18,9 +33,9 @@ export default function LoginPage() {
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) router.replace("/");
+      if (data.user) router.replace(next);
     });
-  }, [router]);
+  }, [router, next]);
 
   async function login(e: React.FormEvent) {
     e.preventDefault();
@@ -40,7 +55,7 @@ export default function LoginPage() {
       posthog.identify(data.user.id, { email });
       posthog.capture("user_logged_in", { email });
     }
-    router.push("/");
+    router.push(next);
     router.refresh();
   }
 
@@ -66,6 +81,11 @@ export default function LoginPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 28, letterSpacing: "-0.015em" }}>Sign in</h1>
           <p style={{ margin: 0, fontSize: 13.5, color: "var(--text-secondary)" }}>Use your workspace email.</p>
+          {confirmed && (
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--approved-text)" }}>
+              Email confirmed — sign in to continue setting up.
+            </p>
+          )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <AuthField label="Email">

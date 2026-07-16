@@ -32,7 +32,7 @@ agents write output, and humans review and approve.
 ```bash
 pnpm install
 cp .env.example .env.local
-# Fill in your Supabase URL + anon key (already set for the Aqli project)
+# Fill in your Supabase URL + anon key
 pnpm dev
 ```
 

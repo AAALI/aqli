@@ -92,10 +92,18 @@ export default function InviteClient() {
     setNotice(null);
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            // The confirmation email returns the user to this invite so they
+            // can accept it with a live session.
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/invite?token=${token}`)}`,
+          },
+        });
         if (error) throw error;
         if (!data.session) {
-          setNotice("Account created. Confirm your email, then reopen this invite link to join.");
+          setNotice("Account created — check your email. The confirmation link brings you back to this invite to join.");
           setBusy(false);
           return;
         }

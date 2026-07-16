@@ -74,11 +74,16 @@ export default function Onboarding() {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: name } },
+        options: {
+          data: { full_name: name },
+          // The confirmation email lands on /auth/callback, which exchanges
+          // the code for a session and resumes onboarding at the workspace step.
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/signup?step=workspace")}`,
+        },
       });
       if (error) throw error;
       if (!data.session) {
-        setNotice("Account created. Check your email to confirm, then log in to finish setup.");
+        setNotice("Account created — check your email. The confirmation link brings you straight back here to finish setup.");
         return;
       }
       posthog.identify(data.user!.id, { email, name });

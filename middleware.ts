@@ -3,6 +3,12 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/signup"];
 
+// Paths a signed-in user is bounced away from. /signup is deliberately NOT
+// here: a confirmed user with no workspace yet is sent to /signup?step=workspace
+// by the root page to finish onboarding — bouncing them back to "/" creates an
+// infinite redirect loop (ERR_TOO_MANY_REDIRECTS).
+const AUTH_ONLY_PATHS = ["/login"];
+
 /**
  * Refreshes the Supabase auth session on every request and gates /w/* routes.
  *
@@ -53,8 +59,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Signed-in users hitting auth pages -> their workspace resolver.
-  if (user && isPublic) {
+  // Signed-in users hitting the login page -> their workspace resolver.
+  if (user && AUTH_ONLY_PATHS.some((p) => pathname.startsWith(p))) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
