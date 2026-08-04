@@ -1,13 +1,17 @@
 import type { DocType, DocStatus } from "@/types/doc";
 
 export const TYPE_LABEL: Record<DocType, string> = {
+  general: "Doc",
+  how_to: "How-to",
+  policy: "Policy",
+  meeting: "Meeting Notes",
+  brief: "Brief",
+  decision: "Decision",
   prd: "PRD",
   adr: "ADR",
   runbook: "Runbook",
   fix_note: "Fix Note",
-  compliance: "Policy",
-  decision: "Decision",
-  general: "Doc",
+  compliance: "Compliance",
 };
 
 export const STATUS_LABEL: Record<DocStatus, string> = {

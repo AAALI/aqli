@@ -5,6 +5,7 @@ import { getDocs } from "@/lib/supabase/docs";
 import { getPendingReviewDocs } from "@/lib/supabase/review";
 import { getStaleDocs, daysSinceReview } from "@/lib/supabase/stale";
 import { getWorkspaceActivity, type FeedActivity } from "@/lib/supabase/activity";
+import { listIntegrationConnections } from "@/lib/supabase/integration-connections";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { greeting, todayLong, withinHours, dayBucket } from "@/lib/home";
 import AppTopBar from "@/components/layout/AppTopBar";
@@ -36,13 +37,17 @@ export default async function WorkspaceHome({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [recentDocs, pendingReview, staleDocs, activity, spaces] = await Promise.all([
+  const [recentDocs, pendingReview, staleDocs, activity, spaces, connections] = await Promise.all([
     getDocs(workspace.id, { limit: 16 }),
     getPendingReviewDocs(workspace.id),
     getStaleDocs(workspace.id),
     getWorkspaceActivity(workspace.id, 24),
     getSpaces(workspace.id),
+    listIntegrationConnections(workspace.id),
   ]);
+  const githubConnected = connections.some(
+    (c) => c.provider === "github" && c.status === "connected",
+  );
 
   const base = `/w/${workspace.slug}`;
   const myId = user?.id ?? null;
@@ -147,22 +152,24 @@ export default async function WorkspaceHome({
               eyebrow="Needs your attention"
               title={attentionTitle(attention.length)}
               right={
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    padding: "3px 8px",
-                    background: "var(--approved-bg)",
-                    color: "var(--approved-text)",
-                    border: "1px solid var(--approved-border)",
-                    borderRadius: 999,
-                    fontSize: 11,
-                    fontWeight: 500,
-                  }}
-                >
-                  <IconGitMerge size={11} /> PR merges skip review
-                </span>
+                githubConnected ? (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      padding: "3px 8px",
+                      background: "var(--approved-bg)",
+                      color: "var(--approved-text)",
+                      border: "1px solid var(--approved-border)",
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 500,
+                    }}
+                  >
+                    <IconGitMerge size={11} /> PR merges skip review
+                  </span>
+                ) : null
               }
             />
             {attention.length === 0 ? (
@@ -622,8 +629,8 @@ function EmptyWorkspace({ firstSpaceHref }: { firstSpaceHref: string }) {
           A clean slate.
         </h1>
         <p style={{ margin: "0 0 28px", fontSize: 15, lineHeight: 1.6, color: "var(--text-secondary)" }}>
-          This workspace doesn&apos;t have any docs yet. Start with a PRD, an ADR, or the on-call
-          thing nobody wrote down — your agents will read it for context.
+          This workspace doesn&apos;t have any docs yet. Start with a policy, a how-to, or the
+          thing everyone keeps asking about — your team and your AI will both read it.
         </p>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <Link href={`${firstSpaceHref}/new`} className="btn btn-primary" style={{ height: 38, padding: "0 18px" }}>

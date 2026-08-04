@@ -1,13 +1,17 @@
 import type { Space } from "./space";
 
 export type DocType =
+  | "general"
+  | "how_to"
+  | "policy"
+  | "meeting"
+  | "brief"
+  | "decision"
   | "prd"
   | "adr"
   | "runbook"
   | "fix_note"
-  | "compliance"
-  | "decision"
-  | "general";
+  | "compliance";
 
 export type DocStatus = "draft" | "review" | "approved" | "stale" | "archived";
 
@@ -56,13 +60,17 @@ export type DocWithSpace = Doc & {
 };
 
 export const DOC_TYPES: DocType[] = [
+  "general",
+  "how_to",
+  "policy",
+  "meeting",
+  "brief",
+  "decision",
   "prd",
   "adr",
   "runbook",
   "fix_note",
   "compliance",
-  "decision",
-  "general",
 ];
 
 export const DOC_STATUSES: DocStatus[] = [

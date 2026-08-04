@@ -51,10 +51,10 @@ export default function AgentLogClient({
           Audit
         </div>
         <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 34, letterSpacing: "-0.015em", lineHeight: 1.1 }}>
-          Agent Activity
+          AI activity
         </h1>
         <p style={{ margin: 0, fontSize: 14, color: "var(--text-secondary)" }}>
-          All docs created or modified by AI agents.
+          Everything AI assistants have created or changed, in one auditable trail.
         </p>
       </header>
 

@@ -84,7 +84,7 @@ export default function Sidebar({
         </Link>
         <Link href={`${base}/stale`} className={`sb-item ${isStale ? "is-active" : ""}`}>
           <span className="sb-icon"><IconClock /></span>
-          <span>Stale docs</span>
+          <span>Needs updating</span>
           {staleCount > 0 && (
             <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--stale-text)", background: "var(--stale-bg)", border: "1px solid var(--stale-border)", padding: "0 6px", borderRadius: 999, lineHeight: "16px", height: 16 }}>
               {staleCount}
@@ -93,7 +93,7 @@ export default function Sidebar({
         </Link>
         <Link href={`${base}/agent-log`} className={`sb-item ${isAgentLog ? "is-active" : ""}`}>
           <span className="sb-icon"><IconRobot /></span>
-          <span>Agent log</span>
+          <span>AI activity</span>
         </Link>
       </div>
 

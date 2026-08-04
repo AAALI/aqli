@@ -11,6 +11,7 @@ import {
 } from "react";
 import type { Editor } from "@tiptap/react";
 import { IconLink, IconQuote, IconRobot } from "@/components/aqli/icons";
+import { MERMAID_TEMPLATE } from "@/components/editor/MermaidCodeBlock";
 import type { KeyHandlerRegistry, RelatedResult } from "./types";
 
 type Cmd = {
@@ -29,6 +30,7 @@ const CMDS: Cmd[] = [
   { id: "bullet", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>•</span>, name: "Bulleted list", hint: "Plain list", keywords: "bullet list ul" },
   { id: "ordered", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>1.</span>, name: "Numbered list", hint: "Ordered list", keywords: "numbered ordered list ol" },
   { id: "quote", icon: <span style={{ fontFamily: "var(--font-serif)", fontSize: 15 }}>&ldquo;</span>, name: "Quote", hint: "Block quote", keywords: "quote blockquote" },
+  { id: "diagram", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>⌥</span>, name: "Diagram", hint: "Flowchart, sequence, or process (Mermaid)", keywords: "diagram flowchart flow chart mermaid sequence process workflow" },
   { id: "code", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{"{}"}</span>, name: "Code block", hint: "Fenced code", keywords: "code fence pre" },
   { id: "divider", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>—</span>, name: "Divider", hint: "Horizontal rule", keywords: "divider rule hr" },
 ];
@@ -154,6 +156,15 @@ export default function SlashMenu({
           break;
         case "code":
           chain.toggleCodeBlock().run();
+          break;
+        case "diagram":
+          chain
+            .insertContent({
+              type: "codeBlock",
+              attrs: { language: "mermaid" },
+              content: [{ type: "text", text: MERMAID_TEMPLATE }],
+            })
+            .run();
           break;
         case "divider":
           chain.setHorizontalRule().run();

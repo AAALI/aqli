@@ -1,13 +1,15 @@
 # Aqli
 
-> The shared intellect for human-agent teams.
+> The open source company knowledge base your AI can actually trust.
 
-An open source team knowledge base where humans write docs, agents read context,
-agents write output, and humans review and approve.
+Every team writes docs — policies, how-tos, briefs, PRDs, runbooks. AI
+assistants read the approved ones for context and draft updates. Humans review
+and approve. Nothing becomes ground truth without a person signing off.
 
 ## Features
 
-- ✅ Clean browser editor — write PRDs, ADRs, runbooks, fix notes
+- ✅ Clean browser editor — templates for every team: policies, how-tos, meeting notes, briefs, PRDs, ADRs, runbooks
+- ✅ Diagrams — Mermaid flowcharts and sequence diagrams via `/diagram`, and agents can write them in plain markdown
 - ✅ Agent REST API — query context, create docs, request review
 - ✅ Built-in RAG — every approved doc embedded and searchable by agents
 - ✅ Human-agent review loop — agent docs flagged for human approval
@@ -36,8 +38,8 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-Open http://localhost:3000 and sign up — this creates your workspace with default
-spaces (Product, Engineering, Compliance).
+Open http://localhost:3000 and sign up — this creates your workspace with a
+default Company space; pick spaces for your teams during onboarding.
 
 > **Dev note:** disable "Confirm email" in your Supabase project (Auth → Providers)
 > so signup returns an immediate session during local development.
@@ -59,11 +61,11 @@ curl -X POST https://your-aqli.app/api/agent/docs \
 
 ## Roadmap
 
-- [x] Week 1: Editor, spaces, docs, search
-- [x] Week 2: Agent API, RAG, embeddings
-- [x] Week 3: Review loop, AI features, stale detection
-- [x] GitHub & Linear integrations (Composio), invitations, app-wide AI chat
-- [ ] Production launch of Aqli Cloud at aqli.app
+See [ROADMAP.md](ROADMAP.md) for the full plan. Short version: Phase 1
+(team-neutral onboarding, doc types, and diagrams) has shipped; Phase 2 is
+table-stakes editor and organisation features (images, tables, comments,
+import, sub-pages, space permissions); Phase 3 presses the AI-native advantage
+(MCP server, Slack Q&A, review workflows, public sharing).
 
 ## Self-hosting
 

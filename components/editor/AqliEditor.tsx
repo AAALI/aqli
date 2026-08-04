@@ -3,6 +3,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
+import { CodeBlockWithMermaid } from "@/components/editor/MermaidCodeBlock";
 import { useEffect } from "react";
 import EditorToolbar from "./EditorToolbar";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
@@ -25,8 +26,9 @@ export default function AqliEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
-        codeBlock: { languageClassPrefix: "language-" },
+        codeBlock: false,
       }),
+      CodeBlockWithMermaid,
       Placeholder.configure({ placeholder }),
     ],
     content:

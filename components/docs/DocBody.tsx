@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { CodeBlockWithMermaid } from "@/components/editor/MermaidCodeBlock";
 
 /**
  * Pull the plain text out of a Tiptap node (its `text` leaves, concatenated).
@@ -57,8 +58,9 @@ export default function DocBody({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
-        codeBlock: { languageClassPrefix: "language-" },
+        codeBlock: false,
       }),
+      CodeBlockWithMermaid,
     ],
     content:
       stripDuplicateTitle(content, title) ?? {

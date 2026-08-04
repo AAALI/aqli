@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
+import { CodeBlockWithMermaid } from "@/components/editor/MermaidCodeBlock";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { TypeBadge } from "@/components/aqli/badges";
 import DocStatusControl from "@/components/docs/DocStatusControl";
@@ -117,8 +118,9 @@ export default function DocEditorClient({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
-        codeBlock: { languageClassPrefix: "language-" },
+        codeBlock: false,
       }),
+      CodeBlockWithMermaid,
       Placeholder.configure({
         placeholder: "Start writing — type / for commands…",
       }),

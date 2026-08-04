@@ -18,6 +18,64 @@ const ol = (...items: string[]) => ({ type: "orderedList", content: items.map(li
  * `general` intentionally has no template.
  */
 export const DOC_TEMPLATES: Partial<Record<DocType, TiptapDoc>> = {
+  how_to: {
+    type: "doc",
+    content: [
+      h(1, "How-to Guide"),
+      h(2, "What this covers"),
+      p("What task does this guide help someone complete?"),
+      h(2, "Before you start"),
+      p("Access, tools, or context needed."),
+      h(2, "Steps"),
+      ol("Step 1", "Step 2"),
+      h(2, "Common problems"),
+      p("What usually goes wrong, and what to do about it."),
+    ],
+  },
+  policy: {
+    type: "doc",
+    content: [
+      h(1, "Policy"),
+      h(2, "What this policy covers"),
+      p("Who and what this applies to."),
+      h(2, "The policy"),
+      p("The rules, stated plainly."),
+      h(2, "Exceptions"),
+      p("When the rules don't apply, and who can approve an exception."),
+      h(2, "Who to ask"),
+      p("The owner of this policy and where to raise questions."),
+    ],
+  },
+  meeting: {
+    type: "doc",
+    content: [
+      h(1, "Meeting Notes"),
+      h(2, "Attendees & date"),
+      p("Who was there, and when."),
+      h(2, "What we discussed"),
+      ul("Topic 1", "Topic 2"),
+      h(2, "Decisions"),
+      p("What was decided."),
+      h(2, "Action items"),
+      ul("Owner — action", "Owner — action"),
+    ],
+  },
+  brief: {
+    type: "doc",
+    content: [
+      h(1, "Brief"),
+      h(2, "Objective"),
+      p("What are we trying to achieve, and how will we know it worked?"),
+      h(2, "Audience"),
+      p("Who this is for."),
+      h(2, "Key message"),
+      p("The one thing that must land."),
+      h(2, "Deliverables & timeline"),
+      ul("Deliverable — date", "Deliverable — date"),
+      h(2, "Budget & owners"),
+      p("Resources and who's responsible."),
+    ],
+  },
   prd: {
     type: "doc",
     content: [

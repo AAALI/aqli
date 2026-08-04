@@ -45,14 +45,15 @@ export default function StaleClient({ docs, workspaceSlug, staleDays }: Props) {
         }}
       >
         <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-          Hygiene
+          Keeping it current
         </div>
         <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 34, letterSpacing: "-0.015em", lineHeight: 1.1 }}>
-          Stale docs
+          Needs updating
         </h1>
         <p style={{ margin: 0, maxWidth: 640, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.55 }}>
-          Approved docs not reviewed in {staleDays}+ days. Stale docs still serve agents, but a
-          human should confirm they&apos;re current before they&apos;re treated as ground truth.
+          Approved docs nobody has checked in {staleDays}+ days. They still serve your team and
+          your AI, but someone should confirm they&apos;re current before they&apos;re treated as
+          ground truth.
         </p>
       </header>
 

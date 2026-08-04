@@ -21,6 +21,48 @@ type TypeDef = {
 
 const TYPES: TypeDef[] = [
   {
+    id: "general",
+    code: "DOC",
+    name: "General doc",
+    desc: "Blank canvas — no scaffolding.",
+    sections: [],
+  },
+  {
+    id: "how_to",
+    code: "HOW",
+    name: "How-to guide",
+    desc: "Step-by-step instructions anyone can follow.",
+    sections: ["What this covers", "Before you start", "Steps", "Common problems"],
+  },
+  {
+    id: "policy",
+    code: "POL",
+    name: "Policy",
+    desc: "Rules, who they apply to, exceptions.",
+    sections: ["What this policy covers", "The policy", "Exceptions", "Who to ask"],
+  },
+  {
+    id: "meeting",
+    code: "MTG",
+    name: "Meeting notes",
+    desc: "Discussion, decisions, action items.",
+    sections: ["Attendees & date", "What we discussed", "Decisions", "Action items"],
+  },
+  {
+    id: "brief",
+    code: "BRF",
+    name: "Brief",
+    desc: "Objective, audience, message, deliverables.",
+    sections: ["Objective", "Audience", "Key message", "Deliverables & timeline", "Budget & owners"],
+  },
+  {
+    id: "decision",
+    code: "DEC",
+    name: "Decision log",
+    desc: "One-off decision with rationale and date.",
+    sections: ["Decision", "Rationale", "Date & owner"],
+  },
+  {
     id: "prd",
     code: "PRD",
     name: "Product requirement",
@@ -50,24 +92,10 @@ const TYPES: TypeDef[] = [
   },
   {
     id: "compliance",
-    code: "POL",
-    name: "Compliance / policy",
+    code: "CMP",
+    name: "Compliance",
     desc: "Scope, rules, exceptions, audit trail.",
     sections: ["Scope", "Rules", "Exceptions", "Audit trail"],
-  },
-  {
-    id: "decision",
-    code: "DEC",
-    name: "Decision log",
-    desc: "One-off decision with rationale and date.",
-    sections: ["Decision", "Rationale", "Date & owner"],
-  },
-  {
-    id: "general",
-    code: "DOC",
-    name: "General doc",
-    desc: "Blank canvas — no scaffolding.",
-    sections: [],
   },
 ];
 
