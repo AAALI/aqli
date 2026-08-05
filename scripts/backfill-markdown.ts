@@ -207,6 +207,31 @@ async function main(): Promise<void> {
   await mkdir(dirname(outPath), { recursive: true });
   await writeFile(outPath, lines.join("\n"), "utf8");
 
+  // Record that this ran, so the step-6 migration — which cannot see this
+  // environment — can refuse to flip `body_md` to canonical before it has.
+  // Only on a clean apply: a run that skipped documents means some `body_md`
+  // is still the old converter's output, and that is precisely what must not
+  // become the only copy.
+  if (apply && failures.length === 0) {
+    const { error } = await db.rpc("record_migration_gate", {
+      p_name: "body_md_backfill",
+      p_detail: {
+        ran_at: new Date().toISOString(),
+        documents: outcomes.length,
+        converted: count("converted"),
+        unchanged: count("unchanged"),
+        no_body_json: count("skipped-no-json"),
+      },
+    });
+    if (error) {
+      console.error(`could not record the migration gate: ${error.message}`);
+      console.error("step 6 will refuse to apply until this succeeds.");
+      process.exitCode = 1;
+    } else {
+      console.log("gate:        body_md_backfill recorded");
+    }
+  }
+
   console.log(`documents:   ${outcomes.length}`);
   console.log(`converted:   ${count("converted")}${apply ? "" : " (dry run — nothing written)"}`);
   console.log(`unchanged:   ${count("unchanged")}`);

@@ -6,6 +6,7 @@ import AppTopBar from "@/components/layout/AppTopBar";
 import { IconHistory, IconRobot } from "@/components/aqli/icons";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
 import { formatRelative, formatDate } from "@/lib/utils";
+import { diffLines } from "@/lib/merge/diff";
 
 type V = {
   id: string;
@@ -15,41 +16,10 @@ type V = {
   body_md: string;
 };
 
-type DiffRow = { type: "ctx" | "add" | "remove"; text: string };
-
-function diffLines(a: string[], b: string[]): DiffRow[] {
-  const n = a.length;
-  const m = b.length;
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
-  }
-  const out: DiffRow[] = [];
-  let i = 0;
-  let j = 0;
-  while (i < n && j < m) {
-    if (a[i] === b[j]) {
-      out.push({ type: "ctx", text: a[i] });
-      i++;
-      j++;
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      out.push({ type: "remove", text: a[i] });
-      i++;
-    } else {
-      out.push({ type: "add", text: b[j] });
-      j++;
-    }
-  }
-  while (i < n) out.push({ type: "remove", text: a[i++] });
-  while (j < m) out.push({ type: "add", text: b[j++] });
-  return out;
-}
-
 const CHANGE_LABEL: Record<string, string> = {
   created: "Created",
   edit: "Edited",
+  agent_edit: "Edited by an agent",
   status_change: "Status changed",
 };
 
@@ -80,13 +50,11 @@ export default function HistoryClient({
 
   const rows = useMemo(() => {
     if (!selected) return [];
-    const a = (previous?.body_md ?? "").split("\n");
-    const b = selected.body_md.split("\n");
-    return diffLines(a, b);
+    return diffLines(previous?.body_md ?? "", selected.body_md);
   }, [selected, previous]);
 
-  const added = rows.filter((r) => r.type === "add").length;
-  const removed = rows.filter((r) => r.type === "remove").length;
+  const added = rows.filter((r) => r.op === "add").length;
+  const removed = rows.filter((r) => r.op === "remove").length;
   const isCurrent = selectedIdx === 0;
 
   async function restore() {
@@ -149,7 +117,7 @@ export default function HistoryClient({
           </div>
           {versions.length === 0 ? (
             <div style={{ padding: "0 20px", fontSize: 13, color: "var(--text-muted)" }}>
-              No version snapshots yet. Versions are captured on status changes and edits.
+              No revisions yet. One is recorded every time a change is merged.
             </div>
           ) : (
             <div style={{ position: "relative", padding: "0 0 24px 0" }}>
@@ -241,14 +209,14 @@ export default function HistoryClient({
                       style={{
                         padding: "1px 12px",
                         margin: "0 -12px",
-                        background: r.type === "add" ? "rgba(15,110,86,0.08)" : r.type === "remove" ? "rgba(153,60,29,0.08)" : "transparent",
-                        color: r.type === "add" ? "var(--approved-text)" : r.type === "remove" ? "#993C1D" : "var(--text-secondary)",
-                        borderLeft: `3px solid ${r.type === "add" ? "var(--accent)" : r.type === "remove" ? "#993C1D" : "transparent"}`,
+                        background: r.op === "add" ? "rgba(15,110,86,0.08)" : r.op === "remove" ? "rgba(153,60,29,0.08)" : "transparent",
+                        color: r.op === "add" ? "var(--approved-text)" : r.op === "remove" ? "#993C1D" : "var(--text-secondary)",
+                        borderLeft: `3px solid ${r.op === "add" ? "var(--accent)" : r.op === "remove" ? "#993C1D" : "transparent"}`,
                         whiteSpace: "pre-wrap",
                         wordBreak: "break-word",
                       }}
                     >
-                      {(r.type === "add" ? "+ " : r.type === "remove" ? "- " : "  ") + (r.text || " ")}
+                      {(r.op === "add" ? "+ " : r.op === "remove" ? "- " : "  ") + (r.text || " ")}
                     </div>
                   ))
                 )}

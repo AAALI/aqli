@@ -7,21 +7,23 @@
  * the source of truth" is not a thing anyone wants to debug.
  */
 
-function on(name: string): boolean {
+function offUnlessSet(name: string): boolean {
   const v = process.env[name];
-  return v === "1" || v === "true";
+  return !(v === "0" || v === "false");
 }
 
 /**
  * Route human document saves through `propose → merge` instead of writing
  * `docs` directly (spec §9, step 4).
  *
- * Off, every save is a direct update, exactly as before. On, every save
- * becomes a proposal that the space's review policy either merges immediately
- * or queues. Every space defaults to `review_agents`, under which humans
- * merge — so with no other change, turning this on is behaviour-neutral from
- * the user's seat, and what it buys is a real revision history.
+ * On since step 6, and on by default: `body_md` is canonical, and the merge
+ * engine is what writes it. Set `AQLI_MERGE_ENGINE=0` to fall back to direct
+ * `docs` writes.
+ *
+ * That fallback is a rollback lever, not a supported mode. With it off, saves
+ * stop producing revisions, so the history for anything edited while it is off
+ * has a hole in it. Turn it off to get out of trouble, not to stay there.
  */
 export function mergeEngineEnabled(): boolean {
-  return on("AQLI_MERGE_ENGINE");
+  return offUnlessSet("AQLI_MERGE_ENGINE");
 }

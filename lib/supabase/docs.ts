@@ -264,7 +264,68 @@ export async function deleteDoc(id: string) {
   if (error) throw error;
 }
 
-export async function getDocVersions(docId: string) {
+/**
+ * A revision, shaped for the history UI.
+ *
+ * `revisions` is the history from step 6 on. It was backfilled from
+ * `doc_versions` in step 3, so it is a superset — nothing is lost by reading
+ * it instead, and everything written since the merge engine landed is only
+ * here. `doc_versions` recorded content edits only on status changes; a
+ * revision is written for every merged change, by anyone.
+ */
+export type DocRevision = {
+  id: string;
+  version_number: number;
+  change_type: string;
+  created_at: string;
+  body_md: string;
+  title: string;
+  author_id: string | null;
+  agent_key_id: string | null;
+  proposal_id: string | null;
+};
+
+export async function getDocVersions(docId: string): Promise<DocRevision[]> {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("revisions")
+    .select("id, seq, title, body_md, author_id, agent_key_id, proposal_id, created_at")
+    .eq("document_id", docId)
+    .order("seq", { ascending: false });
+  if (error) throw error;
+
+  const rows = (data ?? []) as {
+    id: string;
+    seq: number;
+    title: string;
+    body_md: string;
+    author_id: string | null;
+    agent_key_id: string | null;
+    proposal_id: string | null;
+    created_at: string;
+  }[];
+
+  return rows.map((r) => ({
+    id: r.id,
+    version_number: r.seq,
+    // `revisions` records who wrote a change, not what kind of change it was —
+    // which is the more useful thing to show anyway.
+    change_type:
+      r.seq === 1 ? "created" : r.agent_key_id ? "agent_edit" : "edit",
+    created_at: r.created_at,
+    body_md: r.body_md ?? "",
+    title: r.title,
+    author_id: r.author_id,
+    agent_key_id: r.agent_key_id,
+    proposal_id: r.proposal_id,
+  }));
+}
+
+/**
+ * Legacy `doc_versions` rows, for auditing the step-3 backfill. Nothing in the
+ * app reads these since step 6.
+ */
+export async function getLegacyDocVersions(docId: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("doc_versions")

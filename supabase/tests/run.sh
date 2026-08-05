@@ -4,6 +4,9 @@
 #   ./supabase/tests/run.sh                  # boot a throwaway cluster
 #   DATABASE_URL=postgres://... ./run.sh     # or point at one you already have
 #
+# PGTEST_SKIP_GATE=1 withholds the step-2.5 backfill gate, so the step-6
+# migration should refuse to apply. Use it to check the interlock still bites.
+#
 # With no DATABASE_URL this initdbs a cluster under $TMPDIR, replays
 # `tests/base.sql` (the schema as it stood before the markdown-canonical
 # migration) followed by every file in `supabase/migrations/`, then runs each
@@ -48,7 +51,18 @@ else
 
   "${psql_base[@]}" -f "$here/base.sql" >/dev/null
   for m in "$repo"/supabase/migrations/*.sql; do
-    "${psql_base[@]}" -f "$m" >/dev/null
+    # Step 6 refuses to apply until the markdown backfill has recorded its
+    # gate. There is nothing to back-fill in a fresh database, so record it as
+    # soon as the table exists — `canonical_flip.sql` asserts that removing the
+    # record is what makes the guard fire.
+    if [[ "$(basename "$m")" == 20260805040000_* && -z "${PGTEST_SKIP_GATE:-}" ]]; then
+      "${psql_base[@]}" -c "insert into app.migration_gates (name, detail) values ('body_md_backfill', '{\"source\":\"supabase/tests/run.sh\"}'::jsonb) on conflict (name) do nothing;" >/dev/null
+    fi
+    if ! out="$("${psql_base[@]}" -f "$m" 2>&1)"; then
+      echo "migration failed: $(basename "$m")" >&2
+      echo "$out" | sed 's/^/    /' >&2
+      exit 1
+    fi
   done
 fi
 
