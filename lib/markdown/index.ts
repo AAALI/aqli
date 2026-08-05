@@ -8,6 +8,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { aqliSchema } from "./schema";
 import { aqliMarkdownSerializer } from "./serializer";
 import { parseMarkdown } from "./parser";
+import { normalizeForMarkdown, type TreeNode } from "./normalize-tree";
 
 export { aqliSchema, aqliExtensions, ALLOWED_NODES, ALLOWED_MARKS } from "./schema";
 export type { CalloutKind } from "./schema";
@@ -43,6 +44,9 @@ function sanitize(node: JSONNode): JSONNode[] {
   const children = (node.content ?? []).flatMap(sanitize);
 
   if (node.type === "text") {
+    // ProseMirror rejects an empty text node outright, so a document carrying
+    // one cannot even be loaded — it has to go before `nodeFromJSON` sees it.
+    if (!node.text) return [];
     const marks = (node.marks ?? []).filter(
       (mark) => typeof mark.type === "string" && mark.type in aqliSchema.marks,
     );
@@ -88,12 +92,22 @@ export function isFixedPoint(markdown: string): boolean {
   return normalize(once) === once;
 }
 
-/** Tiptap JSON -> markdown. */
+/**
+ * Tiptap JSON -> markdown.
+ *
+ * Two passes before serializing, and the order matters. `sanitize` drops what
+ * the allowlist no longer admits so ProseMirror will accept the JSON at all;
+ * `normalizeForMarkdown` then rewrites what markdown cannot express — raw
+ * newlines inside a text node, edge whitespace, a blank line inside a paragraph
+ * — so that the markdown written here parses back to the document it came from.
+ */
 export function tiptapToMarkdown(doc: TiptapJSON | null | undefined): string {
   if (!doc) return "";
   const [sanitized] = sanitize(doc as JSONNode);
   if (!sanitized) return "";
-  return serialize(aqliSchema.nodeFromJSON(sanitized));
+  const [normalized] = normalizeForMarkdown(sanitized as TreeNode);
+  if (!normalized) return "";
+  return serialize(aqliSchema.nodeFromJSON(normalized));
 }
 
 /** Markdown -> Tiptap JSON. */

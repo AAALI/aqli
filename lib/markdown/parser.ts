@@ -429,7 +429,11 @@ function normalizeJSON(node: JSONNode, parentType: string | null): JSONNode[] {
 
   let children = node.content.flatMap((child) => normalizeJSON(child, node.type));
 
-  if (aqliSchema.nodes[node.type]?.isTextblock) {
+  // Code is verbatim. A code block is a textblock too, but its whitespace is
+  // content: trimming it strips the indentation off the first line of every
+  // fence and the trailing newlines off the end of all of them.
+  const nodeType = aqliSchema.nodes[node.type];
+  if (nodeType?.isTextblock && !nodeType.spec.code) {
     children = trimTextblock(expelMarkWhitespace(children));
   }
 

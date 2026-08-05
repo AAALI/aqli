@@ -159,3 +159,104 @@ const hostileBlock = fc.oneof(
 export const hostileMarkdown = fc
   .array(hostileBlock, { minLength: 1, maxLength: 6 })
   .map((blocks) => blocks.join("\n"));
+
+// ---------------------------------------------------------------------------
+// Tiptap JSON
+// ---------------------------------------------------------------------------
+
+/**
+ * Documents that markdown could never have produced.
+ *
+ * Everything above starts from markdown, so it can only ever build documents a
+ * markdown parse can build. That is a strictly smaller space than Tiptap JSON,
+ * and the difference is where the real defects were: the PR pipeline and the old
+ * converter write JSON directly, and they emit raw newlines inside text nodes,
+ * leading whitespace hiding a list marker, and empty list items — none of which
+ * has a markdown spelling. Twenty-two of eighty-three production documents
+ * failed the round-trip gate on content in that gap.
+ *
+ * This generator deliberately produces it.
+ */
+type JSONNode = Record<string, unknown>;
+
+/** Text that markdown cannot carry verbatim, mixed with text that can. */
+const awkwardText = fc.oneof(
+  fc.stringMatching(/^[A-Za-z0-9 .,:()-]{1,30}$/).filter((s) => s.trim().length > 0),
+  // A block marker, sometimes behind the whitespace that hides it from the
+  // default escaping.
+  fc
+    .tuple(
+      fc.constantFrom("", " ", "  ", "   "),
+      fc.constantFrom("-", "*", "+", ">", "#", "##", "1.", "1)", "0.", "- [ ]"),
+      fc.constantFrom("", " text", " more words"),
+    )
+    .map(([pad, marker, rest]) => `${pad}${marker}${rest}`),
+  // Raw newlines: single (a soft break markdown joins) and double (a paragraph
+  // boundary markdown honours).
+  fc
+    .array(fc.stringMatching(/^[A-Za-z0-9 .:-]{1,20}$/), { minLength: 2, maxLength: 4 })
+    .chain((lines) => fc.constantFrom("\n", "\n\n", "\n\n\n").map((sep) => lines.join(sep))),
+  // Edge whitespace, which markdown strips on read.
+  fc
+    .stringMatching(/^[A-Za-z0-9 .-]{1,20}$/)
+    .map((s) => `  ${s}  `),
+);
+
+const textNode = (): fc.Arbitrary<JSONNode> =>
+  fc
+    .tuple(
+      awkwardText,
+      fc.option(fc.constantFrom("bold", "italic", "code", "strike"), { nil: undefined }),
+    )
+    .map(([text, mark]) => ({
+      type: "text",
+      text,
+      ...(mark ? { marks: [{ type: mark }] } : {}),
+    }));
+
+const inlineContent = fc.array(fc.oneof(textNode(), fc.constant({ type: "hardBreak" })), {
+  minLength: 0,
+  maxLength: 4,
+});
+
+const jsonParagraph = inlineContent.map((content) => ({ type: "paragraph", content }));
+
+const jsonHeading = fc
+  .tuple(fc.integer({ min: 1, max: 3 }), inlineContent)
+  .map(([level, content]) => ({ type: "heading", attrs: { level }, content }));
+
+const jsonCodeBlock = fc
+  .tuple(
+    fc.constantFrom(null, "js", "sql", "mermaid"),
+    fc.array(fc.stringMatching(/^[A-Za-z0-9 ={}();*#_-]{0,25}$/), { minLength: 1, maxLength: 4 }),
+  )
+  .map(([language, lines]) => ({
+    type: "codeBlock",
+    attrs: { language },
+    content: [{ type: "text", text: lines.join("\n") }],
+  }));
+
+const jsonListItem = fc
+  .array(jsonParagraph, { minLength: 1, maxLength: 2 })
+  .map((content) => ({ type: "listItem", content }));
+
+const jsonList = fc
+  .tuple(fc.constantFrom("bulletList", "orderedList"), fc.array(jsonListItem, { minLength: 1, maxLength: 3 }))
+  .map(([type, content]) => ({ type, content }));
+
+const jsonBlockquote = fc
+  .tuple(fc.array(jsonParagraph, { minLength: 1, maxLength: 2 }), fc.option(fc.constantFrom("NOTE", "WARNING", "TIP"), { nil: null }))
+  .map(([content, callout]) => ({ type: "blockquote", attrs: { callout }, content }));
+
+const jsonBlock = fc.oneof(
+  jsonParagraph,
+  jsonHeading,
+  jsonCodeBlock,
+  jsonList,
+  jsonBlockquote,
+  fc.constant({ type: "horizontalRule" }),
+);
+
+export const arbitraryTiptapDoc = fc
+  .array(jsonBlock, { minLength: 1, maxLength: 6 })
+  .map((content) => ({ type: "doc", content }) as JSONNode);

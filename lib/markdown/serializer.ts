@@ -168,35 +168,63 @@ const nodes: Record<string, NodeSerializer> = {
   text(state, node, parent, index) {
     const text = node.text ?? "";
 
-    // A list marker leading a block turns the text into a list on re-read.
-    // The default escaping covers `-`, `*` and `>`, but only handles `+` and
-    // `1.` when a space follows — and a marker alone on the line is a valid
-    // empty list item, so `+` or `0.` as the whole paragraph would come back as
-    // an empty list and be dropped, losing the text. `1)` is missing entirely,
-    // and adjacent ordered lists are written with `)` (see `orderedList`).
-    if (index === 0 && parent.type.name !== "codeBlock") {
-      const marker = /^(\s*)(\+|\d+[.)])/.exec(text);
+    // A block marker leading a line turns the text into that block on re-read.
+    //
+    // The default escaping handles a marker only when it is the very first
+    // character of a block: it misses one preceded by whitespace, and it misses
+    // every line after a hard break. Both occur in real documents — a paragraph
+    // beginning `"  - "` came back as a bulleted list, and the lines of a
+    // multi-line quote came back as list items.
+    //
+    // `+` and `1.` also need covering by hand: the default only escapes them
+    // when a space follows, but a marker alone on a line is a valid *empty*
+    // list item, so `+` as a whole paragraph would return as an empty list and
+    // be dropped, losing the text. `1)` is missing entirely, and adjacent
+    // ordered lists are written with `)` (see `orderedList`).
+    const atLineStart =
+      index === 0 || (index > 0 && parent.child(index - 1).type.name === "hardBreak");
+    const atBlockEnd = index === parent.childCount - 1;
+
+    let prefix = "";
+    let rest = text;
+
+    if (atLineStart && parent.type.name !== "codeBlock") {
+      const marker = /^(\s*)([-*+>#]|\d+[.)])/.exec(rest);
       if (marker) {
-        state.text(marker[1], true);
-        state.text(marker[2].replace(/[+.)]/g, (c) => `\\${c}`), false);
-        state.text(text.slice(marker[0].length), true);
-        return;
+        // Leading whitespace has no markdown spelling at the start of a line —
+        // it is stripped on read — so it is dropped rather than written out.
+        prefix = marker[2].replace(/[-*+>#.)]/g, (c) => `\\${c}`);
+        rest = rest.slice(marker[0].length);
       }
     }
 
     // A run of `#` at the end of an ATX heading is its optional closing
     // sequence and is discarded on re-read, so `# #` comes back as an empty
     // heading. Escaping the run keeps it as content.
-    if (parent.type.name === "heading" && index === parent.childCount - 1) {
-      const trailing = /#+$/.exec(text);
+    let suffix = "";
+    if (parent.type.name === "heading" && atBlockEnd) {
+      const trailing = /#+$/.exec(rest);
       if (trailing) {
-        state.text(text.slice(0, trailing.index), true);
-        state.text(trailing[0].replace(/#/g, "\\#"), false);
-        return;
+        suffix = trailing[0].replace(/#/g, "\\#");
+        rest = rest.slice(0, trailing.index);
       }
     }
 
-    state.text(text);
+    if (prefix === "" && suffix === "") {
+      state.text(text);
+      return;
+    }
+
+    // Both rules can fire on the same node — a heading reading `-0 #` needs the
+    // leading marker *and* the closing sequence escaped — so they compose here
+    // rather than each returning early.
+    //
+    // The middle is escaped explicitly, without start-of-line rules, rather than
+    // delegated: once the marker above is written the line no longer starts with
+    // one, but the state does not know that, and its start-of-line escaping also
+    // depends on what follows — so `"-1."` and `"-1. "` escaped differently and
+    // the document never settled.
+    state.text(prefix + state.esc(rest, false) + suffix, false);
   },
 
   paragraph(state, node) {

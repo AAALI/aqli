@@ -17,7 +17,7 @@
  */
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { hostileMarkdown, wellFormedMarkdown } from "./arbitrary";
+import { arbitraryTiptapDoc, hostileMarkdown, wellFormedMarkdown } from "./arbitrary";
 import {
   ALLOWED_MARKS,
   ALLOWED_NODES,
@@ -146,6 +146,130 @@ describe("schema and serializer agree", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tiptap JSON -> markdown
+// ---------------------------------------------------------------------------
+
+/**
+ * The direction the markdown property test cannot see.
+ *
+ * Every generator above starts from markdown, so it only ever produces
+ * documents that a markdown parse can produce. Tiptap JSON is a strictly larger
+ * space: the PR pipeline and the old converter build it directly, and they
+ * write content that has no markdown spelling at all. Twenty-two of eighty-three
+ * production documents failed the gate on exactly this, and not one of the
+ * markdown generators could have found any of them.
+ *
+ * The assertion is stronger than a fixed point. Markdown produced from JSON must
+ * *already* be normalized, because otherwise the first save after the canonical
+ * flip rewrites a document nobody edited.
+ */
+function expectAlreadyNormalized(doc: Record<string, unknown>): string {
+  const markdown = tiptapToMarkdown(doc);
+  expect(normalize(markdown)).toBe(markdown);
+  return markdown;
+}
+
+const paragraph = (...text: string[]) => ({
+  type: "doc",
+  content: text.map((t) => ({ type: "paragraph", content: [{ type: "text", text: t }] })),
+});
+
+describe("tiptap json markdown cannot express", () => {
+  it("escapes a bullet marker hidden behind leading whitespace", () => {
+    // Found in production: the paragraph came back as a bulleted list.
+    expect(expectAlreadyNormalized(paragraph("  - not a list"))).toBe("\\- not a list\n");
+  });
+
+  it("escapes every block marker at the start of a line", () => {
+    for (const marker of ["-", "*", "+", ">", "#", "1.", "1)"]) {
+      const source = `${marker} text`;
+      const markdown = expectAlreadyNormalized(paragraph(source));
+      // The point is not how it is escaped but that it still reads back as a
+      // paragraph carrying the original text, rather than as a list or heading.
+      const back = parse(markdown);
+      expect(back.childCount).toBe(1);
+      expect(back.child(0).type.name).toBe("paragraph");
+      expect(back.child(0).textContent).toBe(source);
+    }
+  });
+
+  it("turns a raw newline inside a text node into a hard break", () => {
+    expect(expectAlreadyNormalized(paragraph("first\nsecond"))).toBe("first\\\nsecond\n");
+  });
+
+  it("splits a paragraph on a blank line inside a text node", () => {
+    expect(expectAlreadyNormalized(paragraph("first\n\nsecond"))).toBe("first\n\nsecond\n");
+  });
+
+  it("escapes a line-start marker that follows a hard break", () => {
+    // The lines of a multi-line quote came back as list items.
+    expect(expectAlreadyNormalized(paragraph("Source\n- PR: http://x"))).toBe(
+      "Source\\\n\\- PR: http://x\n",
+    );
+  });
+
+  it("strips edge whitespace markdown would drop anyway", () => {
+    expect(expectAlreadyNormalized(paragraph("  padded  "))).toBe("padded\n");
+  });
+
+  it("keeps a heading on one line", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "a\nb " }] },
+      ],
+    };
+    expect(expectAlreadyNormalized(doc)).toBe("# a b\n");
+  });
+
+  it("preserves newlines inside a code block, where they are real", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "codeBlock",
+          attrs: { language: "js" },
+          content: [{ type: "text", text: "const a = 1;\nconst b = 2;" }],
+        },
+      ],
+    };
+    expect(expectAlreadyNormalized(doc)).toBe("```js\nconst a = 1;\nconst b = 2;\n```\n");
+  });
+
+  it("drops an empty list item, which serializes to a bare marker", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "bulletList",
+          content: [
+            { type: "listItem", content: [{ type: "paragraph", content: [] }] },
+            {
+              type: "listItem",
+              content: [{ type: "paragraph", content: [{ type: "text", text: "kept" }] }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(expectAlreadyNormalized(doc)).toBe("- kept\n");
+  });
+
+  it("drops a list left empty once its items are dropped", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "bulletList",
+          content: [{ type: "listItem", content: [{ type: "paragraph", content: [] }] }],
+        },
+      ],
+    };
+    expect(expectAlreadyNormalized(doc)).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Property test
 // ---------------------------------------------------------------------------
 
@@ -189,6 +313,25 @@ describe("md -> pm -> md is stable", () => {
         const once = normalize(markdown);
         const twice = normalize(once);
         return normalize(twice) === twice;
+      }),
+      { numRuns: 20000 },
+    );
+  });
+
+  /**
+   * The guarantee the canonical flip actually depends on.
+   *
+   * After step 6 the editor hands Tiptap JSON to the serializer and the result
+   * is stored as the document. If that markdown is not already normalized, then
+   * reopening and saving rewrites a document nobody edited — and every such
+   * rewrite is a chance to lose content. Asserting equality rather than a fixed
+   * point is what makes the difference visible.
+   */
+  it("markdown built from arbitrary tiptap json is already normalized", () => {
+    fc.assert(
+      fc.property(arbitraryTiptapDoc, (doc) => {
+        const markdown = tiptapToMarkdown(doc);
+        return normalize(markdown) === markdown;
       }),
       { numRuns: 20000 },
     );
