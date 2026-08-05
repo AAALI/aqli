@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { unscoped } from "@/lib/db";
 import { getMyRole } from "@/lib/supabase/members";
 import { revokeApiKey } from "@/lib/api-keys";
 
@@ -16,7 +17,9 @@ export async function DELETE(
   const { id } = await params;
 
   // Resolve the key's workspace, then require admin of that workspace.
-  const service = createServiceClient();
+  const service = unscoped(
+    "the key id is all the caller has; its workspace is what we are looking up, and the admin check below depends on the answer",
+  );
   const { data: key } = await service
     .from("api_keys")
     .select("workspace_id")

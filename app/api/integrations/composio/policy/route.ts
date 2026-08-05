@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (!connection)
     return NextResponse.json({ error: "GitHub is not connected" }, { status: 409 });
 
-  await updateIntegrationConnection(connection.id, {
+  await updateIntegrationConnection(connection.workspace_id, connection.id, {
     metadata: { ...connection.metadata, auto_approve: autoApprove },
   });
 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { getDocs, createDoc } from "@/lib/supabase/docs";
+import { getDocs, createDocument } from "@/lib/supabase/docs";
 import { logActivity } from "@/lib/supabase/activity";
+import { MergeError } from "@/lib/db/proposals";
 import type { DocType, DocStatus } from "@/types/doc";
 
 function actorName(user: { email?: string; id: string; user_metadata?: Record<string, unknown> }) {
@@ -55,16 +56,33 @@ export async function POST(req: NextRequest) {
 
   // Build the insert payload explicitly — spreading the raw body would let
   // callers set server-controlled columns (author_type, agent_id, status…).
-  const doc = await createDoc({
-    workspace_id: body.workspace_id,
-    space_id: body.space_id ?? null,
-    title: body.title,
-    type: body.type,
-    body_json: body.body_json,
-    body_md: body.body_md,
-    frontmatter: body.frontmatter,
-    owner_id: user.id,
-  });
+  let doc, proposal;
+  try {
+    ({ doc, proposal } = await createDocument({
+      workspace_id: body.workspace_id,
+      space_id: body.space_id ?? null,
+      title: body.title,
+      type: body.type,
+      body_json: body.body_json,
+      body_md: body.body_md,
+      frontmatter: body.frontmatter,
+      owner_id: user.id,
+    }));
+  } catch (err) {
+    if (err instanceof MergeError) {
+      return NextResponse.json({ error: err.code }, { status: err.status });
+    }
+    throw err;
+  }
+
+  // A `review_all` space queues even a human's new document, so there is no
+  // document to return or to log against yet.
+  if (!doc) {
+    return NextResponse.json(
+      { proposal: { id: proposal?.proposalId, state: proposal?.state } },
+      { status: 202 },
+    );
+  }
 
   await logActivity({
     docId: doc.id,

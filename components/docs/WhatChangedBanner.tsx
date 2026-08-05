@@ -7,12 +7,16 @@ import { formatRelative } from "@/lib/utils";
 
 type ChangeEntry = {
   version_number: number;
-  change_type: "edit" | "status_change" | "created";
+  change_type: string;
   created_at: string;
 };
 
-const LABEL: Record<ChangeEntry["change_type"], string> = {
+// Since step 6 these come from `revisions`, which records who made a change
+// rather than what kind it was. An unrecognised kind falls back to "Edited"
+// rather than rendering a raw enum at a reader.
+const LABEL: Record<string, string> = {
   edit: "Edited",
+  agent_edit: "Edited by an agent",
   status_change: "Status changed",
   created: "Created",
 };
@@ -102,7 +106,7 @@ export default function WhatChangedBanner({
       >
         {changes.map((c) => (
           <li key={c.version_number}>
-            {LABEL[c.change_type]}{" "}
+            {LABEL[c.change_type] ?? "Edited"}{" "}
             <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
               · v{c.version_number} · {formatRelative(c.created_at)}
             </span>

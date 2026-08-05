@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   if (!connection) return NextResponse.redirect(new URL(`/w/${workspaceSlug}/settings/integrations/${provider}`, req.url));
 
   if (status !== "success") {
-    await updateIntegrationConnection(connection.id, {
+    await updateIntegrationConnection(connection.workspace_id, connection.id, {
       status: "failed",
       last_error: "Composio authorization failed or was cancelled.",
     });
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  await updateIntegrationConnection(connection.id, {
+  await updateIntegrationConnection(connection.workspace_id, connection.id, {
     status: "connected",
     connected_account_id: connectedAccountId,
     trigger_ids: triggerIds,

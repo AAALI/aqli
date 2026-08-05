@@ -1,4 +1,5 @@
-import { createServerSupabaseClient, createServiceClient } from "./server";
+import { createServerSupabaseClient } from "./server";
+import { scoped } from "@/lib/db";
 import type { Doc, DocWithSpace } from "@/types/doc";
 
 export const DEFAULT_STALE_DAYS = 90;
@@ -36,13 +37,11 @@ export async function getStaleCount(
   workspaceId: string,
   staleDays = DEFAULT_STALE_DAYS,
 ): Promise<number> {
-  const supabase = createServiceClient();
   const cutoff = cutoffISO(staleDays);
 
-  const { count, error } = await supabase
+  const { count, error } = await scoped(workspaceId)
     .from("docs")
     .select("*", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId)
     .eq("status", "approved")
     .or(`last_reviewed_at.is.null,last_reviewed_at.lt.${cutoff}`);
 

@@ -1,51 +1,24 @@
-# Handover — steps that need a human
+# Handover — what needs a human
 
-Two things could not be completed in the agent sandbox. Both are blocked on inputs that live
-outside it, not on unfinished work: the code for each is written, typechecked and committed.
-
----
-
-## 1. Run the fidelity gate against the real Confluence export
-
-**Blocked on:** `Tabadulat Platform Confluence Export.zip` is not present in this environment.
-
-This is the brief's highest-priority deliverable — worth more than steps 1 and 3 combined —
-and the committed report currently covers a *synthetic* corpus generated to the same page count
-and macro mix. That proves the harness works. It does not answer the question, because
-synthetic content has none of the malformed markup and one-off macros that make a real export
-worth running.
-
-```bash
-unzip "Tabadulat Platform Confluence Export.zip" -d /tmp/confluence
-pnpm confluence:fidelity --csv /tmp/confluence/entities/bodycontent.csv \
-                         --out reports/confluence-fidelity.md
-```
-
-The CSV's column layout differs between Confluence versions, so the body and id columns are
-detected from the header rather than assumed. If detection misses, the columns are resolved in
-`locateColumns` in `scripts/confluence-fidelity.ts`.
-
-**What to look at.** The command exits non-zero if more than 2% of pages fail the round-trip
-gate — the brief's stop-and-report threshold. Also read:
-
-- *Macros with no handler* and *Elements with no handler*. Anything frequent there is a gap in
-  `lib/confluence/storage-to-md.ts`.
-- *Worst pages by retention*. Spot-check the worst 20 by eye; a low score is usually a dropped
-  macro body, which the round-trip check alone cannot see.
-- **Tables specifically.** Alignment, colspan and rowspan are unrepresentable in GFM and the
-  export has 7,613 tables. If real pages depend on merged cells, that content degrades
-  silently and it is the weakest point in the allowlist.
+Steps 1–6 of the markdown-canonical migration are written, tested and on the
+branch. One thing still cannot be done from an agent sandbox, and **step 6
+cannot be deployed until it is** — not as a matter of discipline, but because
+the migration refuses to apply without it.
 
 ---
 
-## 2. Backfill `body_md` from `body_json`
+## 1. Run the `body_md` backfill — blocks step 6
 
-**Blocked on:** `SUPABASE_SERVICE_KEY`. It is held in Cloudflare and is not reachable from the
-sandbox; the Supabase connector available here exposes only publishable keys.
+**Blocked on:** `SUPABASE_SERVICE_KEY`. It is held in Cloudflare and is not
+reachable from the sandbox; the Supabase connector available here exposes only
+publishable keys.
 
-`body_text` and `headings` are already populated for every document and are maintained by the
-`docs_maintain_derived` trigger, so they stay correct regardless of which path writes a row.
-`body_md` still holds output from the old hand-rolled converter.
+Every `body_md` in production was written by the old hand-rolled converter,
+which drops text. Measured against the production copy: **87 words across 27
+documents**, mostly identifiers out of code spans, table cells and nested list
+items (`20260610010000`, `snake_case`, `supabase_realtime`). Those words exist
+only in `body_json`. Step 6 makes `body_md` canonical, so flipping first makes
+the loss permanent.
 
 ```bash
 export SUPABASE_URL=https://bxhagsiaenvcksckhize.supabase.co
@@ -55,28 +28,113 @@ pnpm backfill:markdown                 # dry run — writes nothing
 pnpm backfill:markdown -- --apply      # writes, after you have read the dry run
 ```
 
-**What it does.** Regenerates `body_md` from `body_json` with the new serializer, gated on the
-round-trip test passing for that document. A document that fails the gate is logged and skipped,
-never written — replacing good markdown with a lossy version is the one outcome worse than
-leaving it alone. The report lands in `reports/markdown-backfill.md`.
+**What it does.** Regenerates `body_md` from `body_json` with the new
+serializer, gated on the round-trip test passing for that document. A document
+that fails the gate is logged and skipped, never written. The report lands in
+`reports/markdown-backfill.md`.
 
-**Expected result.** Measured in SQL beforehand: 27 of 80 documents contain text in `body_json`
-that the old converter dropped — 87 words total, worst case 8 — mostly identifiers from code
-spans, table cells and nested list items (`20260610010000`, `snake_case`, `supabase_realtime`).
-The backfill recovers them. Expect 0 gate failures; if any document fails, that is a finding
-worth reporting before step 6, not something to force through.
+**Expect 0 gate failures.** If any document fails, that is a finding worth
+reporting before step 6, not something to force through.
 
-**Why `updated_at` is written back explicitly.** The trigger sets it to `now()` on every write
-and the document list is ordered by it, so a backfill that let the trigger fire would reshuffle
-every list in the app. This bit me once already in step 1 and is now handled in both the
-migration and this script.
+**On a clean apply it records `body_md_backfill` in `app.migration_gates`.**
+That row is what unlocks step 6. A run with any skipped or errored document
+does *not* record it — a partial backfill leaves exactly the markdown that must
+not become the only copy.
+
+**Why `updated_at` is written back explicitly.** The `docs_maintain_derived`
+trigger sets it to `now()` on every write and the document list is ordered by
+it, so a backfill that let the trigger fire would reshuffle every list in the
+app.
+
+### One document needs attention first
+
+There is a document with content in `body_json` and an empty `body_md`. Step 6
+has a second guard, independent of the gate, that counts these and refuses:
+
+```sql
+select id, title from docs
+where body_json is not null
+  and body_json::text not in ('{"type":"doc"}', '{"type": "doc"}')
+  and coalesce(body_md, '') = '';
+```
+
+The backfill should fix it. If it does not, look at the row by hand — the flip
+would blank it.
 
 ---
 
-## Verifying afterwards
+## 2. Run the fidelity gate against the real Confluence export
 
-The behaviour-neutrality check used throughout — the digest should only change on the
-`body_md` column once the backfill has deliberately rewritten it:
+**Blocked on:** `Tabadulat Platform Confluence Export.zip` is not present in
+this environment. Unchanged from the previous handover, and independent of
+steps 4–6.
+
+```bash
+unzip "Tabadulat Platform Confluence Export.zip" -d /tmp/confluence
+pnpm confluence:fidelity --csv /tmp/confluence/entities/bodycontent.csv \
+                         --out reports/confluence-fidelity.md
+```
+
+The command exits non-zero if more than 2% of pages fail the round-trip gate —
+the brief's stop-and-report threshold. Also read *Macros with no handler*,
+*Elements with no handler*, and the worst 20 pages by retention. **Tables
+specifically**: alignment, colspan and rowspan are unrepresentable in GFM and
+the export has 7,613 of them. That is the weakest point in the allowlist.
+
+---
+
+## Deploy order
+
+The steps are independent up to 6, which is the one-way door.
+
+1. **Apply migrations up to `20260805035000_migration_gates.sql`.** Safe on
+   `main`: additive, and nothing reads the new functions until the flag is on.
+2. **Deploy the application with `AQLI_MERGE_ENGINE=0`.** Behaviour is
+   identical to before — every save is a direct write.
+3. **Turn `AQLI_MERGE_ENGINE=1` on.** Saves become `propose → merge`. Every
+   space defaults to `review_agents`, under which humans merge, so nothing
+   changes from a user's seat; what it buys is a revision per change. Agent
+   writes start landing in the review queue instead of editing documents
+   directly. Watch `proposals` and the queue for a day.
+4. **Run the backfill** (section 1). This is the step that unlocks the rest.
+5. **Apply `20260805040000_body_md_canonical.sql`.** It will refuse if step 4
+   did not happen. After this the editor reads markdown and `body_json` is a
+   cache.
+6. **Drop `AQLI_MERGE_ENGINE` from the environment.** It defaults on from step
+   6 onward; setting it to `0` after the flip is a rollback lever that also
+   stops writing revisions, so it is for getting out of trouble, not for
+   staying there.
+
+Rollback files for each migration are in `supabase/migrations/rollback/`. The
+step-6 one restores the schema but not the data: once the app has been writing
+markdown-first, no migration can reconstruct what was only in the markdown.
+
+---
+
+## Running the tests
+
+```bash
+pnpm test        # unit — disposition, diff, markdown round-trip
+pnpm test:sql    # SQL — boots a throwaway Postgres, replays every migration
+```
+
+`pnpm test:sql` needs a local `postgres` binary (`/usr/lib/postgresql/*/bin`)
+or a `DATABASE_URL` pointing at a scratch database. Every test file runs in a
+transaction and rolls back, so it is safe against a database you care about.
+
+To check the step-6 interlock still bites:
+
+```bash
+PGTEST_SKIP_GATE=1 pnpm test:sql
+# -> ERROR: step 6 blocked: the body_md backfill has not run
+```
+
+---
+
+## Verifying behaviour-neutrality
+
+The digest used throughout — it should only change on `body_md` once the
+backfill has deliberately rewritten it:
 
 ```sql
 select md5(string_agg(id::text || '|' || coalesce(body_md,'') || '|' || updated_at::text,
@@ -85,13 +143,27 @@ select md5(string_agg(id::text || '|' || coalesce(body_md,'') || '|' || updated_
 from docs;
 ```
 
-`recently_touched` must stay **0** after the backfill. If it is not, the trigger fired and the
-document ordering has moved.
+`recently_touched` must stay **0** after the backfill. If it is not, the trigger
+fired and the document ordering has moved.
 
 ---
 
-## Not done, and deliberately so
+## Known gaps, recorded rather than papered over
 
-- **No draft PR after step 1**, which the brief's working agreement asks for. Say the word.
-- **Branch is `claude/document-review-supabase-lr6o0n`**, mandated by this environment rather
-  than `migration/markdown-canonical`.
+- **`review_all` has no UI.** The column and the disposition rule exist and are
+  tested, but nothing in the app sets a space's `review_policy`. Until a
+  settings control exists, every space is `review_agents`.
+- **Agent key scopes have no UI either.** Keys are created with
+  `{read,propose}`, so agent writes queue. Granting `write` is a SQL update
+  today.
+- **`/api/agent/docs/[id]/review` is vestigial.** Since step 5 an agent gets
+  review by having its proposal queued. The endpoint still flags a document's
+  status so existing agents do not break, and the queue lists those documents
+  under their own heading. Nothing creates new ones.
+- **Direct writes to `docs` are still possible.** Spec §2.3's
+  `documents_no_direct_write` policy is not in place, because
+  `AQLI_MERGE_ENGINE=0` needs the direct path to exist. It becomes enforceable
+  once that lever is retired.
+- **The step-6 code has not been exercised against real data**, since the
+  backfill has not run. The first thing to check after it does is that an
+  existing document opens in the editor unchanged.

@@ -158,6 +158,13 @@ export default function NewDocClient({
       });
       if (res.ok) {
         const { doc } = await res.json();
+        // 202: the space reviews every change, so the document does not exist
+        // until someone approves it. Send them to the queue, not to an editor
+        // for a document that isn't there.
+        if (!doc) {
+          router.replace(`${base}/review`);
+          return;
+        }
         posthog.capture("doc_created", {
           doc_id: doc.id,
           doc_type: selected.id,

@@ -1,4 +1,9 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { unscoped } from "@/lib/db";
+
+// Every query here runs before the delivery has been resolved to a workspace —
+// that resolution is downstream, in `feature-doc.ts`. There is nothing to
+// scope to yet, which is exactly what `unscoped` is for.
+const WHY = "a webhook delivery is claimed and deduplicated before its workspace is known";
 import type { IntegrationProvider } from "@/types/integration";
 
 export type WebhookClaim =
@@ -30,7 +35,7 @@ export async function claimWebhookEvent(input: {
   provider: IntegrationProvider;
   triggerSlug?: string | null;
 }): Promise<WebhookClaim> {
-  const supabase = createServiceClient();
+  const supabase = unscoped(WHY);
   const { data, error } = await supabase
     .from("integration_webhook_events")
     .insert({
@@ -72,7 +77,7 @@ export async function finishWebhookEvent(input: {
   result?: unknown;
   lastError?: string | null;
 }): Promise<void> {
-  const supabase = createServiceClient();
+  const supabase = unscoped(WHY);
   const { error } = await supabase
     .from("integration_webhook_events")
     .update({
@@ -92,7 +97,7 @@ export async function claimPullRequestMerge(input: {
   prUrl: string;
   mergedAt: string | null;
 }): Promise<PullRequestMergeClaim> {
-  const supabase = createServiceClient();
+  const supabase = unscoped(WHY);
   const { error } = await supabase
     .from("integration_webhook_events")
     .update({

@@ -1,4 +1,4 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { scoped } from "@/lib/db";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
@@ -18,11 +18,9 @@ export type AgentWorkspaceMeta = {
 export async function getAgentWorkspaceMeta(
   workspaceId: string,
 ): Promise<AgentWorkspaceMeta> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
+  const { data, error } = await scoped(workspaceId)
     .from("workspaces")
     .select("slug, settings")
-    .eq("id", workspaceId)
     .maybeSingle();
   // Surface DB failures instead of silently degrading to a broken fallback
   // docUrl and agentAutoApprove=false.
