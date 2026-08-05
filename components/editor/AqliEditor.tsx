@@ -1,12 +1,11 @@
 "use client";
 
 import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
 import { CodeBlockWithMermaid } from "@/components/editor/MermaidCodeBlock";
 import { useEffect } from "react";
 import EditorToolbar from "./EditorToolbar";
-import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
+import { aqliExtensions, tiptapToMarkdown } from "@/lib/markdown";
 
 type Props = {
   initialContent?: Record<string, unknown> | null;
@@ -23,12 +22,12 @@ export default function AqliEditor({
 }: Props) {
   const editor = useEditor({
     immediatelyRender: false,
+    // The allowlist lives in lib/markdown/schema.ts alongside the serializer,
+    // so the editor cannot produce a node markdown has no representation for.
+    // CodeBlockWithMermaid extends the same CodeBlock, so it only adds a node
+    // view — the schema is identical.
     extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        codeBlock: false,
-      }),
-      CodeBlockWithMermaid,
+      ...aqliExtensions(CodeBlockWithMermaid),
       Placeholder.configure({ placeholder }),
     ],
     content:
