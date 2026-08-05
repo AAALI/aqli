@@ -28,15 +28,27 @@ export default function MermaidView({ node, editor }: NodeViewProps) {
   const reactId = useId().replace(/[^a-zA-Z0-9]/g, "");
 
   useEffect(() => {
+    // Clearing the timer only cancels a render that has not started. Once the
+    // callback is running, nothing can stop it — so a run that has been
+    // superseded has to be stopped from writing state instead.
+    //
+    // Without this the preview can end up showing a different diagram from the
+    // source. The first keystroke's run waits on the mermaid chunk download;
+    // the next one finds it cached and finishes first; then the first resolves
+    // and overwrites the newer SVG with the older one.
+    let superseded = false;
+
     if (debounce.current) clearTimeout(debounce.current);
     debounce.current = setTimeout(async () => {
       if (!code.trim()) {
+        if (superseded) return;
         setSvg(null);
         setError(null);
         return;
       }
       try {
         const mermaid = (await import("mermaid")).default;
+        if (superseded) return;
         mermaid.initialize({
           startOnLoad: false,
           theme: "neutral",
@@ -46,13 +58,17 @@ export default function MermaidView({ node, editor }: NodeViewProps) {
         // mermaid.render() leaving orphaned error nodes in the DOM.
         await mermaid.parse(code);
         const { svg } = await mermaid.render(`mermaid-${reactId}-${Date.now()}`, code);
+        if (superseded) return;
         setSvg(svg);
         setError(null);
       } catch (err) {
+        if (superseded) return;
         setError(err instanceof Error ? err.message.split("\n")[0] : "Invalid diagram");
       }
     }, editable ? 400 : 0);
+
     return () => {
+      superseded = true;
       if (debounce.current) clearTimeout(debounce.current);
     };
   }, [code, editable, reactId]);
