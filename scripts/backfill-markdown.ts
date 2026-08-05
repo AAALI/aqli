@@ -143,12 +143,18 @@ async function main(): Promise<void> {
     }
 
     if (apply) {
-      // `updated_at` is written back explicitly so the trigger's `now()` does
-      // not surface this backfill as an edit.
-      const { error: writeError } = await db
-        .from("docs")
-        .update({ body_md: markdown, updated_at: doc.updated_at })
-        .eq("id", doc.id);
+      // Two writes on purpose. `docs_maintain_derived` stamps `updated_at` with
+      // `now()` on any update that does not name a *different* value — a
+      // `before` trigger cannot tell "passed the same value" from "said
+      // nothing" — so sending the original alongside the content is silently
+      // ignored, and every document in the list gets restamped. Writing the
+      // content first and restoring the timestamp second works, because by then
+      // the original differs from the `now()` the first write stamped.
+      const content = await db.from("docs").update({ body_md: markdown }).eq("id", doc.id);
+      const restore = content.error
+        ? content
+        : await db.from("docs").update({ updated_at: doc.updated_at }).eq("id", doc.id);
+      const writeError = content.error ?? restore.error;
       if (writeError) {
         outcomes.push({
           id: doc.id,

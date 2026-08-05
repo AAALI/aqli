@@ -1,16 +1,16 @@
 # Markdown backfill report
 
-Generated: 2026-08-05T11:44:38.311Z
-Mode: dry run
+Generated: 2026-08-05T11:48:22.945Z
+Mode: apply
 
 | Outcome | Documents |
 |---|---|
 | Converted | 72 |
-| Already identical | 9 |
+| Already identical | 10 |
 | No body_json to convert | 3 |
 | Failed the round-trip gate | 0 |
 | Errored | 0 |
-| **Total** | **84** |
+| **Total** | **85** |
 
 Editor schema: 18 nodes, 5 marks.
 
