@@ -56,3 +56,6 @@ next-env.d.ts
 # local tooling state
 .claude/settings.local.json
 .conductor/
+
+# Generated corpora for the fidelity gate (large, reproducible from the seed)
+reports/*.csv
