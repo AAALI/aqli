@@ -9,12 +9,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!agent) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const doc = await getAgentDoc(id);
-  if (!doc || doc.workspace_id !== agent.workspaceId) {
+  const doc = await getAgentDoc(agent.workspaceId, id);
+  if (!doc) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  await setAgentDocStatus(id, "review");
+  // Since step 5, an agent gets human review by having its proposal queued —
+  // which the space policy and the key's scopes decide, not the agent. This
+  // endpoint remains for agents that already call it: it flags the document
+  // for attention, and the review queue lists it alongside open proposals.
+  await setAgentDocStatus(agent.workspaceId, id, "review");
 
   await logActivity({
     docId: id,

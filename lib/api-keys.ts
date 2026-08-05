@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { createServiceClient } from "@/lib/supabase/server";
+import { scoped, unscoped } from "@/lib/db";
 import type { ApiKey, ApiKeyWithSecret } from "@/types/api-key";
 
 /**
@@ -16,8 +16,7 @@ export async function createApiKey(
   const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
   const keyPrefix = rawKey.slice(0, 12) + "…";
 
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
+  const { data, error } = await scoped(workspaceId)
     .from("api_keys")
     .insert({
       workspace_id: workspaceId,
@@ -37,7 +36,12 @@ export async function validateApiKey(
   rawKey: string,
 ): Promise<{ valid: boolean; workspaceId: string | null; keyId: string | null }> {
   const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
-  const supabase = createServiceClient();
+  // Unscoped by necessity: the bearer token is the only thing the request
+  // carries, and this query is how its workspace is established. Everything
+  // downstream of it is scoped to the workspace this returns.
+  const supabase = unscoped(
+    "a bearer key identifies itself only by its hash; resolving it to a workspace is what this query is for",
+  );
 
   const { data } = await supabase
     .from("api_keys")
@@ -64,21 +68,25 @@ export async function validateApiKey(
 }
 
 export async function listApiKeys(workspaceId: string): Promise<ApiKey[]> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
+  const { data, error } = await scoped(workspaceId)
     .from("api_keys")
     .select(
       "id, workspace_id, name, key_prefix, last_used_at, created_by, created_at, revoked_at",
     )
-    .eq("workspace_id", workspaceId)
     .is("revoked_at", null)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as ApiKey[];
 }
 
+/**
+ * Revoke by key id. The caller (`/api/keys/[id]`) has already resolved the
+ * key's workspace and checked that the caller is an admin of it.
+ */
 export async function revokeApiKey(id: string): Promise<void> {
-  const supabase = createServiceClient();
+  const supabase = unscoped(
+    "the caller resolved this key's workspace and verified admin rights before calling",
+  );
   const { error } = await supabase
     .from("api_keys")
     .update({ revoked_at: new Date().toISOString() })

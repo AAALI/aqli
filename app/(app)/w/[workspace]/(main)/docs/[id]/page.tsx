@@ -56,7 +56,7 @@ export default async function DocViewPage({
   // 08c: the doc's latest PR merge event powers the "What this PR changed"
   // banner. Only fetched for PR-sourced docs.
   const prEvent = prUrl
-    ? (await getDocActivity(doc.id, 25).catch(() => [])).find(
+    ? (await getDocActivity(doc.workspace_id, doc.id, 25).catch(() => [])).find(
         (a) => a.metadata?.source === "github_pr",
       ) ?? null
     : null;

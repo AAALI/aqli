@@ -1,4 +1,5 @@
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { scoped } from "@/lib/db";
 
 export type GitHubRepoStat = {
   full_name: string;
@@ -27,15 +28,15 @@ function quarterStart(now = new Date()): Date {
 
 /**
  * Stats for the GitHub settings policy page. Activity reads go through the
- * RLS-scoped client; the latency read uses the service client because
- * `integration_webhook_events` is a service-only table — it is filtered to
- * the given workspace and only reached from workspace-gated pages.
+ * RLS-scoped client; the latency read uses a workspace-scoped service client
+ * because `integration_webhook_events` is a service-only table, and it is only
+ * reached from workspace-gated pages.
  */
 export async function getGitHubPolicyStats(
   workspaceId: string,
 ): Promise<GitHubPolicyStats> {
   const supabase = await createServerSupabaseClient();
-  const service = createServiceClient();
+  const service = scoped(workspaceId);
 
   const [{ data: activity }, { data: events }] = await Promise.all([
     supabase
@@ -49,7 +50,6 @@ export async function getGitHubPolicyStats(
       .from("integration_webhook_events")
       .select("processed_at, pr_merged_at")
       .eq("provider", "github")
-      .eq("workspace_id", workspaceId)
       .eq("status", "done")
       .not("pr_merged_at", "is", null)
       .not("processed_at", "is", null)

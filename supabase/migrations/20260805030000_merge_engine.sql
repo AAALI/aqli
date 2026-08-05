@@ -272,7 +272,15 @@ create or replace function app.submit_proposal(
   p_assisted_by      text[]  default '{}'::text[],
   p_agent_key_id     uuid    default null,
   p_idempotency_key  text    default null,
-  p_mark_reviewed    boolean default false
+  p_mark_reviewed    boolean default false,
+  -- Treat this write as if the actor held the `write` scope.
+  --
+  -- The bridge for the pre-existing `workspaces.settings.agent_auto_approve`
+  -- flag, which predates per-key scopes and says "agent writes in this
+  -- workspace are trusted". It grants the scope for this one decision rather
+  -- than merging behind disposition's back, so `review_all` still queues and
+  -- a compliance space keeps its guarantee.
+  p_trusted          boolean default false
 )
 returns jsonb
 language plpgsql
@@ -364,6 +372,10 @@ begin
     'canon'::doc_class
   );
 
+  if p_trusted then
+    v_scopes := coalesce(v_scopes, '{}'::agent_scope[]) || 'write'::agent_scope;
+  end if;
+
   v_disposition := app.decide_disposition(v_policy, v_actor_type, v_scopes, v_doc_class);
 
   insert into proposals (
@@ -411,16 +423,87 @@ $$;
 revoke all on function app.decide_disposition(review_policy, doc_origin, agent_scope[], doc_class) from public;
 revoke all on function app.merge_proposal(uuid, uuid, boolean) from public;
 revoke all on function app.reject_proposal(uuid, uuid, text) from public;
-revoke all on function app.submit_proposal(uuid, text, text, uuid, uuid, uuid, jsonb, jsonb, text, uuid, text[], uuid, text, boolean) from public;
+revoke all on function app.submit_proposal(uuid, text, text, uuid, uuid, uuid, jsonb, jsonb, text, uuid, text[], uuid, text, boolean, boolean) from public;
 
 grant execute on function app.decide_disposition(review_policy, doc_origin, agent_scope[], doc_class) to authenticated, service_role;
 grant execute on function app.merge_proposal(uuid, uuid, boolean) to authenticated, service_role;
 grant execute on function app.reject_proposal(uuid, uuid, text) to authenticated, service_role;
-grant execute on function app.submit_proposal(uuid, text, text, uuid, uuid, uuid, jsonb, jsonb, text, uuid, text[], uuid, text, boolean) to authenticated, service_role;
+grant execute on function app.submit_proposal(uuid, text, text, uuid, uuid, uuid, jsonb, jsonb, text, uuid, text[], uuid, text, boolean, boolean) to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- PostgREST surface
+--
+-- PostgREST only exposes functions in the schemas listed in its config, and
+-- `app` is not one of them — nor should it be, since it also holds the RLS
+-- helpers and the markdown internals. These three shims are the entire public
+-- API of the merge engine: same names, same arguments, no logic.
+-- ---------------------------------------------------------------------------
+create or replace function public.submit_proposal(
+  p_workspace_id     uuid,
+  p_title            text,
+  p_body_md          text,
+  p_space_id         uuid    default null,
+  p_document_id      uuid    default null,
+  p_base_revision_id uuid    default null,
+  p_frontmatter      jsonb   default '{}'::jsonb,
+  p_body_json        jsonb   default null,
+  p_rationale        text    default null,
+  p_author_id        uuid    default null,
+  p_assisted_by      text[]  default '{}'::text[],
+  p_agent_key_id     uuid    default null,
+  p_idempotency_key  text    default null,
+  p_mark_reviewed    boolean default false,
+  p_trusted          boolean default false
+)
+returns jsonb
+language sql
+security invoker
+set search_path = public, pg_temp
+as $$
+  select app.submit_proposal(
+    p_workspace_id, p_title, p_body_md, p_space_id, p_document_id,
+    p_base_revision_id, p_frontmatter, p_body_json, p_rationale, p_author_id,
+    p_assisted_by, p_agent_key_id, p_idempotency_key, p_mark_reviewed, p_trusted
+  );
+$$;
+
+create or replace function public.merge_proposal(
+  p_proposal_id   uuid,
+  p_actor         uuid    default null,
+  p_mark_reviewed boolean default false
+)
+returns uuid
+language sql
+security invoker
+set search_path = public, pg_temp
+as $$
+  select app.merge_proposal(p_proposal_id, p_actor, p_mark_reviewed);
+$$;
+
+create or replace function public.reject_proposal(
+  p_proposal_id uuid,
+  p_actor       uuid default null,
+  p_note        text default null
+)
+returns uuid
+language sql
+security invoker
+set search_path = public, pg_temp
+as $$
+  select app.reject_proposal(p_proposal_id, p_actor, p_note);
+$$;
+
+revoke all on function public.submit_proposal(uuid, text, text, uuid, uuid, uuid, jsonb, jsonb, text, uuid, text[], uuid, text, boolean, boolean) from public;
+revoke all on function public.merge_proposal(uuid, uuid, boolean) from public;
+revoke all on function public.reject_proposal(uuid, uuid, text) from public;
+
+grant execute on function public.submit_proposal(uuid, text, text, uuid, uuid, uuid, jsonb, jsonb, text, uuid, text[], uuid, text, boolean, boolean) to authenticated, service_role;
+grant execute on function public.merge_proposal(uuid, uuid, boolean) to authenticated, service_role;
+grant execute on function public.reject_proposal(uuid, uuid, text) to authenticated, service_role;
 
 comment on function app.merge_proposal(uuid, uuid, boolean) is
   'Applies an open proposal: appends a revision, advances the document, supersedes rivals. Raises stale_base (P0002) when the document moved under the proposal.';
-comment on function app.submit_proposal(uuid, text, text, uuid, uuid, uuid, jsonb, jsonb, text, uuid, text[], uuid, text, boolean) is
+comment on function app.submit_proposal(uuid, text, text, uuid, uuid, uuid, jsonb, jsonb, text, uuid, text[], uuid, text, boolean, boolean) is
   'The universal write path. Creates a proposal and merges it in the same transaction when the space policy allows.';
 
 commit;

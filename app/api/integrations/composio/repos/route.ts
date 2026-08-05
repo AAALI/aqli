@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     lastError = err instanceof Error ? err.message : "Failed to create PR triggers";
   }
 
-  const updated = await updateIntegrationConnection(connection.id, {
+  const updated = await updateIntegrationConnection(connection.workspace_id, connection.id, {
     metadata: { ...connection.metadata, repositories: selected },
     default_space_id: defaultSpaceId,
     trigger_ids: triggerIds,

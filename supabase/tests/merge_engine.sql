@@ -499,4 +499,35 @@ begin
   assert caught;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- 13. The public shims PostgREST calls are wired to the app functions
+-- ---------------------------------------------------------------------------
+do $$
+declare r jsonb; pid uuid;
+begin
+  perform set_config('test.uid', (select v from t where k = 'alice')::text, true);
+
+  r := public.submit_proposal(
+    p_workspace_id => (select v from t where k = 'ws'),
+    p_title        => 'Via the shim',
+    p_body_md      => 'shimmed',
+    p_space_id     => (select v from t where k = 's_all')
+  );
+  assert r->>'state' = 'open', format('shim did not queue: %s', r);
+  pid := (r->>'proposal_id')::uuid;
+
+  assert public.merge_proposal(pid, (select v from t where k = 'alice')) is not null;
+  assert (select state from proposals where id = pid) = 'merged';
+
+  r := public.submit_proposal(
+    p_workspace_id => (select v from t where k = 'ws'),
+    p_title        => 'Via the shim, rejected',
+    p_body_md      => 'shimmed',
+    p_space_id     => (select v from t where k = 's_all')
+  );
+  perform public.reject_proposal((r->>'proposal_id')::uuid,
+                                 (select v from t where k = 'alice'), 'no');
+  assert (select state from proposals where id = (r->>'proposal_id')::uuid) = 'rejected';
+end $$;
+
 rollback;

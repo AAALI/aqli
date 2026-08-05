@@ -6,7 +6,11 @@
 
 begin;
 
-drop function if exists app.submit_proposal(uuid, text, text, uuid, uuid, uuid, jsonb, jsonb, text, uuid, text[], uuid, text, boolean);
+drop function if exists public.submit_proposal(uuid, text, text, uuid, uuid, uuid, jsonb, jsonb, text, uuid, text[], uuid, text, boolean, boolean);
+drop function if exists public.merge_proposal(uuid, uuid, boolean);
+drop function if exists public.reject_proposal(uuid, uuid, text);
+
+drop function if exists app.submit_proposal(uuid, text, text, uuid, uuid, uuid, jsonb, jsonb, text, uuid, text[], uuid, text, boolean, boolean);
 drop function if exists app.merge_proposal(uuid, uuid, boolean);
 drop function if exists app.reject_proposal(uuid, uuid, text);
 drop function if exists app.decide_disposition(review_policy, doc_origin, agent_scope[], doc_class);

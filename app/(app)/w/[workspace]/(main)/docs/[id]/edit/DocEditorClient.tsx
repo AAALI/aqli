@@ -35,6 +35,10 @@ export default function DocEditorClient({
   const [title, setTitle] = useState(doc.title);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  // A save into a `review_all` space becomes a proposal instead of an edit.
+  // The document on screen is unchanged, so the status line must not say
+  // "Saved" (spec §3.1).
+  const [queuedForReview, setQueuedForReview] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatPrefill, setChatPrefill] = useState<string | null>(null);
@@ -69,6 +73,9 @@ export default function DocEditorClient({
           body: JSON.stringify(updates),
         });
         if (!res.ok) throw new Error(`Save failed (${res.status})`);
+        // 202: accepted as a proposal, not applied. The write is safely
+        // recorded, so this counts as sent — but it is not "saved".
+        setQueuedForReview(res.status === 202);
         setLastSaved(new Date());
         setSaveError(false);
         return true;
@@ -215,9 +222,11 @@ export default function DocEditorClient({
     ? "Saving…"
     : saveError
       ? "Couldn't save — retrying on next edit"
-      : lastSaved
-        ? `Saved ${formatRelative(lastSaved)}`
-        : `Saved ${formatRelative(doc.updated_at)}`;
+      : queuedForReview
+        ? "Sent for review — this space approves every change"
+        : lastSaved
+          ? `Saved ${formatRelative(lastSaved)}`
+          : `Saved ${formatRelative(doc.updated_at)}`;
 
   const spaceCrumb = doc.space
     ? { label: doc.space.name, href: `${base}/s/${doc.space.slug}` }

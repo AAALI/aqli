@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { createServiceClient } from "@/lib/supabase/server";
+import { scoped } from "@/lib/db";
 import type { ContextResult } from "@/types/chunk";
 
 const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -38,7 +38,7 @@ export async function queryContext(
   });
   const queryEmbedding = embeddingResponse.data[0].embedding;
 
-  const supabase = createServiceClient();
+  const supabase = scoped(workspaceId);
   const [{ data, error }, { data: workspace }] = await Promise.all([
     supabase.rpc("search_doc_chunks", {
       query_embedding: queryEmbedding,
@@ -48,7 +48,7 @@ export async function queryContext(
       space_slug_param: options?.spaceSlug ?? null,
       doc_type_param: options?.docType ?? null,
     }),
-    supabase.from("workspaces").select("slug").eq("id", workspaceId).single(),
+    supabase.from("workspaces").select("slug").single(),
   ]);
 
   if (error) throw error;

@@ -1,4 +1,6 @@
 import { createServerSupabaseClient } from "./server";
+import { submitProposal, type SubmitResult } from "@/lib/db/proposals";
+import { mergeEngineEnabled } from "@/lib/flags";
 import type {
   Doc,
   DocType,
@@ -54,6 +56,16 @@ export async function getDoc(id: string) {
   return data as DocWithSpace;
 }
 
+/**
+ * What a save did. `proposal` is null on the direct-write path (the merge
+ * engine flag is off); when it is set, `doc` is null for a queued write
+ * because the document does not exist until a reviewer merges it.
+ */
+export type SaveResult = {
+  doc: Doc | null;
+  proposal: SubmitResult | null;
+};
+
 export async function createDoc(payload: {
   workspace_id: string;
   space_id?: string | null;
@@ -90,6 +102,117 @@ export async function createDoc(payload: {
     );
   }
   return doc;
+}
+
+/**
+ * Fields the merge engine owns. Everything else on a document — its status,
+ * owner, type, space — is metadata that `proposals` does not model and that a
+ * reviewer is not being asked to approve, so it keeps taking the direct path.
+ */
+const CONTENT_FIELDS = ["title", "body_md", "body_json", "frontmatter"] as const;
+type ContentField = (typeof CONTENT_FIELDS)[number];
+
+type DocUpdates = Partial<
+  Pick<
+    Doc,
+    | "title"
+    | "type"
+    | "status"
+    | "owner_id"
+    | "body_json"
+    | "body_md"
+    | "frontmatter"
+    | "space_id"
+    | "last_reviewed_at"
+  >
+>;
+
+function hasContentChange(updates: DocUpdates): boolean {
+  return CONTENT_FIELDS.some((f) => f in updates && updates[f as ContentField] !== undefined);
+}
+
+/**
+ * Create a document (spec §3).
+ *
+ * With the merge engine on this is a proposal like any other write, which is
+ * what gives a brand new document a revision 1 instead of a row that appeared
+ * from nowhere. In a `review_all` space it queues, and no document exists
+ * until a reviewer merges it — hence the null `doc`.
+ */
+export async function createDocument(
+  payload: Parameters<typeof createDoc>[0],
+): Promise<SaveResult> {
+  if (!mergeEngineEnabled()) {
+    return { doc: await createDoc(payload), proposal: null };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const proposal = await submitProposal(
+    {
+      workspaceId: payload.workspace_id,
+      spaceId: payload.space_id ?? null,
+      title: payload.title ?? "Untitled",
+      bodyMd: payload.body_md ?? "",
+      bodyJson: payload.body_json ?? null,
+      frontmatter: {
+        ...(payload.frontmatter ?? { tags: [] }),
+        doc_type: payload.type ?? "general",
+        doc_status: "draft",
+      },
+      authorId: payload.owner_id ?? null,
+    },
+    supabase,
+  );
+
+  const doc = proposal.documentId ? await getDoc(proposal.documentId) : null;
+  return { doc, proposal };
+}
+
+/**
+ * Save an edit (spec §3).
+ *
+ * Content goes through `propose → merge` when the flag is on; metadata is
+ * applied directly either way. A queued content change leaves the document
+ * exactly as it was — the caller has to say so rather than reporting "saved".
+ */
+export async function saveDoc(id: string, updates: DocUpdates): Promise<SaveResult> {
+  if (!mergeEngineEnabled() || !hasContentChange(updates)) {
+    return { doc: await updateDoc(id, updates), proposal: null };
+  }
+
+  const current = await getDoc(id);
+  const supabase = await createServerSupabaseClient();
+
+  const proposal = await submitProposal(
+    {
+      workspaceId: current.workspace_id,
+      spaceId: updates.space_id ?? current.space_id,
+      documentId: id,
+      title: updates.title ?? current.title,
+      bodyMd: updates.body_md ?? current.body_md ?? "",
+      bodyJson: (updates.body_json ?? current.body_json) as Record<string, unknown> | null,
+      frontmatter: updates.frontmatter ?? current.frontmatter,
+      // No base revision: the editor has always been last-writer-wins, and a
+      // 2-second autosave that 409s on every concurrent keystroke would be
+      // worse than the conflict it prevents. Agents pass a base and get real
+      // optimistic concurrency.
+    },
+    supabase,
+  );
+
+  // Metadata the merge engine does not carry. Applied after the merge so a
+  // refused merge does not leave a half-applied save behind.
+  const metadata = Object.fromEntries(
+    Object.entries(updates).filter(
+      ([k]) => !CONTENT_FIELDS.includes(k as ContentField),
+    ),
+  ) as DocUpdates;
+
+  const doc = Object.keys(metadata).length > 0
+    ? await updateDoc(id, metadata)
+    : ((await getDoc(id)) as Doc);
+
+  return { doc, proposal };
 }
 
 export async function updateDoc(

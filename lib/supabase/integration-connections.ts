@@ -1,4 +1,5 @@
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { scoped, unscoped } from "@/lib/db";
 import type {
   IntegrationConnection,
   IntegrationProvider,
@@ -46,8 +47,7 @@ export async function upsertIntegrationConnection(input: {
   metadata?: Record<string, unknown>;
   lastError?: string | null;
 }) {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
+  const { data, error } = await scoped(input.workspaceId)
     .from("integration_connections")
     .upsert(
       {
@@ -72,6 +72,7 @@ export async function upsertIntegrationConnection(input: {
 }
 
 export async function updateIntegrationConnection(
+  workspaceId: string,
   id: string,
   updates: Partial<Pick<
     IntegrationConnection,
@@ -84,8 +85,7 @@ export async function updateIntegrationConnection(
     | "last_error"
   >>,
 ) {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
+  const { data, error } = await scoped(workspaceId)
     .from("integration_connections")
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq("id", id)
@@ -95,11 +95,20 @@ export async function updateIntegrationConnection(
   return data as IntegrationConnection;
 }
 
+/**
+ * Resolve a Composio webhook back to the connection that produced it.
+ *
+ * Unscoped by necessity: `composio_user_id` is the only identifier the webhook
+ * carries, and finding out which workspace it belongs to is the whole point of
+ * the query.
+ */
 export async function getServiceIntegrationByComposioUser(
   composioId: string,
   provider: IntegrationProvider,
 ) {
-  const supabase = createServiceClient();
+  const supabase = unscoped(
+    "a Composio webhook identifies itself only by composio_user_id; resolving it to a workspace is what this query is for",
+  );
   const { data, error } = await supabase
     .from("integration_connections")
     .select("*")

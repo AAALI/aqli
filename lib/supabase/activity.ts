@@ -1,4 +1,5 @@
-import { createServerSupabaseClient, createServiceClient } from "./server";
+import { createServerSupabaseClient } from "./server";
+import { scoped } from "@/lib/db";
 import type {
   ActivityAction,
   ActorType,
@@ -30,10 +31,8 @@ export async function logActivity({
   metadata?: Record<string, unknown>;
 }): Promise<void> {
   try {
-    const supabase = createServiceClient();
-    const { error } = await supabase.from("doc_activity").insert({
+    const { error } = await scoped(workspaceId).from("doc_activity").insert({
       doc_id: docId,
-      workspace_id: workspaceId,
       actor_type: actorType,
       actor_id: actorId,
       actor_name: actorName,
@@ -66,8 +65,7 @@ export async function logEditCoalesced({
   windowMinutes?: number;
 }): Promise<void> {
   try {
-    const supabase = createServiceClient();
-    const { data } = await supabase
+    const { data } = await scoped(workspaceId)
       .from("doc_activity")
       .select("action, actor_id, created_at")
       .eq("doc_id", docId)
@@ -99,11 +97,11 @@ export async function logEditCoalesced({
 }
 
 export async function getDocActivity(
+  workspaceId: string,
   docId: string,
   limit = 50,
 ): Promise<DocActivity[]> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
+  const { data, error } = await scoped(workspaceId)
     .from("doc_activity")
     .select("*")
     .eq("doc_id", docId)
@@ -150,13 +148,11 @@ export async function getWorkspaceActivity(
   workspaceId: string,
   limit = 25,
 ): Promise<FeedActivity[]> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
+  const { data, error } = await scoped(workspaceId)
     .from("doc_activity")
     .select(
       "*, doc:docs(id, title, type, status, frontmatter, space:spaces(name, slug))",
     )
-    .eq("workspace_id", workspaceId)
     .in("action", [
       "created",
       "approved",

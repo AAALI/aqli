@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { getDoc, updateDoc, deleteDoc } from "@/lib/supabase/docs";
+import { getDoc, saveDoc, deleteDoc } from "@/lib/supabase/docs";
 import { embedDoc } from "@/lib/ai/embedder";
 import { logActivity, logEditCoalesced } from "@/lib/supabase/activity";
+import { MergeError } from "@/lib/db/proposals";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -57,16 +58,44 @@ export async function PUT(req: NextRequest, { params }: Params) {
   ] as const;
   const updates = Object.fromEntries(
     EDITABLE.filter((k) => k in body).map((k) => [k, body[k]]),
-  ) as Parameters<typeof updateDoc>[1];
+  ) as Parameters<typeof saveDoc>[1];
   if (Object.keys(updates).length === 0)
     return NextResponse.json({ error: "No editable fields provided" }, { status: 400 });
 
   // Read the prior status so we can tell a status change from a content edit.
-  // A missing/RLS-hidden doc is a 404 here too — updateDoc's .single() would
+  // A missing/RLS-hidden doc is a 404 here too — saveDoc's .single() would
   // otherwise surface it as a 500.
   const before = await getDoc(id).catch(() => null);
   if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const doc = await updateDoc(id, updates);
+
+  let result;
+  try {
+    result = await saveDoc(id, updates);
+  } catch (err) {
+    // The merge engine's refusals are answers, not failures: `stale_base`
+    // means the document moved and the client should re-read and re-send.
+    if (err instanceof MergeError) {
+      return NextResponse.json(
+        { error: err.code, current_revision_id: before.current_revision_id ?? null },
+        { status: err.status },
+      );
+    }
+    throw err;
+  }
+
+  const { doc, proposal } = result;
+
+  // Queued for review: the document is unchanged, so there is nothing to
+  // re-embed and nothing to log against it as an edit. 202 rather than 200 —
+  // the client must not report this as saved.
+  if (proposal && proposal.state === "open") {
+    return NextResponse.json(
+      { doc: before, proposal: { id: proposal.proposalId, state: proposal.state } },
+      { status: 202 },
+    );
+  }
+
+  if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Re-embed when the doc body changes. Fire-and-forget so we don't block
   // the editor's autosave response on the OpenAI round-trip.
@@ -98,7 +127,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
   }
 
-  return NextResponse.json({ doc });
+  return NextResponse.json({
+    doc,
+    ...(proposal ? { proposal: { id: proposal.proposalId, state: proposal.state } } : {}),
+  });
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {

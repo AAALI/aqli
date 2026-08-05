@@ -1,4 +1,5 @@
-import { createServerSupabaseClient, createServiceClient } from "./server";
+import { createServerSupabaseClient } from "./server";
+import { scoped } from "@/lib/db";
 import { logActivity } from "./activity";
 import type { DocWithSpace } from "@/types/doc";
 
@@ -36,15 +37,13 @@ export async function approveDoc(
   reviewerName: string,
   workspaceId: string,
 ): Promise<void> {
-  const supabase = createServiceClient();
-  // Callers must have verified the reviewer's membership; the workspace_id
-  // predicate makes a doc-id/workspace mismatch a no-op rather than a
+  // Callers must have verified the reviewer's membership; the scoped client's
+  // workspace predicate makes a doc-id/workspace mismatch a no-op rather than a
   // cross-tenant write.
-  await supabase
+  await scoped(workspaceId)
     .from("docs")
     .update({ status: "approved", last_reviewed_at: new Date().toISOString() })
-    .eq("id", docId)
-    .eq("workspace_id", workspaceId);
+    .eq("id", docId);
 
   await logActivity({
     docId,
@@ -64,17 +63,12 @@ export async function rejectDoc(
   workspaceId: string,
   reason: string,
 ): Promise<void> {
-  const supabase = createServiceClient();
+  const supabase = scoped(workspaceId);
   // Rejected docs return to draft — the agent can revise and re-request review.
-  await supabase
-    .from("docs")
-    .update({ status: "draft" })
-    .eq("id", docId)
-    .eq("workspace_id", workspaceId);
+  await supabase.from("docs").update({ status: "draft" }).eq("id", docId);
 
   await supabase.from("doc_comments").insert({
     doc_id: docId,
-    workspace_id: workspaceId,
     author_id: reviewerId,
     body: reason,
     comment_type: "rejection",
@@ -98,11 +92,9 @@ export async function requestChanges(
   workspaceId: string,
   note: string,
 ): Promise<void> {
-  const supabase = createServiceClient();
   // Status stays 'review' — it stays in the queue but with a note attached.
-  await supabase.from("doc_comments").insert({
+  await scoped(workspaceId).from("doc_comments").insert({
     doc_id: docId,
-    workspace_id: workspaceId,
     author_id: reviewerId,
     body: note,
     comment_type: "change_request",
@@ -120,9 +112,8 @@ export async function requestChanges(
 }
 
 /** Comments on a doc, newest first (review feedback trail). */
-export async function getDocComments(docId: string) {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
+export async function getDocComments(workspaceId: string, docId: string) {
+  const { data, error } = await scoped(workspaceId)
     .from("doc_comments")
     .select("*")
     .eq("doc_id", docId)

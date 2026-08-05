@@ -1,24 +1,31 @@
 import OpenAI from "openai";
-import { createServiceClient } from "@/lib/supabase/server";
+import { scoped } from "@/lib/db";
 import { chunkMarkdown } from "./chunker";
 import type { Doc } from "@/types/doc";
 
 const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-async function resolveSpaceName(spaceId: string | null): Promise<string> {
+async function resolveSpaceName(
+  workspaceId: string,
+  spaceId: string | null,
+): Promise<string> {
   if (!spaceId) return "Unknown";
-  const supabase = createServiceClient();
-  const { data } = await supabase.from("spaces").select("name").eq("id", spaceId).single();
+  const { data } = await scoped(workspaceId)
+    .from("spaces")
+    .select("name")
+    .eq("id", spaceId)
+    .single();
   return data?.name ?? "Unknown";
 }
 
 /**
  * Embed a doc: chunk it, embed each chunk, replace its rows in doc_chunks.
  * Called (fire-and-forget) after every save where body_md changes.
- * Uses the service-role client so it works from both human and agent paths.
+ * Runs on the workspace-scoped service client so it works from both the human
+ * and agent paths without either needing a session.
  */
 export async function embedDoc(doc: Doc, spaceName?: string): Promise<void> {
-  const supabase = createServiceClient();
+  const supabase = scoped(doc.workspace_id);
 
   if (!doc.body_md || doc.body_md.trim().length < 20) {
     // Too short to be worth embedding — clear any stale chunks.
@@ -26,7 +33,8 @@ export async function embedDoc(doc: Doc, spaceName?: string): Promise<void> {
     return;
   }
 
-  const resolvedSpace = spaceName ?? (await resolveSpaceName(doc.space_id));
+  const resolvedSpace =
+    spaceName ?? (await resolveSpaceName(doc.workspace_id, doc.space_id));
 
   const chunks = chunkMarkdown(doc.body_md, doc.title, doc.type, resolvedSpace, doc.status);
   if (chunks.length === 0) {
