@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
 import { CodeBlockWithMermaid } from "@/components/editor/MermaidCodeBlock";
 import AppTopBar from "@/components/layout/AppTopBar";
@@ -15,6 +14,9 @@ import CowriteChat from "@/components/editor/v2/CowriteChat";
 import ProcessStrip from "@/components/editor/v2/ProcessStrip";
 import { IconLink } from "@/components/aqli/icons";
 import type { KeyHandlerRegistry } from "@/components/editor/v2/types";
+import { useDocImages } from "@/components/editor/useDocImages";
+import TableControls from "@/components/editor/v2/TableControls";
+import { aqliExtensions } from "@/lib/markdown/schema";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
 import {
@@ -196,14 +198,19 @@ export default function DocEditorClient({
     pendingUpdates.current = { ...(pendingUpdates.current ?? {}), ...updates };
   }, []);
 
+  // Declared before `useEditor` because its handlers go into `editorProps`,
+  // which is read when the editor is created.
+  const images = useDocImages({ workspaceId: doc.workspace_id, docId: doc.id });
+
   const editor = useEditor({
     immediatelyRender: false,
+    // The allowlist in lib/markdown/schema.ts, not a hand-rolled StarterKit
+    // list. Those two had drifted: this editor mounted no table, image or task
+    // list, so a document containing any of them failed to load at all
+    // ("Unknown node type: tableHeader") and — with body_md canonical — a save
+    // wrote back markdown with the missing content deleted.
     extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        codeBlock: false,
-      }),
-      CodeBlockWithMermaid,
+      ...aqliExtensions(CodeBlockWithMermaid),
       Placeholder.configure({
         placeholder: "Start writing — type / for commands…",
       }),
@@ -234,8 +241,14 @@ export default function DocEditorClient({
         }
         return false;
       },
+      handlePaste: images.handlePaste,
+      handleDrop: images.handleDrop,
     },
   });
+
+  useEffect(() => {
+    images.attach(editor);
+  }, [images, editor]);
 
   useEffect(() => {
     return () => {
@@ -315,7 +328,9 @@ export default function DocEditorClient({
     setChatOpen(true);
   }, [editor]);
 
-  const savedLabel = saving
+  const savedLabel = images.uploading > 0
+    ? `Uploading ${images.uploading === 1 ? "image" : `${images.uploading} images`}…`
+    : saving
     ? "Saving…"
     : saveError
       ? "Couldn't save — retrying on next edit"
@@ -413,6 +428,42 @@ export default function DocEditorClient({
               <span>{savedLabel}</span>
             </div>
 
+            {images.error && (
+              <div
+                role="alert"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 18,
+                  padding: "10px 14px",
+                  background: "var(--review-bg)",
+                  border: "1px solid var(--review-border)",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  color: "var(--review-text)",
+                }}
+              >
+                <span style={{ flex: 1 }}>{images.error}</span>
+                <button
+                  type="button"
+                  onClick={images.dismissError}
+                  style={{
+                    background: "transparent",
+                    border: 0,
+                    padding: 0,
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                    color: "inherit",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             <EditorContent editor={editor} />
           </article>
 
@@ -426,7 +477,9 @@ export default function DocEditorClient({
                 docId={doc.id}
                 base={base}
                 onAskAgent={askAgent}
+                onInsertImage={images.pickAndInsert}
               />
+              <TableControls editor={editor} containerRef={scrollRef} />
               <SelectionToolbar
                 editor={editor}
                 containerRef={scrollRef}

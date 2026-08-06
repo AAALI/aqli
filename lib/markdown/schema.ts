@@ -97,7 +97,13 @@ export function aqliExtensions(
     TableRow,
     TableHeader,
     TableCell,
-    Image,
+    // `inline: true` is load-bearing, not a style choice. Markdown has no block
+    // image: `![alt](src)` is an inline construct, so markdown-it emits it
+    // inside a paragraph's inline token run. Tiptap's Image defaults to
+    // `inline: false`, which makes it a block node — and ProseMirror will not
+    // put a block inside a paragraph, so the image was dropped on parse and
+    // took the rest of the paragraph's text with it.
+    Image.configure({ inline: true }),
   ];
 }
 

@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
 import { CodeBlockWithMermaid } from "@/components/editor/MermaidCodeBlock";
+import { aqliExtensions } from "@/lib/markdown/schema";
 import { hasTitleHeading, stripTitleHeading } from "@/lib/markdown/title-heading";
 
 /**
@@ -23,13 +23,9 @@ export default function DocBody({
   const editor = useEditor({
     immediatelyRender: false,
     editable: false,
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        codeBlock: false,
-      }),
-      CodeBlockWithMermaid,
-    ],
+    // Same allowlist the editor mounts. A reader that cannot represent a node
+    // the writer can produce shows the doc with content silently missing.
+    extensions: aqliExtensions(CodeBlockWithMermaid),
     content:
       (content && hasTitleHeading(content, title) ? stripTitleHeading(content) : content) ?? {
         type: "doc",

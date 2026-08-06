@@ -54,6 +54,55 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+
+  // Spec §4.1 — one schema, not two.
+  //
+  // `lib/markdown/schema.ts` is the allowlist: the editor mounts it and the
+  // serializer is asserted complete against it, so a node the editor can
+  // produce always has a markdown spelling. Building a separate extension list
+  // silently breaks that pairing in both directions, and it had: the doc editor
+  // and the read view each mounted a hand-rolled StarterKit with no table,
+  // image or task list. A document containing any of them failed to load, and —
+  // with `body_md` canonical — the next autosave wrote back markdown with the
+  // content deleted.
+  //
+  // Same trick as above: make the invariant a lint error rather than a habit.
+  //
+  // Flat config resolves one `no-restricted-imports` per file, last match
+  // winning, so this block has to restate the service-role paths rather than
+  // just add to them — and it has to ignore `lib/db/**` as well, or it would
+  // re-impose on `lib/db` the very rule the block above exempts it from.
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    ignores: ["lib/db/**", "lib/markdown/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/lib/db/client",
+              message:
+                "Service-role clients are built only in lib/db. Use `scoped(workspaceId)` or `withWorkspace()` from @/lib/db, or `unscoped(reason)` if the query truly cannot be workspace-scoped.",
+            },
+            {
+              name: "@tiptap/starter-kit",
+              message:
+                "Mount `aqliExtensions()` from @/lib/markdown/schema instead. StarterKit enables nodes and marks (underline, and no table/image/task list) that the markdown serializer cannot round-trip, and body_md is canonical.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["**/lib/db/client", "./client", "../client"],
+              importNames: ["rawServiceClient"],
+              message:
+                "rawServiceClient is internal to lib/db. Use `scoped(workspaceId)` or `withWorkspace()` from @/lib/db.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

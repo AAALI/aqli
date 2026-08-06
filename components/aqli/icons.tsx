@@ -159,6 +159,12 @@ export const IconGitHub = (p: IcProps) => (
 export const IconGitMerge = (p: IcProps) => (
   <Ic {...p} d={<><circle cx="6" cy="18" r="2" /><circle cx="6" cy="6" r="2" /><circle cx="18" cy="12" r="2" /><path d="M6 8v8" /><path d="M6 10c0 4 4 2 10 2" /></>} />
 );
+export const IconImage = (p: IcProps) => (
+  <Ic {...p} d={<><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="m3 16.5 4.5-4 3.5 3 4-4.5L21 16" /></>} />
+);
+export const IconTable = (p: IcProps) => (
+  <Ic {...p} d={<><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9.5h18" /><path d="M3 15h18" /><path d="M9 9.5V20" /></>} />
+);
 export const IconLogOut = (p: IcProps) => (
   <Ic {...p} d={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>} />
 );
