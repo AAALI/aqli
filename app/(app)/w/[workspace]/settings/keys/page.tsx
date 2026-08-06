@@ -32,6 +32,7 @@ export default async function SettingsKeysPage({
           key_prefix: k.key_prefix,
           last_used_at: k.last_used_at,
           created_at: k.created_at,
+          scopes: k.scopes ?? [],
         }))}
       />
     </div>

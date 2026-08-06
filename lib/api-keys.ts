@@ -1,5 +1,7 @@
 import crypto from "crypto";
 import { scoped, unscoped } from "@/lib/db";
+import { DEFAULT_AGENT_SCOPES } from "@/lib/agent-scopes";
+import type { AgentScope } from "@/lib/merge/disposition";
 import type { ApiKey, ApiKeyWithSecret } from "@/types/api-key";
 
 /**
@@ -11,6 +13,7 @@ export async function createApiKey(
   workspaceId: string,
   name: string,
   createdBy: string,
+  scopes: AgentScope[] = DEFAULT_AGENT_SCOPES,
 ): Promise<ApiKeyWithSecret> {
   const rawKey = `aqli_${crypto.randomBytes(24).toString("hex")}`;
   const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
@@ -24,12 +27,31 @@ export async function createApiKey(
       key_hash: keyHash,
       key_prefix: keyPrefix,
       created_by: createdBy,
+      scopes,
     })
     .select()
     .single();
 
   if (error) throw error;
   return { ...(data as ApiKey), secret: rawKey };
+}
+
+/**
+ * Replace a key's scopes. The caller (`/api/keys/[id]`) has already resolved
+ * the key's workspace and checked that the caller is an admin of it.
+ */
+export async function updateApiKeyScopes(
+  id: string,
+  scopes: AgentScope[],
+): Promise<void> {
+  const supabase = unscoped(
+    "the caller resolved this key's workspace and verified admin rights before calling",
+  );
+  const { error } = await supabase
+    .from("api_keys")
+    .update({ scopes })
+    .eq("id", id);
+  if (error) throw error;
 }
 
 export async function validateApiKey(
@@ -71,7 +93,7 @@ export async function listApiKeys(workspaceId: string): Promise<ApiKey[]> {
   const { data, error } = await scoped(workspaceId)
     .from("api_keys")
     .select(
-      "id, workspace_id, name, key_prefix, last_used_at, created_by, created_at, revoked_at",
+      "id, workspace_id, name, key_prefix, last_used_at, created_by, created_at, revoked_at, scopes",
     )
     .is("revoked_at", null)
     .order("created_at", { ascending: false });

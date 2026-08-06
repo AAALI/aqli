@@ -105,6 +105,12 @@ The steps are independent up to 6, which is the one-way door.
    stops writing revisions, so it is for getting out of trouble, not for
    staying there.
 
+**`20260806010000_doc_images_storage.sql` is not part of this order.** It
+creates the `doc-images` bucket and its RLS policies — it touches only
+`storage` and reads `public.members`, so it neither depends on the backfill nor
+blocks it, and it can be applied whenever. Images in the editor do not work
+until it has been.
+
 Rollback files for each migration are in `supabase/migrations/rollback/`. The
 step-6 one restores the schema but not the data: once the app has been writing
 markdown-first, no migration can reconstruct what was only in the markdown.
@@ -150,12 +156,14 @@ fired and the document ordering has moved.
 
 ## Known gaps, recorded rather than papered over
 
-- **`review_all` has no UI.** The column and the disposition rule exist and are
-  tested, but nothing in the app sets a space's `review_policy`. Until a
-  settings control exists, every space is `review_agents`.
-- **Agent key scopes have no UI either.** Keys are created with
-  `{read,propose}`, so agent writes queue. Granting `write` is a SQL update
-  today.
+- ~~**`review_all` has no UI.**~~ Closed. Settings → Spaces sets each space's
+  `review_policy`, admin-only, and the option descriptions are written from
+  `decideDisposition`. Existing spaces keep `review_agents`; nothing changes
+  until someone chooses otherwise.
+- ~~**Agent key scopes have no UI either.**~~ Closed. Settings → API keys sets
+  scopes at creation and per key afterwards, admin-only. `read` is always
+  included server-side (`normalizeScopes`), because a key without it does
+  nothing.
 - **`/api/agent/docs/[id]/review` is vestigial.** Since step 5 an agent gets
   review by having its proposal queued. The endpoint still flags a document's
   status so existing agents do not break, and the queue lists those documents

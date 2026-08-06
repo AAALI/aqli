@@ -9,6 +9,7 @@ import {
   IconKey,
   IconLink,
   IconChevLeft,
+  IconFolder,
   IconRobot,
   IconUsers,
 } from "@/components/aqli/icons";
@@ -30,6 +31,7 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You",
 
   const nav = [
     { id: "general", href: settingsBase, icon: <IconGear />, label: "Workspace", exact: true },
+    { id: "spaces", href: `${settingsBase}/spaces`, icon: <IconFolder />, label: "Spaces" },
     { id: "keys", href: `${settingsBase}/keys`, icon: <IconKey />, label: "API keys" },
     { id: "members", href: `${settingsBase}/members`, icon: <IconUsers />, label: "Members" },
     { id: "integrations", href: `${settingsBase}/integrations`, icon: <IconLink />, label: "Integrations" },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getMyRole } from "@/lib/supabase/members";
 import { createApiKey, listApiKeys } from "@/lib/api-keys";
+import { normalizeScopes } from "@/lib/agent-scopes";
 
 export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { workspace_id, name } = await req.json();
+  const { workspace_id, name, scopes } = await req.json();
   if (!workspace_id || !name)
     return NextResponse.json(
       { error: "workspace_id and name required" },
@@ -41,7 +42,14 @@ export async function POST(req: NextRequest) {
   if (role !== "admin")
     return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
-  const key = await createApiKey(workspace_id, name, user.id);
+  const key = await createApiKey(
+    workspace_id,
+    name,
+    user.id,
+    // Omitted entirely means the default set; an explicit list is normalized
+    // rather than trusted.
+    scopes === undefined ? undefined : normalizeScopes(scopes),
+  );
   return NextResponse.json(
     { key, warning: "Store this key securely. It will not be shown again." },
     { status: 201 },
