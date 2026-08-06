@@ -170,7 +170,7 @@ export default function SettingsGeneralClient({
             Draft <span style={{ fontSize: 11.5, marginLeft: 6 }}>(fixed — agents start in draft)</span>
           </div>
         </FormField>
-        <FormField label="Stale doc threshold" hint="Approved docs not re-verified within this window are flagged stale.">
+        <FormField label="Verification window" hint="Approved docs not re-verified within this window show up under Needs updating.">
           <select
             value={staleDays}
             onChange={(e) => setStaleDays(Number(e.target.value))}

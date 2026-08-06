@@ -51,7 +51,6 @@ export default function SearchClient({
   const [results, setResults] = useState<Result[]>([]);
   const [searched, setSearched] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [ms, setMs] = useState(0);
   const [aiAnswer, setAiAnswer] = useState<AiAnswer>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -60,14 +59,12 @@ export default function SearchClient({
       if (!q.trim()) return;
       setBusy(true);
       setAiAnswer(null);
-      const t0 = performance.now();
       try {
         const res = await fetch(
           `/api/search?q=${encodeURIComponent(q)}&workspace_id=${workspaceId}`,
         );
         const data = await res.json();
         setResults(data.results ?? []);
-        setMs(Math.round(performance.now() - t0));
         setSearched(true);
       } finally {
         setBusy(false);
@@ -146,7 +143,7 @@ export default function SearchClient({
             <button className="fpill is-active" type="button">All Spaces</button>
             {searched && (
               <span style={{ marginLeft: 12, fontSize: 12, color: "var(--text-muted)" }}>
-                {results.length} result{results.length === 1 ? "" : "s"} · {ms} ms
+                {results.length} result{results.length === 1 ? "" : "s"}
               </span>
             )}
           </div>

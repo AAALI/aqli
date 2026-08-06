@@ -17,6 +17,11 @@ import { IconLink } from "@/components/aqli/icons";
 import type { KeyHandlerRegistry } from "@/components/editor/v2/types";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
+import {
+  hasTitleHeading,
+  prependTitleHeading,
+  stripTitleHeading,
+} from "@/lib/markdown/title-heading";
 import { typeLabel } from "@/lib/doc-display";
 import { formatDate, formatRelative, avatarColor } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
@@ -51,6 +56,36 @@ export default function DocEditorClient({
   const saveInFlight = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  // The viewer hides a leading `# Title` that repeats the doc's own title, so
+  // the editor hides it too — otherwise opening a PR-imported doc shows the
+  // title twice. It is still part of the document: `bodyWithTitle` puts it back
+  // on every save, which is also what keeps it in step when the title changes.
+  const initialBody = useMemo(
+    () =>
+      doc.body_md
+        ? (markdownToTiptap(doc.body_md) as unknown as Record<string, unknown>)
+        : null,
+    [doc.body_md],
+  );
+  const carriesTitleHeading = useMemo(
+    () => hasTitleHeading(initialBody, doc.title),
+    [initialBody, doc.title],
+  );
+  // `onUpdate` is registered once, so both the flag and the heading text have
+  // to come from refs rather than the values that callback would close over.
+  const carriesTitleRef = useRef(carriesTitleHeading);
+  const titleValue = useRef(doc.title);
+  useEffect(() => {
+    carriesTitleRef.current = carriesTitleHeading;
+  }, [carriesTitleHeading]);
+  const bodyWithTitle = useCallback(
+    (json: Record<string, unknown>): Record<string, unknown> =>
+      carriesTitleRef.current
+        ? prependTitleHeading(json, titleValue.current)
+        : json,
+    [],
+  );
 
   // Keep the title box exactly as tall as its content. Runs on mount too, so a
   // long title arrives already unwrapped rather than one line high.
@@ -147,11 +182,13 @@ export default function DocEditorClient({
     // document actually is rather than a cached tree that may lag it — an
     // agent's merge writes body_md and body_json together, but a rollback or a
     // hand-edit only touches the markdown.
-    content: doc.body_md
-      ? markdownToTiptap(doc.body_md)
+    content: initialBody
+      ? carriesTitleHeading
+        ? stripTitleHeading(initialBody)
+        : initialBody
       : { type: "doc", content: [{ type: "paragraph" }] },
     onUpdate: ({ editor }) => {
-      const json = editor.getJSON() as Record<string, unknown>;
+      const json = bodyWithTitle(editor.getJSON() as Record<string, unknown>);
       // Queue immediately (arms the unload warning during the debounce
       // window); the timer only decides when the pump sends it.
       // body_json rides along as the editor's cache. body_md is the save.
@@ -210,12 +247,19 @@ export default function DocEditorClient({
 
   const saveTitle = useCallback(
     (newTitle: string) => {
+      titleValue.current = newTitle || "Untitled";
       if (newTitle === doc.title) return;
       // Through the same queue so a title PUT can't race a body PUT.
       queueUpdates({ title: newTitle || "Untitled" });
+      // A body that carries the title as its first heading has to be rewritten
+      // too, or the markdown keeps asserting the old name.
+      if (carriesTitleRef.current && editor) {
+        const json = bodyWithTitle(editor.getJSON() as Record<string, unknown>);
+        queueUpdates({ body_json: json, body_md: tiptapToMarkdown(json) });
+      }
       void pumpSaves();
     },
-    [queueUpdates, pumpSaves, doc.title],
+    [queueUpdates, pumpSaves, doc.title, editor, bodyWithTitle],
   );
 
   const askAgent = useCallback(() => {

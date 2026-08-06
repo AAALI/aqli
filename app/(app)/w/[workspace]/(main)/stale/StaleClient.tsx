@@ -70,12 +70,12 @@ export default function StaleClient({ docs, workspaceSlug, staleDays }: Props) {
           <p style={{ margin: 0, fontSize: 16, fontWeight: 500, color: "var(--text-secondary)" }}>
             All your approved docs are up to date
           </p>
-          <p style={{ margin: 0, fontSize: 13 }}>Nothing has gone stale in the last {staleDays} days.</p>
+          <p style={{ margin: 0, fontSize: 13 }}>Every one has been verified in the last {staleDays} days.</p>
         </div>
       ) : (
         <>
           <div style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 16 }}>
-            {docs.length} {docs.length === 1 ? "doc needs" : "docs need"} a fresh review
+            {docs.length} {docs.length === 1 ? "doc needs" : "docs need"} verifying
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {docs.map((doc) => {
@@ -103,7 +103,7 @@ export default function StaleClient({ docs, workspaceSlug, staleDays }: Props) {
                     </span>
                   </div>
                   <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
-                    {doc.last_reviewed_at ? `Reviewed ${formatDate(doc.last_reviewed_at)}` : "Never reviewed"}
+                    {doc.last_reviewed_at ? `Verified ${formatDate(doc.last_reviewed_at)}` : "Never verified"}
                   </span>
                   <span
                     style={{
@@ -122,7 +122,7 @@ export default function StaleClient({ docs, workspaceSlug, staleDays }: Props) {
                     style={{ gap: 6, justifySelf: "end" }}
                   >
                     <IconCheck size={13} sw={2.2} />
-                    <span>{loading === doc.id ? "Marking…" : "Mark as Reviewed"}</span>
+                    <span>{loading === doc.id ? "Verifying…" : "Mark as verified"}</span>
                   </button>
                 </div>
               );

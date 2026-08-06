@@ -178,7 +178,7 @@ export default async function WorkspaceHome({
               }
             />
             {attentionCount === 0 ? (
-              <EmptyCard text="You're all caught up — nothing needs review or a refresh." />
+              <EmptyCard text="You're all caught up — nothing to review or verify." />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {proposalCount > 0 && (
@@ -259,7 +259,7 @@ function buildHeadline(autoPublished: number, agentDrafts: number, stale: number
       `${agentDrafts} agent draft${agentDrafts === 1 ? "" : "s"} need${agentDrafts === 1 ? "s" : ""} your review.`,
     );
   if (parts.length === 0 && stale > 0)
-    parts.push(`${stale} doc${stale === 1 ? "" : "s"} could use a freshness check.`);
+    parts.push(`${stale} doc${stale === 1 ? "" : "s"} need${stale === 1 ? "s" : ""} verifying.`);
   if (parts.length === 0) return "Everything's current — a good day to write something down.";
   return parts.join(" ");
 }
