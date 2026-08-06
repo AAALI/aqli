@@ -15,7 +15,7 @@ export default async function StalePage({
 
   return (
     <>
-      <AppTopBar base={base} crumbs={[{ label: "Stale docs" }]} />
+      <AppTopBar base={base} crumbs={[{ label: "Needs updating" }]} />
       <StaleClient docs={docs} workspaceSlug={workspace.slug} staleDays={DEFAULT_STALE_DAYS} />
     </>
   );

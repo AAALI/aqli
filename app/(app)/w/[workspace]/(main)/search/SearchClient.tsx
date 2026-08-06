@@ -17,7 +17,7 @@ type Result = {
   space_id: string | null;
   author_type?: "human" | "agent";
   updated_at: string;
-  body_md: string | null;
+  body_text: string | null;
 };
 
 function excerptParts(body: string | null, query: string): [string, string, string] {
@@ -167,7 +167,7 @@ export default function SearchClient({
             <div style={{ display: "flex", gap: 28, alignItems: "flex-start" }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
                 {results.map((r) => {
-                  const [pre, match, post] = excerptParts(r.body_md, query);
+                  const [pre, match, post] = excerptParts(r.body_text, query);
                   const isAgent = r.author_type === "agent";
                   return (
                     <Link

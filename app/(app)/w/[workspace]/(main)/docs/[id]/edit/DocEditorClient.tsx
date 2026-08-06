@@ -50,6 +50,16 @@ export default function DocEditorClient({
   const pendingUpdates = useRef<Record<string, unknown> | null>(null);
   const saveInFlight = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  // Keep the title box exactly as tall as its content. Runs on mount too, so a
+  // long title arrives already unwrapped rather than one line high.
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [title]);
 
   // Children (slash menu, selection toolbar) register key handlers that run
   // before ProseMirror's own keymap.
@@ -274,8 +284,12 @@ export default function DocEditorClient({
               padding: "56px 40px 120px",
             }}
           >
-            <input
-              type="text"
+            {/* A textarea, not an input: at 44px a real title runs past the
+                column, and an input clips it mid-word with no way to see the
+                rest. Rows grow with the text; Enter still moves to the body. */}
+            <textarea
+              ref={titleRef}
+              rows={1}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onBlur={(e) => saveTitle(e.target.value)}
@@ -292,6 +306,9 @@ export default function DocEditorClient({
                 border: 0,
                 background: "transparent",
                 outline: "none",
+                resize: "none",
+                overflow: "hidden",
+                display: "block",
                 fontFamily: "var(--font-serif)",
                 fontWeight: 400,
                 fontSize: 44,
@@ -393,6 +410,7 @@ function EditorMetaBar({
 
   return (
     <div
+      className="ed2-metabar"
       style={{
         height: 44,
         flex: "0 0 44px",
@@ -462,6 +480,7 @@ function EditorMetaBar({
         </MetaField>
       )}
       <div
+        className="ed2-metabar-trail"
         style={{
           marginLeft: "auto",
           color: "var(--text-muted)",
@@ -484,7 +503,11 @@ function MetaField({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+    <div
+      className="ed2-metafield"
+      data-field={label.toLowerCase()}
+      style={{ alignItems: "center", gap: 8, minWidth: 0, flexShrink: 0 }}
+    >
       <span
         style={{
           color: "var(--text-muted)",

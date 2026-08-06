@@ -292,6 +292,26 @@ html, body {
 .tb-spacer { flex: 1; }
 .tb-actions { display: flex; align-items: center; gap: 10px; }
 
+/* Drawer trigger. Only meaningful below the sidebar breakpoint, where the
+   sidebar leaves the flow — see the responsive block near the end of the file. */
+.tb-nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: -6px;
+  flex: 0 0 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.tb-nav-toggle:hover { color: var(--text-primary); border-color: var(--border-strong); }
+
+.sb-scrim { display: none; }
+
 /* Buttons */
 .btn {
   display: inline-flex;
@@ -690,6 +710,20 @@ html, body {
 .ed2-prose ol {
   margin: 10px 0 22px;
   padding-left: 22px;
+}
+
+/* Tailwind's preflight resets `list-style` to none, so the markers have to be
+   asked for again. Without this the editor shows an indented but unnumbered
+   list while the published doc — which renders through `prose` — shows 1, 2, 3. */
+.ed2-prose ul { list-style: disc; }
+.ed2-prose ol { list-style: decimal; }
+.ed2-prose ul ul { list-style: circle; }
+.ed2-prose li::marker { color: var(--text-muted); }
+
+/* A task list carries its own checkbox; a bullet next to it is noise. */
+.ed2-prose ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 2px;
 }
 
 .ed2-prose li {
@@ -1488,5 +1522,199 @@ html, body {
   .onb-space,
   .onb-chip {
     transition: none;
+  }
+}
+
+/* ───────── In-app responsive layout ─────────
+   The workspace shell is a three-column flex row (sidebar · content · rail)
+   inside `.aqli-screen.is-app`, which is `overflow: hidden`. That means a
+   narrow viewport does not produce a scrollbar — the columns are simply
+   squeezed until the reading column disappears behind the rail. Both side
+   columns therefore have to leave the flow rather than shrink. */
+
+.doc-rail {
+  width: 280px;
+  flex: 0 0 280px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Rail first: the reading column needs the room before the sidebar does. */
+@media (max-width: 1100px) {
+  .doc-rail {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .tb-nav-toggle {
+    display: inline-flex;
+  }
+
+  /* Off-canvas drawer. `position: fixed` takes it out of the flex row, so the
+     content column gets the full viewport width. */
+  .sb {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    width: 264px;
+    flex-basis: 264px;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+    box-shadow: none;
+  }
+  .sb[data-open] {
+    transform: none;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+  }
+
+  .sb-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.32);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+  }
+  .sb-scrim[data-open] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .tb {
+    padding: 0 14px;
+    gap: 8px;
+  }
+  /* The breadcrumb is the first thing to give up room to the actions. */
+  .tb-crumb {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .content {
+    padding: 20px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sb,
+  .sb-scrim {
+    transition: none;
+  }
+}
+
+/* Home: the jump-back cards and the attention rows.
+   `auto-fit` rather than a fixed column count, so one, two or three cards all
+   lay out sensibly and a phone gets a single column without a media query. */
+.home-jumpcards {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.home-attention-row {
+  grid-template-columns: 32px 1fr auto;
+}
+
+@media (max-width: 640px) {
+  /* The call to action drops below the text rather than being squeezed into a
+     column too narrow to read. */
+  .home-attention-row {
+    grid-template-columns: 32px 1fr;
+    gap: 10px 14px;
+  }
+  .home-attention-row > :last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+/* ───────── Published doc body ─────────
+   `DocBody` renders through @tailwindcss/typography, whose default `code`
+   style wraps inline code in literal backticks and leaves it unshaded. The
+   editor styles it as a shaded chip (`.ed2-prose code`), so without this the
+   same markdown looks like two different things either side of Edit. */
+.prose :where(code):not(:where([class~="not-prose"] *))::before,
+.prose :where(code):not(:where([class~="not-prose"] *))::after {
+  content: none;
+}
+
+.prose :where(code):not(:where(pre *)):not(:where([class~="not-prose"] *)) {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  font-weight: 400;
+  background: var(--bg-sidebar);
+  color: var(--text-primary);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* ───────── Document rows ─────────
+   The row is a grid, and a grid item stretches to its track by default — which
+   turned the type and status pills into wide, mostly-empty boxes. Badges hug
+   their text everywhere else in the app; they should here too. */
+.doc-row > .badge {
+  justify-self: start;
+}
+
+@media (max-width: 860px) {
+  /* Drop the owner and timestamp columns rather than crushing the title. */
+  .doc-row {
+    grid-template-columns: auto 1fr auto !important;
+    gap: 10px !important;
+  }
+  .doc-row > :nth-child(4),
+  .doc-row > :nth-child(5) {
+    display: none;
+  }
+}
+
+/* Label and value sit on one line. Declared here rather than inline so the
+   narrow-screen rules below can hide a field outright. */
+.ed2-metafield {
+  display: inline-flex;
+}
+
+/* ───────── Editor chrome on narrow screens ─────────
+   The meta bar and the action strip are fixed-height flex rows with
+   `overflow: hidden`. Below the sidebar breakpoint their items no longer fit,
+   and clipped flex items overlap rather than truncate — the type badge lands
+   on top of the status label. Drop the fields that are repeated elsewhere on
+   the screen instead of letting everything collide. */
+@media (max-width: 860px) {
+  .ed2-metabar {
+    padding: 0 16px;
+    gap: 12px;
+  }
+  /* Owner and the version/last-reviewed trail both appear on the read view. */
+  .ed2-metafield[data-field="owner"],
+  .ed2-metabar-trail {
+    display: none;
+  }
+
+  .ed2-processstrip {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .ed2-strip-status {
+    display: none;
+  }
+}
+
+/* The co-write launcher sits inside the editor's scroll column, offset to
+   clear the 280px rail. Once the rail is hidden that offset pushes it off the
+   left edge, so it moves to the opposite corner from the Ask Aqli launcher. */
+.ed2-cowrite-dock {
+  right: 304px;
+}
+
+@media (max-width: 1100px) {
+  .ed2-cowrite-dock {
+    right: auto;
+    left: 16px;
+    max-width: calc(100% - 32px);
   }
 }

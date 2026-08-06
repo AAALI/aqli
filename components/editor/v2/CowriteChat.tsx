@@ -137,10 +137,10 @@ export default function CowriteChat({
     return (
       <div
         onClick={() => onToggle(true)}
+        className="ed2-cowrite-dock"
         style={{
           position: "absolute",
           bottom: 24,
-          right: 304, // clear of the 280px rail
           display: "inline-flex",
           alignItems: "center",
           gap: 8,
@@ -189,10 +189,10 @@ export default function CowriteChat({
 
   return (
     <div
+      className="ed2-cowrite-dock"
       style={{
         position: "absolute",
         bottom: 24,
-        right: 304,
         width: 360,
         background: "var(--bg-card)",
         border: "1px solid var(--border-strong)",

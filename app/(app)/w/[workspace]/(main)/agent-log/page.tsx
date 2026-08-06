@@ -15,7 +15,7 @@ export default async function AgentLogPage({
 
   return (
     <>
-      <AppTopBar base={base} crumbs={[{ label: "Agent Activity" }]} />
+      <AppTopBar base={base} crumbs={[{ label: "AI activity" }]} />
       <AgentLogClient activities={activities} workspaceSlug={workspace.slug} />
     </>
   );

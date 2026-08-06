@@ -290,9 +290,9 @@ function PickupRow({
 
   return (
     <div
+      className="home-jumpcards"
       style={{
         display: "grid",
-        gridTemplateColumns: `repeat(${cards.length}, 1fr)`,
         gap: 12,
         marginBottom: 44,
       }}
@@ -380,9 +380,9 @@ function AttentionRow({
 
   return (
     <div
+      className="home-attention-row"
       style={{
         display: "grid",
-        gridTemplateColumns: "32px 1fr auto",
         gap: 16,
         padding: "14px 18px",
         background: "var(--bg-card)",

@@ -96,7 +96,9 @@ export default function AqliChatWidget({
         onClick={() => setOpen(true)}
         style={{
           position: "fixed",
-          bottom: 24,
+          // Screens with a bottom action strip (the editor) raise this so the
+          // launcher does not sit on top of their buttons.
+          bottom: "var(--dock-bottom, 24px)",
           right: 24,
           zIndex: 100,
           display: "inline-flex",
@@ -136,7 +138,7 @@ export default function AqliChatWidget({
     <div
       style={{
         position: "fixed",
-        bottom: 24,
+        bottom: "var(--dock-bottom, 24px)",
         right: 24,
         width: 360,
         maxHeight: "min(560px, calc(100vh - 48px))",

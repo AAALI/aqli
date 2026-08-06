@@ -110,7 +110,16 @@ export function tiptapToMarkdown(doc: TiptapJSON | null | undefined): string {
   return serialize(aqliSchema.nodeFromJSON(normalized));
 }
 
-/** Markdown -> Tiptap JSON. */
+/**
+ * Markdown -> Tiptap JSON.
+ *
+ * `Node.toJSON()` hands back ProseMirror's own `attrs` object, which
+ * `computeAttrs` builds with `Object.create(null)`. React's server/client
+ * boundary rejects a null prototype ("Only plain objects ... can be passed to
+ * Client Components"), so a Server Component rendering a doc from `body_md`
+ * crashes the moment any node carries an attribute — a heading level is enough.
+ * The clone is what makes the result plain, and therefore serializable.
+ */
 export function markdownToTiptap(markdown: string | null | undefined): TiptapNode {
-  return parse(markdown ?? "").toJSON() as TiptapNode;
+  return structuredClone(parse(markdown ?? "").toJSON()) as TiptapNode;
 }
