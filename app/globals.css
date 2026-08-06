@@ -822,3 +822,671 @@ html, body {
 .lp-flow-paused svg path {
   animation-play-state: paused !important;
 }
+
+/* ───────── Onboarding ───────── */
+
+.onb {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  background: var(--bg-base);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+.onb-boot {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--bg-base);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+}
+
+/* ── Rail ── */
+.onb-rail {
+  min-width: 0;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 36px 32px 28px;
+}
+.onb-rail-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 44px;
+}
+.onb-rail-brand span {
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.onb-rail-head {
+  margin-bottom: 24px;
+}
+.onb-rail-eyebrow {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.onb-rail-time {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.onb-rail-foot {
+  margin-top: auto;
+  padding-top: 24px;
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* The bar carries progress on narrow screens where the step list is hidden;
+   on wide screens the list is the primary signal and the bar is redundant. */
+.onb-progress,
+.onb-progress-label {
+  display: none;
+}
+.onb-progress {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.onb-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 260ms ease;
+}
+.onb-progress-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.onb-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.onb-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 10px 0;
+}
+.onb-step-dot {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  margin-top: 1px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+.onb-step.is-now .onb-step-dot {
+  border-color: var(--accent);
+  background: var(--bg-card);
+  color: var(--accent);
+}
+.onb-step.is-done .onb-step-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.onb-step-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.onb-step-label {
+  font-size: 13.5px;
+  line-height: 1.25;
+  color: var(--text-muted);
+}
+.onb-step.is-now .onb-step-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.onb-step.is-done .onb-step-label {
+  color: var(--text-secondary);
+}
+.onb-step-hint {
+  font-size: 11.5px;
+  line-height: 1.25;
+  color: var(--text-muted);
+}
+
+/* ── Stage ── */
+.onb-stage {
+  min-width: 0;
+  background: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+}
+.onb-topbar {
+  min-height: 56px;
+  padding: 18px 32px 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.onb-body {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 40px 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.onb-col {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.onb-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.onb-eyebrow {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.onb-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 40px;
+  line-height: 1.05;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+.onb-sub {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 520px;
+}
+
+.onb-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── Fields ── */
+.onb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.onb-field-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.onb-field-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.onb-field-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--stale-text);
+}
+
+.onb-input {
+  display: flex;
+  align-items: center;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  cursor: text;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.onb-input.is-focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 110, 86, 0.12);
+}
+.onb-input.is-invalid {
+  border-color: var(--stale-border);
+}
+.onb-input.is-invalid.is-focused {
+  border-color: var(--stale-text);
+  box-shadow: 0 0 0 3px rgba(153, 60, 29, 0.12);
+}
+.onb-input-prefix {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-right: 2px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.onb-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+/* ── Slug alternatives ── */
+.onb-alts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: -6px;
+}
+.onb-alts-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.onb-alts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.onb-chip {
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.onb-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* ── Spaces ── */
+.onb-spaces {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* Two-up once there is room, so eight options do not push Continue off-screen. */
+@media (min-width: 720px) {
+  .onb-col.is-wide {
+    max-width: 700px;
+  }
+  .onb-col.is-wide .onb-spaces {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+}
+.onb-space {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  text-align: left;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.onb-space:hover:not(.is-locked) {
+  border-color: var(--border-strong);
+}
+.onb-space.is-on {
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-card));
+}
+.onb-space.is-locked {
+  cursor: default;
+  opacity: 0.9;
+}
+.onb-space-tick {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-card);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.onb-space.is-on .onb-space-tick {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.onb-space-emoji {
+  font-size: 18px;
+  line-height: 1;
+  filter: saturate(0.85);
+}
+.onb-space-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.onb-space-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.onb-space-tag {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+.onb-space-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.onb-custom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.onb-custom > .onb-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Panels ── */
+.onb-panel {
+  padding: 15px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.onb-panel.is-ok {
+  border-color: var(--approved-border);
+  background: var(--approved-bg);
+}
+.onb-panel-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.onb-panel-icon {
+  color: var(--accent);
+  margin-top: 1px;
+  display: flex;
+  flex: 0 0 auto;
+}
+.onb-panel-icon.is-ok {
+  color: var(--approved-text);
+}
+.onb-panel-copy {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  min-width: 0;
+}
+
+.onb-key {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--approved-border);
+  border-radius: 6px;
+  background: var(--bg-card);
+}
+.onb-key code {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-primary);
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Summary ── */
+.onb-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.onb-summary-row {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.onb-summary-icon {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 8px;
+  background: var(--accent-light);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.onb-summary-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.onb-summary-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.onb-summary-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.onb-summary-meta {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.onb-summary-tick {
+  color: var(--accent);
+  display: flex;
+}
+
+/* ── Footer ── */
+.onb-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.onb-footer-right,
+.onb-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.onb-btn {
+  height: 38px;
+  padding: 0 16px;
+  white-space: nowrap;
+}
+.onb-btn-primary {
+  padding: 0 18px;
+}
+
+.onb-msg {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.onb-msg.is-error {
+  color: var(--stale-text);
+}
+.onb-msg.is-ok {
+  color: var(--approved-text);
+}
+
+/* ── Narrow screens ──
+   The rail collapses to a header strip: the numbered list is replaced by a
+   progress bar, so setup stays usable on a phone rather than losing 320px of
+   a 390px viewport to a sidebar. */
+@media (max-width: 900px) {
+  .onb {
+    grid-template-columns: 1fr;
+    /* Without an explicit row sizing the rail claims half the viewport, since
+       the grid's 100dvh min-height is shared evenly between auto rows. */
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .onb-rail {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 18px 20px 16px;
+    gap: 12px;
+  }
+  .onb-rail-brand {
+    margin-bottom: 0;
+  }
+  .onb-rail-head,
+  .onb-steps,
+  .onb-rail-foot {
+    display: none;
+  }
+  .onb-progress,
+  .onb-progress-label {
+    display: block;
+  }
+  /* The rail strip already says "Step n of 4" here. */
+  .onb-eyebrow {
+    display: none;
+  }
+  .onb-topbar {
+    min-height: 0;
+    padding: 16px 20px 0;
+    justify-content: flex-start;
+  }
+  .onb-body {
+    padding: 20px 20px 40px;
+    justify-content: flex-start;
+  }
+  .onb-title {
+    font-size: 30px;
+  }
+  .onb-sub {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .onb-col {
+    gap: 22px;
+  }
+  .onb-title {
+    font-size: 26px;
+  }
+  /* Stack the footer so a primary action is never squeezed to an ellipsis. */
+  .onb-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .onb-footer-left,
+  .onb-footer-right,
+  .onb-actions {
+    width: 100%;
+  }
+  .onb-footer-left {
+    text-align: center;
+  }
+  .onb-footer-right > *,
+  .onb-actions > * {
+    flex: 1;
+    justify-content: center;
+  }
+  .onb-custom {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .onb-custom .onb-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onb-progress-bar,
+  .onb-step-dot,
+  .onb-input,
+  .onb-space,
+  .onb-chip {
+    transition: none;
+  }
+}

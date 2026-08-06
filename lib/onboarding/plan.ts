@@ -1,0 +1,272 @@
+/**
+ * The rules behind onboarding, kept out of the component so they can be tested.
+ *
+ * The wizard itself is a thin renderer over this module: it asks `resolveEntry`
+ * where to start, `nextStep`/`prevStep` where to go, and `spacesToCreate` what
+ * to write. Nothing here touches React, `fetch` or Supabase.
+ */
+
+import { slugify } from "@/lib/utils";
+
+/* ───────── Steps ───────── */
+
+export type StepKey = "account" | "workspace" | "spaces" | "assistant" | "done";
+
+export type OnboardingStep = {
+  key: StepKey;
+  label: string;
+  hint: string;
+};
+
+/**
+ * Four numbered steps plus a terminal confirmation. The old wizard advertised
+ * "step 4 of 5" for a screen that collected an assistant name and threw it
+ * away; the assistant step now mints a real key, and "done" is not numbered
+ * because it asks nothing of the user.
+ */
+export const ONBOARDING_STEPS: OnboardingStep[] = [
+  { key: "account", label: "Account", hint: "Email and password" },
+  { key: "workspace", label: "Workspace", hint: "Your company or team" },
+  { key: "spaces", label: "Spaces", hint: "How docs are organised" },
+  { key: "assistant", label: "AI access", hint: "Optional" },
+  { key: "done", label: "Open workspace", hint: "You're set" },
+];
+
+/** Steps that carry a number in the UI — everything before the terminal step. */
+export const NUMBERED_STEPS = ONBOARDING_STEPS.filter((s) => s.key !== "done");
+
+export function stepIndex(key: StepKey): number {
+  return ONBOARDING_STEPS.findIndex((s) => s.key === key);
+}
+
+export function nextStep(key: StepKey): StepKey {
+  const i = stepIndex(key);
+  return ONBOARDING_STEPS[Math.min(i + 1, ONBOARDING_STEPS.length - 1)].key;
+}
+
+export function prevStep(key: StepKey): StepKey {
+  const i = stepIndex(key);
+  return ONBOARDING_STEPS[Math.max(i - 1, 0)].key;
+}
+
+/** "Step 2 of 4" — or null on the terminal step, which is not numbered. */
+export function stepEyebrow(key: StepKey): string | null {
+  const i = NUMBERED_STEPS.findIndex((s) => s.key === key);
+  return i === -1 ? null : `Step ${i + 1} of ${NUMBERED_STEPS.length}`;
+}
+
+/* ───────── Workspace slug ───────── */
+
+/**
+ * Slugs that would read as a broken URL or collide with a route segment under
+ * `/w/`. `workspaces.slug` is globally unique, so these are worth refusing up
+ * front rather than at the database.
+ */
+const RESERVED_SLUGS = new Set([
+  "admin",
+  "api",
+  "app",
+  "auth",
+  "docs",
+  "drafts",
+  "invite",
+  "login",
+  "new",
+  "review",
+  "search",
+  "settings",
+  "signup",
+  "stale",
+  "static",
+  "support",
+  "w",
+  "www",
+]);
+
+export const SLUG_MIN = 2;
+export const SLUG_MAX = 48;
+
+export type SlugCheck = { ok: true } | { ok: false; reason: string };
+
+export function normalizeSlug(input: string): string {
+  return slugify(input).slice(0, SLUG_MAX);
+}
+
+/** The slug we propose from a workspace name, before the user edits it. */
+export function suggestSlug(name: string): string {
+  return normalizeSlug(name);
+}
+
+export function validateSlug(slug: string): SlugCheck {
+  if (slug.length === 0) return { ok: false, reason: "Pick a workspace URL." };
+  if (slug.length < SLUG_MIN)
+    return { ok: false, reason: `At least ${SLUG_MIN} characters.` };
+  if (slug.length > SLUG_MAX)
+    return { ok: false, reason: `At most ${SLUG_MAX} characters.` };
+  if (slug !== slugify(slug))
+    return { ok: false, reason: "Lowercase letters, numbers and dashes only." };
+  if (RESERVED_SLUGS.has(slug))
+    return { ok: false, reason: `"${slug}" is reserved. Try something else.` };
+  return { ok: true };
+}
+
+/**
+ * Alternatives to offer when a slug is taken. `workspaces.slug` is unique
+ * across the whole install, so "acme" is gone the moment one team takes it —
+ * the previous wizard surfaced that as an unexplained "Could not create
+ * workspace" and left the user with nowhere to go.
+ *
+ * `seed` is only read when the numbered suffixes are exhausted, so the common
+ * case stays deterministic and testable.
+ */
+export function slugAlternatives(
+  base: string,
+  taken: Iterable<string>,
+  seed = () => Math.random().toString(36).slice(2, 6),
+): string[] {
+  const used = new Set(taken);
+  const root = normalizeSlug(base) || "workspace";
+  const out: string[] = [];
+
+  for (const candidate of [`${root}-hq`, `${root}-team`, `${root}-2`]) {
+    const slug = normalizeSlug(candidate);
+    if (!used.has(slug) && validateSlug(slug).ok && !out.includes(slug)) {
+      out.push(slug);
+    }
+    if (out.length === 3) return out;
+  }
+
+  while (out.length < 3) {
+    const slug = normalizeSlug(`${root}-${seed()}`);
+    if (!used.has(slug) && validateSlug(slug).ok && !out.includes(slug)) {
+      out.push(slug);
+    } else if (out.length === 0 && used.size > 500) {
+      break; // pathological input — better to show nothing than to spin
+    }
+  }
+
+  return out;
+}
+
+/* ───────── Spaces ───────── */
+
+export type SpaceSuggestion = {
+  emoji: string;
+  name: string;
+  desc: string;
+};
+
+/**
+ * Team-neutral by design (roadmap phase 1): a Head of People has to see
+ * themselves in this list, so Engineering sits among the others rather than
+ * leading. "Company" is seeded by `create_workspace_for_user`, so it always
+ * arrives already created.
+ */
+export const SUGGESTED_SPACES: SpaceSuggestion[] = [
+  { emoji: "🏢", name: "Company", desc: "Handbook, policies, onboarding" },
+  { emoji: "🤝", name: "People", desc: "Hiring, benefits, culture" },
+  { emoji: "📣", name: "Marketing", desc: "Campaigns, brand, content" },
+  { emoji: "💼", name: "Sales", desc: "Playbooks, pricing, FAQs" },
+  { emoji: "🧭", name: "Product", desc: "Roadmap, specs, decisions" },
+  { emoji: "🔧", name: "Ops", desc: "Processes, vendors, reports" },
+  { emoji: "⚙️", name: "Engineering", desc: "Technical docs, runbooks" },
+];
+
+export const CUSTOM_SPACE_EMOJI = "📁";
+
+function sameName(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
+ * Toggle a space in the picked set. Spaces that already exist are locked —
+ * unticking one would imply a delete that this screen does not perform.
+ */
+export function toggleSpace(
+  picked: string[],
+  name: string,
+  existing: string[],
+): string[] {
+  if (existing.some((e) => sameName(e, name))) return picked;
+  return picked.some((p) => sameName(p, name))
+    ? picked.filter((p) => !sameName(p, name))
+    : [...picked, name];
+}
+
+/** Whether a typed custom name is worth adding — non-empty and not a duplicate. */
+export function canAddCustomSpace(name: string, known: string[]): boolean {
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+  if (!slugify(trimmed)) return false; // e.g. "!!!" — would slug to nothing
+  return !known.some((k) => sameName(k, trimmed));
+}
+
+/**
+ * The spaces the wizard must actually POST: everything picked that does not
+ * exist yet, carrying the right icon and a slug the caller can send as-is.
+ */
+export function spacesToCreate(
+  picked: string[],
+  existing: string[],
+  custom: string[],
+): { name: string; slug: string; icon: string }[] {
+  const seen = new Set(existing.map((e) => slugify(e)));
+  const out: { name: string; slug: string; icon: string }[] = [];
+
+  for (const name of picked) {
+    const slug = slugify(name);
+    if (!slug || seen.has(slug)) continue;
+    seen.add(slug);
+    const suggestion = SUGGESTED_SPACES.find((s) => sameName(s.name, name));
+    const isCustom = custom.some((c) => sameName(c, name));
+    out.push({
+      name: name.trim(),
+      slug,
+      icon: suggestion && !isCustom ? suggestion.emoji : CUSTOM_SPACE_EMOJI,
+    });
+  }
+
+  return out;
+}
+
+/* ───────── Where to start ───────── */
+
+export type EntryState = {
+  hasUser: boolean;
+  /** Workspaces the signed-in user belongs to, oldest first. */
+  workspaces: { id: string; slug: string; name: string }[];
+  /** Spaces in `workspaces[0]`, when known. */
+  spaceCount?: number;
+};
+
+export type Entry =
+  | { kind: "step"; step: StepKey }
+  | { kind: "resume"; step: StepKey; workspace: { id: string; slug: string; name: string } }
+  | { kind: "redirect"; to: string };
+
+/**
+ * Decides where an arriving user belongs.
+ *
+ * The old wizard kept every scrap of progress in React state, so a refresh —
+ * or the round trip through a confirmation email — dropped the user back on
+ * the workspace step with no memory that they had already created one.
+ * Retrying the same name then hit the unique constraint on `workspaces.slug`
+ * and the flow dead-ended. Progress is therefore re-derived from the server on
+ * every mount instead of being remembered.
+ *
+ * A workspace still holding only its seeded space is treated as unfinished and
+ * resumes at the spaces step. Anything more established means onboarding is
+ * over and the user is sent to the app — visiting /signup again should never
+ * ask an existing customer to create a second workspace.
+ */
+export function resolveEntry(state: EntryState): Entry {
+  if (!state.hasUser) return { kind: "step", step: "account" };
+
+  const workspace = state.workspaces[0];
+  if (!workspace) return { kind: "step", step: "workspace" };
+
+  const untouched = (state.spaceCount ?? 0) <= 1;
+  if (untouched) return { kind: "resume", step: "spaces", workspace };
+
+  return { kind: "redirect", to: `/w/${workspace.slug}` };
+}
