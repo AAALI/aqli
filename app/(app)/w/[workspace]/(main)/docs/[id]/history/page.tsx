@@ -24,7 +24,7 @@ export default async function DocHistoryPage({
         version_number: v.version_number,
         change_type: v.change_type,
         created_at: v.created_at,
-        body_md: v.body_md ?? "",
+        body_md: v.body_md,
       }))}
     />
   );

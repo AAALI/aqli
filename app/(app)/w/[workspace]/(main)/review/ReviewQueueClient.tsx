@@ -8,12 +8,25 @@ import { IconArrowUpRight, IconCheck } from "@/components/aqli/icons";
 import { typeLabel } from "@/lib/doc-display";
 import { formatRelative } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
+import type { ProposalWithContext } from "@/types/proposal";
+import ProposalCard from "./ProposalCard";
 import posthog from "posthog-js";
 
 type Props = {
+  proposals: ProposalWithContext[];
   docs: DocWithSpace[];
   workspaceId: string;
   workspaceSlug: string;
+};
+
+/** What the merge engine's refusals mean to someone looking at the queue. */
+const MERGE_ERRORS: Record<string, string> = {
+  stale_base:
+    "The document has changed since this was written. Approving it would undo the newer change — ask the author to re-read and re-propose.",
+  proposal_not_open:
+    "This is no longer open — another reviewer got here first, or a newer change superseded it.",
+  forbidden: "You need editor or admin rights in this workspace to review changes.",
+  document_not_found: "The document this change targets no longer exists.",
 };
 
 type Dialog = { type: "reject" | "changes"; docId: string } | null;
@@ -27,13 +40,50 @@ function previewOf(md: string | null): string {
     .trim();
 }
 
-export default function ReviewQueueClient({ docs, workspaceId, workspaceSlug }: Props) {
+export default function ReviewQueueClient({
+  proposals,
+  docs,
+  workspaceId,
+  workspaceSlug,
+}: Props) {
   const router = useRouter();
   const base = `/w/${workspaceSlug}`;
   const [loading, setLoading] = useState<string | null>(null);
+  const [proposalError, setProposalError] = useState<Record<string, string>>({});
   const [dialog, setDialog] = useState<Dialog>(null);
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
+
+  async function actOnProposal(id: string, action: "approve" | "reject", note?: string) {
+    setLoading(id);
+    setProposalError((e) => ({ ...e, [id]: "" }));
+    try {
+      const res = await fetch(`/api/proposals/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, note }),
+      });
+      if (!res.ok) {
+        // A refusal here is information the reviewer needs — `stale_base`
+        // especially, which means approving would quietly revert someone.
+        const body = await res.json().catch(() => ({}));
+        const code = typeof body.error === "string" ? body.error : "";
+        setProposalError((e) => ({
+          ...e,
+          [id]: MERGE_ERRORS[code] ?? "Something went wrong. Try again.",
+        }));
+        return;
+      }
+      posthog.capture("proposal_reviewed", {
+        proposal_id: id,
+        action,
+        workspace_id: workspaceId,
+      });
+      router.refresh();
+    } finally {
+      setLoading(null);
+    }
+  }
 
   async function act(docId: string, action: string, extra?: Record<string, string>) {
     setLoading(docId);
@@ -53,7 +103,7 @@ export default function ReviewQueueClient({ docs, workspaceId, workspaceSlug }: 
     }
   }
 
-  if (docs.length === 0) {
+  if (proposals.length === 0 && docs.length === 0) {
     return (
       <div className="content" style={{ padding: "28px 40px" }}>
         <div
@@ -73,7 +123,7 @@ export default function ReviewQueueClient({ docs, workspaceId, workspaceSlug }: 
           <p style={{ margin: 0, fontSize: 16, fontWeight: 500, color: "var(--text-secondary)" }}>
             Review queue is clear
           </p>
-          <p style={{ margin: 0, fontSize: 13 }}>No agent docs are waiting for review.</p>
+          <p style={{ margin: 0, fontSize: 13 }}>No changes are waiting for review.</p>
         </div>
       </div>
     );
@@ -86,11 +136,39 @@ export default function ReviewQueueClient({ docs, workspaceId, workspaceSlug }: 
           Review Queue
         </h1>
         <div style={{ marginTop: 4, fontSize: 13.5, color: "var(--text-secondary)" }}>
-          {docs.length} {docs.length === 1 ? "doc" : "docs"} waiting for review
+          {proposals.length + docs.length}{" "}
+          {proposals.length + docs.length === 1 ? "item" : "items"} waiting for review
         </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 960 }}>
+        {proposals.map((p) => (
+          <ProposalCard
+            key={p.id}
+            proposal={p}
+            base={base}
+            busy={loading === p.id}
+            error={proposalError[p.id] || null}
+            onApprove={() => actOnProposal(p.id, "approve")}
+            onReject={(note) => actOnProposal(p.id, "reject", note)}
+          />
+        ))}
+
+        {docs.length > 0 && proposals.length > 0 && (
+          <div
+            style={{
+              fontSize: 11.5,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "var(--text-muted)",
+              fontWeight: 600,
+              marginTop: 10,
+            }}
+          >
+            Documents flagged for review
+          </div>
+        )}
+
         {docs.map((doc) => {
           const preview = previewOf(doc.body_md);
           return (

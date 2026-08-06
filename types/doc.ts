@@ -17,6 +17,12 @@ export type DocStatus = "draft" | "review" | "approved" | "stale" | "archived";
 
 export type AuthorType = "human" | "agent";
 
+/** `canon` = living document, `record` = immutable event (spec §2.1). */
+export type DocClass = "canon" | "record";
+
+/** Supersedes `author_type`; `system` covers the PR ingester and importers. */
+export type DocOrigin = "human" | "agent" | "system";
+
 export type DocFrontmatter = {
   tags: string[];
   linked_project_url?: string;
@@ -42,6 +48,16 @@ export type Doc = {
   last_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
+
+  // Added by the markdown-canonical migration (spec §2.2). `body_text` and
+  // `headings` are search inputs derived from `body_md` by a database trigger
+  // and are never rendered.
+  doc_class: DocClass;
+  origin: DocOrigin;
+  source_ref: Record<string, unknown> | null;
+  body_text: string;
+  headings: string;
+  current_revision_id: string | null;
 };
 
 export type DocVersion = {

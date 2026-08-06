@@ -1,5 +1,4 @@
 import { createServerClient } from "@supabase/ssr";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 /**
@@ -31,14 +30,7 @@ export async function createServerSupabaseClient() {
   );
 }
 
-/**
- * Service-role client that bypasses RLS. Server-only. Reserved for Week 2
- * agent/background tasks. Requires SUPABASE_SERVICE_KEY to be set.
- */
-export function createServiceClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
-}
+// The service-role client used to live here. It now lives in `lib/db`, where
+// `scoped(workspaceId)` appends the workspace predicate to every query
+// automatically and `unscoped(reason)` makes the exceptions say why (spec
+// §2.4). An ESLint rule keeps it there.

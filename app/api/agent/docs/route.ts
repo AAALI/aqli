@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAgent } from "../_auth";
 import { getAgentWorkspaceMeta } from "../_workspace";
-import { listAgentDocs, createAgentDoc, getServiceSpaceBySlug } from "@/lib/supabase/agent-docs";
+import { listAgentDocs, proposeAgentDoc, getServiceSpaceBySlug } from "@/lib/supabase/agent-docs";
 import { embedDoc } from "@/lib/ai/embedder";
 import { logActivity } from "@/lib/supabase/activity";
+import { MergeError } from "@/lib/db";
 import type { DocType, DocStatus } from "@/types/doc";
 
 function readPageParam(value: string | null, fallback: number, max: number) {
@@ -70,22 +71,52 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Workspace policy decides whether agent docs publish immediately or enter
-  // the review queue (the default — humans approve before agents' output
-  // becomes trusted context, per the PRD's review loop).
+  // Every agent write is a proposal. Whether it lands immediately or waits for
+  // a person is the merge engine's decision, from the space's review policy
+  // and this key's scopes — not something this route gets to choose.
   const autoApprove = workspace.agentAutoApprove;
-  const doc = await createAgentDoc({
-    workspace_id: agent.workspaceId,
-    space_id: spaceId,
-    title,
-    type: type ?? "general",
-    body_md,
-    agent_id: agent_id ?? "unknown",
-    frontmatter: { tags: tags ?? [] },
-    status: autoApprove ? "approved" : "review",
-    markReviewed: autoApprove,
-  });
 
+  let result;
+  try {
+    result = await proposeAgentDoc({
+      workspaceId: agent.workspaceId,
+      agentKeyId: agent.keyId,
+      spaceId,
+      title,
+      bodyMd: body_md ?? "",
+      type: type ?? "general",
+      status: autoApprove ? "approved" : "draft",
+      agentId: agent_id ?? "unknown",
+      frontmatter: { tags: tags ?? [] },
+      rationale: typeof body.rationale === "string" ? body.rationale : null,
+      // Agents retry. An idempotency key means a retry replays the first
+      // outcome instead of creating a second document.
+      idempotencyKey: typeof body.idempotency_key === "string" ? body.idempotency_key : null,
+      trusted: autoApprove,
+      markReviewed: autoApprove,
+    });
+  } catch (err) {
+    if (err instanceof MergeError) {
+      return NextResponse.json({ error: err.code }, { status: err.status });
+    }
+    throw err;
+  }
+
+  // Queued: no document exists yet, so there is nothing to embed, nothing to
+  // link to, and nothing to log activity against.
+  if (!result.doc) {
+    return NextResponse.json(
+      {
+        proposal_id: result.proposalId,
+        state: result.state,
+        message:
+          "Change submitted for human review. No document exists until it is approved.",
+      },
+      { status: 202 },
+    );
+  }
+
+  const doc = result.doc;
   await logActivity({
     docId: doc.id,
     workspaceId: doc.workspace_id,
@@ -93,9 +124,12 @@ export async function POST(req: NextRequest) {
     actorId: doc.agent_id,
     actorName: doc.agent_id,
     action: "created",
-    metadata: autoApprove
-      ? { auto_approved: true, reason: "workspace_policy", to_status: "approved" }
-      : { to_status: "review" },
+    metadata: {
+      proposal_id: result.proposalId,
+      ...(autoApprove
+        ? { auto_approved: true, reason: "workspace_policy", to_status: doc.status }
+        : { to_status: doc.status }),
+    },
   });
 
   // Embedding failures must not fail the request — the doc already exists,
@@ -112,11 +146,13 @@ export async function POST(req: NextRequest) {
       title: doc.title,
       status: doc.status,
       author_type: doc.author_type,
+      proposal_id: result.proposalId,
+      revision_id: doc.current_revision_id,
       url: workspace.docUrl(doc.id),
-      message: autoApprove
-        ? "Doc created and auto-approved — it is now trusted, searchable context."
-        : "Doc created and queued for human review. It will not enter trusted context until approved.",
+      message: result.replayed
+        ? "Already created by an earlier request with this idempotency key."
+        : "Doc created and merged — it is now trusted, searchable context.",
     },
-    { status: 201 },
+    { status: result.replayed ? 200 : 201 },
   );
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getSpaces } from "@/lib/supabase/spaces";
 import { getDocs } from "@/lib/supabase/docs";
-import { getPendingReviewDocs } from "@/lib/supabase/review";
+import { getPendingReviewDocs, getOpenProposalCount } from "@/lib/supabase/review";
 import { getStaleDocs, daysSinceReview } from "@/lib/supabase/stale";
 import { getWorkspaceActivity, type FeedActivity } from "@/lib/supabase/activity";
 import { listIntegrationConnections } from "@/lib/supabase/integration-connections";
@@ -37,9 +37,10 @@ export default async function WorkspaceHome({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [recentDocs, pendingReview, staleDocs, activity, spaces, connections] = await Promise.all([
+  const [recentDocs, pendingReview, proposalCount, staleDocs, activity, spaces, connections] = await Promise.all([
     getDocs(workspace.id, { limit: 16 }),
     getPendingReviewDocs(workspace.id),
+    getOpenProposalCount(workspace.id),
     getStaleDocs(workspace.id),
     getWorkspaceActivity(workspace.id, 24),
     getSpaces(workspace.id),
@@ -85,6 +86,10 @@ export default async function WorkspaceHome({
     ...humanAwaiting.map((doc) => ({ kind: "review" as const, doc })),
     ...staleDocs.map((doc) => ({ kind: "stale" as const, doc })),
   ].slice(0, 5);
+  // Proposals are changes, not documents, so they get one row pointing at the
+  // queue rather than being flattened into a list of documents where a
+  // not-yet-existing document would have nothing to link to.
+  const attentionCount = attention.length + (proposalCount > 0 ? 1 : 0);
 
   // ── Headline ────────────────────────────────────────────────────────
   const autoPublished = recentDocs.filter(
@@ -150,7 +155,7 @@ export default async function WorkspaceHome({
           <section style={{ marginBottom: 44 }}>
             <SectionHead
               eyebrow="Needs your attention"
-              title={attentionTitle(attention.length)}
+              title={attentionTitle(attentionCount)}
               right={
                 githubConnected ? (
                   <span
@@ -172,10 +177,33 @@ export default async function WorkspaceHome({
                 ) : null
               }
             />
-            {attention.length === 0 ? (
+            {attentionCount === 0 ? (
               <EmptyCard text="You're all caught up — nothing needs review or a refresh." />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {proposalCount > 0 && (
+                  <Link
+                    href={`${base}/review`}
+                    className="card"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "14px 18px",
+                      textDecoration: "none",
+                      color: "inherit",
+                      borderLeft: "3px solid var(--review-text)",
+                    }}
+                  >
+                    <span style={{ fontSize: 14.5, fontWeight: 500 }}>
+                      {proposalCount} {proposalCount === 1 ? "change" : "changes"} waiting for
+                      review
+                    </span>
+                    <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                      Nothing is published until you approve it
+                    </span>
+                  </Link>
+                )}
                 {attention.map((a) => (
                   <AttentionRow key={a.doc.id} base={base} kind={a.kind} doc={a.doc} />
                 ))}

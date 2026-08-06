@@ -1,7 +1,7 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { scoped } from "@/lib/db";
 import { embedDoc } from "@/lib/ai/embedder";
 import { logActivity } from "@/lib/supabase/activity";
-import { createAgentDoc, setAgentDocStatus, updateAgentDoc } from "@/lib/supabase/agent-docs";
+import { proposeAgentDoc, setAgentDocStatus } from "@/lib/supabase/agent-docs";
 import { claimPullRequestMerge } from "@/lib/supabase/integration-webhook-events";
 import { getServiceIntegrationByComposioUser, updateIntegrationConnection } from "@/lib/supabase/integration-connections";
 import type { Doc, DocFrontmatter } from "@/types/doc";
@@ -181,17 +181,27 @@ export async function processPullRequestData(
     const autoApprove = isAutoApproveEnabled(connection);
     const result = match
       ? await updateMatchedDoc(match, pr, files, implementedText, linearIssueKey, autoApprove)
-      : { doc: await createChangeDoc(connection, pr, files, implementedText, linearIssueKey, autoApprove), changed: true };
+      : {
+          ...(await createChangeDoc(connection, pr, files, implementedText, linearIssueKey, autoApprove)),
+          changed: true,
+        };
 
-    await updateIntegrationConnection(connection.id, {
+    await updateIntegrationConnection(connection.workspace_id, connection.id, {
       last_event_at: new Date().toISOString(),
       last_error: null,
     });
 
-    return { ignored: false, doc_id: result.doc.id, created: !match, changed: result.changed };
+    return {
+      ignored: false,
+      doc_id: result.doc?.id ?? null,
+      proposal_id: result.proposalId ?? null,
+      queued: result.queued ?? false,
+      created: !match,
+      changed: result.changed,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown integration error";
-    await updateIntegrationConnection(connection.id, {
+    await updateIntegrationConnection(connection.workspace_id, connection.id, {
       last_event_at: new Date().toISOString(),
       last_error: message,
     });
@@ -271,7 +281,7 @@ async function findMatchingDoc(
   // workspaces a capped (e.g. 500-most-recent) scan can miss an older
   // matching doc and produce a duplicate Fix Note for the same PR / Linear
   // issue. We run up to two targeted queries and take the most recent match.
-  const supabase = createServiceClient();
+  const supabase = scoped(workspaceId);
   const selectCols = "*, space:spaces(id, workspace_id, name, slug, icon, created_at)";
 
   // The key is interpolated into a PostgREST .or() filter string below, so
@@ -282,7 +292,6 @@ async function findMatchingDoc(
     const { data, error } = await supabase
       .from("docs")
       .select(selectCols)
-      .eq("workspace_id", workspaceId)
       .or(
         `frontmatter->>linear_issue_id.eq.${safeKey},frontmatter->>linked_project_url.ilike.%${safeKey}%`,
       )
@@ -295,7 +304,6 @@ async function findMatchingDoc(
   const { data, error } = await supabase
     .from("docs")
     .select(selectCols)
-    .eq("workspace_id", workspaceId)
     .eq("frontmatter->>source_pr_url", input.prUrl)
     .order("updated_at", { ascending: false })
     .limit(1);
@@ -329,27 +337,49 @@ async function updateMatchedDoc(
     if (!autoApprove) return { doc, changed: false };
     const approved =
       doc.status === "approved"
-        ? await touchReviewedAt(doc.id)
-        : await setAgentDocStatus(doc.id, "approved", { markReviewed: true });
+        ? await touchReviewedAt(doc.workspace_id, doc.id)
+        : await setAgentDocStatus(doc.workspace_id, doc.id, "approved", { markReviewed: true });
     return { doc: approved, changed: false };
   }
 
-  const updated = await updateAgentDoc(doc.id, { body_md: bodyMd, frontmatter });
-  // Merged PRs are already trusted — auto-approve so the doc is live context
-  // immediately (unless the workspace turned the policy off, in which case the
-  // patched doc goes to the review queue). Skip the status flip (and its
-  // `status_change` snapshot) when the status is already right so we don't add
-  // a no-op version entry.
-  const targetStatus = autoApprove ? "approved" : "review";
-  const resolved =
-    updated.status === targetStatus
-      ? autoApprove
-        ? await touchReviewedAt(updated.id)
-        : updated
-      : await setAgentDocStatus(updated.id, targetStatus, { markReviewed: autoApprove });
+  // The ingester is a `system` writer: no person issued it a key, and it is
+  // not an agent acting on instructions. With auto-approve on, the merged PR
+  // is treated as the review that already happened; with it off, disposition
+  // queues the change and the document is left untouched until someone
+  // approves it.
+  const result = await proposeAgentDoc({
+    workspaceId: doc.workspace_id,
+    origin: "system",
+    documentId: doc.id,
+    title: doc.title,
+    bodyMd,
+    frontmatter,
+    rationale: `PR merged: ${pr.url}`,
+    // One proposal per (document, PR merge). A retried delivery that slips
+    // past the webhook dedupe replays this one instead of queueing a second
+    // identical change for a reviewer to wade through.
+    idempotencyKey: `github-pr:${doc.id}:${pr.url}`,
+    trusted: autoApprove,
+  });
+
+  if (result.state === "open") {
+    await logPrActivity(doc, pr, files, false, autoApprove);
+    return { doc, changed: true, queued: true, proposalId: result.proposalId };
+  }
+
+  const merged = result.doc ?? doc;
+  // Merged PRs are already trusted, so mark the doc approved and reset its
+  // freshness clock — skipping the flip when the status is already right.
+  const resolved = autoApprove
+    ? merged.status === "approved"
+      ? await touchReviewedAt(merged.workspace_id, merged.id)
+      : await setAgentDocStatus(merged.workspace_id, merged.id, "approved", {
+          markReviewed: true,
+        })
+    : merged;
   await embedDoc(resolved).catch((err) => console.error("Embed failed for integration doc", resolved.id, err));
   await logPrActivity(resolved, pr, files, false, autoApprove);
-  return { doc: resolved, changed: true };
+  return { doc: resolved, changed: true, proposalId: result.proposalId };
 }
 
 function normalizeFrontmatterForComparison(frontmatter: DocFrontmatter | null | undefined): string {
@@ -367,9 +397,8 @@ function sortJson(value: unknown): unknown {
   );
 }
 
-async function touchReviewedAt(id: string): Promise<Doc> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
+async function touchReviewedAt(workspaceId: string, id: string): Promise<Doc> {
+  const { data, error } = await scoped(workspaceId)
     .from("docs")
     .update({ last_reviewed_at: new Date().toISOString() })
     .eq("id", id)
@@ -389,17 +418,21 @@ async function createChangeDoc(
 ) {
   const spaceId = await resolveDefaultSpaceId(connection);
   const bodyMd = buildFixNoteMarkdown({ pr, files, implementedText, linearIssueKey });
-  // Merged PRs are already trusted, so create the doc directly as `approved`
-  // (skipping the redundant `draft -> approved` status snapshot) — unless the
-  // workspace disabled auto-approve, in which case it enters the review queue.
-  const doc = await createAgentDoc({
-    workspace_id: connection.workspace_id,
-    space_id: spaceId,
+  // Merged PRs are already trusted, so with auto-approve on the document is
+  // created `approved` and its freshness clock is set. With it off the change
+  // queues and no document exists until a reviewer approves it.
+  const result = await proposeAgentDoc({
+    workspaceId: connection.workspace_id,
+    origin: "system",
+    spaceId,
     title: pr.title,
+    bodyMd,
     type: "fix_note",
-    body_md: bodyMd,
-    agent_id: "composio-github",
-    status: autoApprove ? "approved" : "review",
+    status: autoApprove ? "approved" : "draft",
+    agentId: "composio-github",
+    rationale: `PR merged: ${pr.url}`,
+    idempotencyKey: `github-pr:new:${connection.workspace_id}:${pr.url}`,
+    trusted: autoApprove,
     markReviewed: autoApprove,
     frontmatter: {
       tags: ["github", "auto-update"],
@@ -408,18 +441,22 @@ async function createChangeDoc(
       source_repo: pr.repoFullName,
     },
   });
+
+  if (!result.doc) {
+    return { doc: null, queued: true, proposalId: result.proposalId };
+  }
+
+  const doc = result.doc;
   await embedDoc(doc).catch((err) => console.error("Embed failed for integration doc", doc.id, err));
   await logPrActivity(doc, pr, files, true, autoApprove);
-  return doc;
+  return { doc, queued: false, proposalId: result.proposalId };
 }
 
 async function resolveDefaultSpaceId(connection: IntegrationConnection) {
   if (connection.default_space_id) return connection.default_space_id;
-  const supabase = createServiceClient();
-  const { data } = await supabase
+  const { data } = await scoped(connection.workspace_id)
     .from("spaces")
     .select("id, name")
-    .eq("workspace_id", connection.workspace_id)
     .order("created_at", { ascending: true });
   const spaces = data ?? [];
   return spaces.find((space) => space.name === "Engineering")?.id ?? spaces[0]?.id ?? null;

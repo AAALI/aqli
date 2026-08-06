@@ -16,7 +16,7 @@
     "confluence:synthesize": "tsx scripts/synthesize-confluence-corpus.ts",
     "confluence:fidelity": "tsx scripts/confluence-fidelity.ts",
     "backfill:markdown": "tsx scripts/backfill-markdown.ts",
-    "backfill:revisions": "tsx scripts/backfill-revisions.ts"
+    "test:sql": "./supabase/tests/run.sh"
   },
   "dependencies": {
     "@composio/core": "^0.10.0",
