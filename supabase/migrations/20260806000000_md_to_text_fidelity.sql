@@ -14,7 +14,8 @@
 --
 --   2. GFM tables were left with their pipes and their delimiter row, so a
 --      snippet read `| Postgres 17 | | Queue | SQS |` — punctuation noise, and
---      `---|---` tokens in the index. Cell separators become spaces (not
+--      `---|---` tokens in the index. GFM needs only one hyphen per cell, so
+--      `| - | - |` counts too. Cell separators become spaces (not
 --      nothing, or the last word of one cell glues to the first of the next)
 --      and the delimiter row goes entirely.
 --
@@ -43,7 +44,7 @@ begin
   -- GFM tables: drop the delimiter row, then turn separators into spaces.
   t := regexp_replace(
          t,
-         '^[ \t]*\|?[ \t]*:?-{2,}:?[ \t]*(\|[ \t]*:?-{2,}:?[ \t]*)*\|?[ \t]*$',
+         '^[ \t]*\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$',
          ' ',
          'gn'
        );

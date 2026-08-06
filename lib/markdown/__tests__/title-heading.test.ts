@@ -69,6 +69,17 @@ describe("title heading", () => {
     );
   });
 
+  test("a title-only doc still strips to a document the schema accepts", () => {
+    const title = "Expense policy";
+    const { body, carries } = open(`# ${title}\n`, title);
+    expect(carries).toBe(true);
+    // `doc` requires `block+`; an empty content array cannot be loaded at all.
+    expect((body.content as unknown[]).length).toBeGreaterThan(0);
+    expect(() => tiptapToMarkdown(body)).not.toThrow();
+    expect(tiptapToMarkdown(body)).toBe("");
+    expect(save(body, title, carries)).toBe(`# ${title}\n`);
+  });
+
   test("the hidden heading is absent from what the editor holds", () => {
     const title = "Runbook: payment processor failover";
     const { body } = open(WITH_TITLE, title);

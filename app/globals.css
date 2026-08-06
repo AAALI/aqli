@@ -1562,11 +1562,19 @@ html, body {
     width: 264px;
     flex-basis: 264px;
     transform: translateX(-100%);
-    transition: transform 180ms ease;
+    /* Translated off-screen is still rendered: its links stay in the tab order
+       and can be reached by a swipe at the edge. `visibility` takes it out of
+       both, delayed so it survives the closing slide. */
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 180ms ease, visibility 0s linear 180ms;
     box-shadow: none;
   }
   .sb[data-open] {
     transform: none;
+    visibility: visible;
+    pointer-events: auto;
+    transition: transform 180ms ease, visibility 0s;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
   }
 

@@ -31,9 +31,11 @@ $function$;
 
 alter table docs disable trigger docs_maintain_derived;
 
+-- Only `md_to_text` changed, so `headings` is left alone and rows whose text
+-- already matches are skipped.
 update docs
-   set body_text = app.md_to_text(body_md),
-       headings  = app.md_headings(body_md)
- where body_md is not null;
+   set body_text = app.md_to_text(body_md)
+ where body_md is not null
+   and body_text is distinct from app.md_to_text(body_md);
 
 alter table docs enable trigger docs_maintain_derived;

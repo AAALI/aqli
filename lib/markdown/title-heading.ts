@@ -43,13 +43,22 @@ export function hasTitleHeading(
   return nodeText(first).trim().toLowerCase() === title.trim().toLowerCase();
 }
 
-/** The document without its leading title heading. */
+/**
+ * The document without its leading title heading.
+ *
+ * A document whose entire body is that heading strips to nothing, and the
+ * schema's `doc` node requires `block+` — an empty content array is rejected by
+ * `nodeFromJSON`, so the editor would fail to open it. It gets an empty
+ * paragraph instead, which is what a blank document is anyway and which
+ * serializes back to nothing.
+ */
 export function stripTitleHeading(
   content: Record<string, unknown>,
 ): Record<string, unknown> {
   const nodes = content.content;
   if (!Array.isArray(nodes)) return content;
-  return { ...content, content: nodes.slice(1) };
+  const rest = nodes.slice(1);
+  return { ...content, content: rest.length > 0 ? rest : [{ type: "paragraph" }] };
 }
 
 /**

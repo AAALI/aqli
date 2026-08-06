@@ -26,6 +26,14 @@ import { typeLabel } from "@/lib/doc-display";
 import { formatDate, formatRelative, avatarColor } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
 
+/**
+ * A title is one line. The field is a textarea so long titles wrap on screen,
+ * which also means a paste or a drop can carry newlines into it.
+ */
+function singleLine(value: string): string {
+  return value.replace(/\s*[\r\n]+\s*/g, " ");
+}
+
 export default function DocEditorClient({
   doc,
   workspaceSlug,
@@ -76,6 +84,9 @@ export default function DocEditorClient({
   // to come from refs rather than the values that callback would close over.
   const carriesTitleRef = useRef(carriesTitleHeading);
   const titleValue = useRef(doc.title);
+  // The last title handed to the save queue. Distinct from `doc.title`, which
+  // never changes for the life of the component.
+  const persistedTitle = useRef(doc.title);
   useEffect(() => {
     carriesTitleRef.current = carriesTitleHeading;
   }, [carriesTitleHeading]);
@@ -89,11 +100,30 @@ export default function DocEditorClient({
 
   // Keep the title box exactly as tall as its content. Runs on mount too, so a
   // long title arrives already unwrapped rather than one line high.
+  //
+  // How many lines the title wraps to depends on the width as much as the text,
+  // and the width moves without the text changing — a window resize, a rotation,
+  // the reading rail dropping out at its breakpoint. Only width is acted on:
+  // reacting to the height we just set would feed the observer its own output.
   useEffect(() => {
     const el = titleRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    const fit = () => {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    };
+    fit();
+    let lastWidth = el.clientWidth;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? lastWidth;
+      if (width === lastWidth) return;
+      lastWidth = width;
+      fit();
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+    };
   }, [title]);
 
   // Children (slash menu, selection toolbar) register key handlers that run
@@ -246,11 +276,16 @@ export default function DocEditorClient({
   }, []);
 
   const saveTitle = useCallback(
-    (newTitle: string) => {
-      titleValue.current = newTitle || "Untitled";
-      if (newTitle === doc.title) return;
+    (raw: string) => {
+      const newTitle = singleLine(raw).trim() || "Untitled";
+      titleValue.current = newTitle;
+      // Against the last value sent, not the prop: `doc` is the server's
+      // snapshot from page load, so renaming A -> B -> A would match it and
+      // skip the PUT, leaving the document stored as B.
+      if (newTitle === persistedTitle.current) return;
+      persistedTitle.current = newTitle;
       // Through the same queue so a title PUT can't race a body PUT.
-      queueUpdates({ title: newTitle || "Untitled" });
+      queueUpdates({ title: newTitle });
       // A body that carries the title as its first heading has to be rewritten
       // too, or the markdown keeps asserting the old name.
       if (carriesTitleRef.current && editor) {
@@ -259,7 +294,7 @@ export default function DocEditorClient({
       }
       void pumpSaves();
     },
-    [queueUpdates, pumpSaves, doc.title, editor, bodyWithTitle],
+    [queueUpdates, pumpSaves, editor, bodyWithTitle],
   );
 
   const askAgent = useCallback(() => {
@@ -335,7 +370,7 @@ export default function DocEditorClient({
               ref={titleRef}
               rows={1}
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => setTitle(singleLine(e.target.value))}
               onBlur={(e) => saveTitle(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {

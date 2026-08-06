@@ -141,7 +141,9 @@ export default function AqliChatWidget({
         bottom: "var(--dock-bottom, 24px)",
         right: 24,
         width: 360,
-        maxHeight: "min(560px, calc(100vh - 48px))",
+        // The panel grows upward from `--dock-bottom`, so the room above it is
+        // the viewport less that offset — not a fixed 24px top and bottom.
+        maxHeight: "min(560px, calc(100vh - var(--dock-bottom, 24px) - 24px))",
         background: "var(--bg-card)",
         border: "1px solid var(--border-strong)",
         borderRadius: 14,
