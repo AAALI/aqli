@@ -1,72 +1,154 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { AqliMark } from "@/components/aqli/AqliMark";
-import { IconCheck, IconKey, IconFolder, IconRobot, IconSparkle } from "@/components/aqli/icons";
-import { slugify } from "@/lib/utils";
+import {
+  IconCheck,
+  IconCheckCircle,
+  IconFolder,
+  IconKey,
+  IconLink,
+  IconRobot,
+  IconSparkle,
+  IconWarn,
+} from "@/components/aqli/icons";
+import {
+  CUSTOM_SPACE_EMOJI,
+  NUMBERED_STEPS,
+  ONBOARDING_STEPS,
+  SUGGESTED_SPACES,
+  canAddCustomSpace,
+  normalizeSlug,
+  resolveEntry,
+  slugAlternatives,
+  spacesToCreate,
+  stepEyebrow,
+  stepIndex,
+  suggestSlug,
+  toggleSpace,
+  validateSlug,
+  type StepKey,
+} from "@/lib/onboarding/plan";
 import posthog from "posthog-js";
 
-type StepKey = "account" | "workspace" | "spaces" | "agent" | "done";
-
-const STEPS: { key: StepKey; n: number; label: string; hint: string }[] = [
-  { key: "account", n: 1, label: "Account", hint: "Email + password" },
-  { key: "workspace", n: 2, label: "Workspace", hint: "Your company or team" },
-  { key: "spaces", n: 3, label: "Spaces", hint: "How docs are organised" },
-  { key: "agent", n: 4, label: "AI access", hint: "Optional — connect agents" },
-  { key: "done", n: 5, label: "Open workspace", hint: "You're set" },
-];
-
-const SUGGESTED = [
-  { emoji: "🏢", name: "Company", desc: "Handbook, policies, onboarding" },
-  { emoji: "📣", name: "Marketing", desc: "Campaigns, brand, content" },
-  { emoji: "💼", name: "Sales", desc: "Playbooks, pricing, FAQs" },
-  { emoji: "🧭", name: "Product", desc: "Roadmap, specs, decisions" },
-  { emoji: "⚙️", name: "Engineering", desc: "Technical docs, runbooks" },
-  { emoji: "🤝", name: "People", desc: "Hiring, benefits, culture" },
-  { emoji: "🔧", name: "Ops", desc: "Processes, vendors, reports" },
-];
+type Workspace = { id: string; slug: string; name: string };
 
 export default function Onboarding() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [step, setStep] = useState<StepKey>("account");
+  // Onboarding cannot render until we know where the user belongs; showing the
+  // account form to someone already signed in is how the old flow ended up
+  // asking existing members to create a second workspace.
+  const [booting, setBooting] = useState(true);
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+
   const [workspaceName, setWorkspaceName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
-  const [workspaceSlug, setWorkspaceSlug] = useState<string | null>(null);
-  const [existingNames, setExistingNames] = useState<string[]>([]);
+  const [takenSlugs, setTakenSlugs] = useState<string[]>([]);
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+
+  const [existingSpaces, setExistingSpaces] = useState<string[]>([]);
   const [picked, setPicked] = useState<string[]>(["Company"]);
   const [customSpaces, setCustomSpaces] = useState<string[]>([]);
   const [customDraft, setCustomDraft] = useState("");
+
   const [agentName, setAgentName] = useState("Claude");
+  const [issuedKey, setIssuedKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [slugError, setSlugError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // If already signed in (e.g. /signup?step=workspace), skip the account step.
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setEmail(data.user.email ?? "");
-        setStep((s) => (s === "account" ? "workspace" : s));
-      } else if (searchParams.get("step") === "workspace") {
-        setStep("workspace");
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const effectiveSlug = slugTouched ? normalizeSlug(slug) : suggestSlug(workspaceName);
+  const slugCheck = validateSlug(effectiveSlug);
+
+  const loadSpaces = useCallback(async (workspaceId: string) => {
+    const res = await fetch(`/api/spaces?workspace_id=${workspaceId}`);
+    if (!res.ok) return [] as string[];
+    const { spaces } = await res.json();
+    const names = (spaces ?? []).map((s: { name: string }) => s.name) as string[];
+    setExistingSpaces(names);
+    setPicked((p) => Array.from(new Set([...names, ...p])));
+    return names;
   }, []);
 
-  const effectiveSlug = slugTouched ? slugify(slug) : slugify(workspaceName);
+  /**
+   * Progress is re-derived from the server on every mount rather than kept in
+   * component state. A refresh, a closed tab, or the round trip through a
+   * confirmation email used to drop the user back on the workspace step with no
+   * memory that they had already created one — and retrying the same name hit
+   * the unique constraint on `workspaces.slug`, which dead-ended the flow.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data.user;
+        if (user) setEmail(user.email ?? "");
+
+        const workspaces: Workspace[] = user
+          ? await fetch("/api/workspaces")
+              .then((r) => (r.ok ? r.json() : { workspaces: [] }))
+              .then((b) => b.workspaces ?? [])
+              .catch(() => [])
+          : [];
+
+        // The space count decides whether a workspace is still mid-setup, so it
+        // is only needed when one exists.
+        let spaceCount: number | undefined;
+        if (workspaces[0]) {
+          const names = await loadSpaces(workspaces[0].id).catch(() => [] as string[]);
+          spaceCount = names.length;
+        }
+
+        if (cancelled) return;
+
+        const entry = resolveEntry({ hasUser: !!user, workspaces, spaceCount });
+
+        if (entry.kind === "redirect") {
+          // Already onboarded — never ask for a second workspace.
+          router.replace(entry.to);
+          return;
+        }
+
+        if (entry.kind === "resume") {
+          setWorkspace(entry.workspace);
+          setWorkspaceName(entry.workspace.name);
+          setSlug(entry.workspace.slug);
+          setStep(entry.step);
+        } else {
+          // `/signup?step=workspace` is where the root page sends a confirmed
+          // user who has no workspace yet.
+          const requested = searchParams.get("step");
+          setStep(requested === "workspace" && user ? "workspace" : entry.step);
+        }
+        setBooting(false);
+      } catch {
+        if (!cancelled) setBooting(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Runs once: this is the entry decision, not a subscription.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submitAccount(e: React.FormEvent) {
     e.preventDefault();
@@ -80,14 +162,17 @@ export default function Onboarding() {
         password,
         options: {
           data: { full_name: name },
-          // The confirmation email lands on /auth/callback, which exchanges
-          // the code for a session and resumes onboarding at the workspace step.
+          // The confirmation email lands on /auth/callback, which exchanges the
+          // code for a session and resumes onboarding at the workspace step.
           emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/signup?step=workspace")}`,
         },
       });
       if (error) throw error;
       if (!data.session) {
-        setNotice("Account created — check your email. The confirmation link brings you straight back here to finish setup.");
+        // Email confirmation is on. Nothing more can happen in this tab until
+        // the link is opened, so say so plainly and offer a resend rather than
+        // leaving a live "Continue" button that only ever errors.
+        setAwaitingConfirmation(true);
         return;
       }
       posthog.identify(data.user!.id, { email, name });
@@ -101,35 +186,60 @@ export default function Onboarding() {
     }
   }
 
+  async function resendConfirmation() {
+    setBusy(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/signup?step=workspace")}`,
+        },
+      });
+      if (error) throw error;
+      setNotice("Sent. Check your inbox again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not resend");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitWorkspace(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSlugError(null);
+    if (!slugCheck.ok) {
+      setSlugError(slugCheck.reason);
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch("/api/workspaces", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: workspaceName, slug: effectiveSlug }),
+        body: JSON.stringify({ name: workspaceName.trim(), slug: effectiveSlug }),
       });
-      if (!res.ok) {
-        const b = await res.json().catch(() => ({}));
-        throw new Error(b.error ?? "Could not create workspace");
+      const body = await res.json().catch(() => ({}));
+
+      if (res.status === 409) {
+        // Remember the collision so the offered alternatives converge instead
+        // of proposing the same taken slug over and over.
+        setTakenSlugs((t) => Array.from(new Set([...t, effectiveSlug])));
+        setSlugError(body.error ?? "That URL is taken.");
+        return;
       }
-      const { workspace } = await res.json();
-      setWorkspaceId(workspace.id);
-      setWorkspaceSlug(workspace.slug);
-      posthog.capture("workspace_created", { workspace_id: workspace.id, workspace_slug: workspace.slug, workspace_name: workspaceName });
-      // Default spaces are created by the workspace RPC — fetch them so we can
-      // show what already exists and only create the extras the user picks.
-      try {
-        const sres = await fetch(`/api/spaces?workspace_id=${workspace.id}`);
-        const { spaces } = await sres.json();
-        const names = (spaces ?? []).map((s: { name: string }) => s.name);
-        setExistingNames(names);
-        setPicked((p) => Array.from(new Set([...names, ...p])));
-      } catch {
-        /* non-fatal */
-      }
+      if (!res.ok) throw new Error(body.error ?? "Could not create workspace");
+
+      const created: Workspace = body.workspace;
+      setWorkspace(created);
+      posthog.capture("workspace_created", {
+        workspace_id: created.id,
+        workspace_slug: created.slug,
+        workspace_name: created.name,
+      });
+      await loadSpaces(created.id).catch(() => []);
       setStep("spaces");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -139,317 +249,575 @@ export default function Onboarding() {
   }
 
   async function submitSpaces() {
-    if (!workspaceId) return;
+    if (!workspace) return;
     setBusy(true);
     setError(null);
     try {
-      const suggestions = [...SUGGESTED, ...customSpaces.map((name) => ({ emoji: "📁", name, desc: "" }))];
-      const toCreate = suggestions.filter((s) => picked.includes(s.name) && !existingNames.includes(s.name));
-      await Promise.all(
-        toCreate.map((s) =>
-          fetch("/api/spaces", {
+      const toCreate = spacesToCreate(picked, existingSpaces, customSpaces);
+      const results = await Promise.all(
+        toCreate.map(async (s) => {
+          const res = await fetch("/api/spaces", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ workspace_id: workspaceId, name: s.name, icon: s.emoji }),
-          }),
-        ),
+            body: JSON.stringify({
+              workspace_id: workspace.id,
+              name: s.name,
+              slug: s.slug,
+              icon: s.icon,
+            }),
+          });
+          // A 409 means the space is already there — the desired end state.
+          return { name: s.name, ok: res.ok || res.status === 409 };
+        }),
       );
-      setStep("agent");
+
+      const failed = results.filter((r) => !r.ok).map((r) => r.name);
+      await loadSpaces(workspace.id).catch(() => []);
+
+      if (failed.length) {
+        // Previously these failures were swallowed by an unchecked `fetch` and
+        // a catch-all that advanced anyway, so a user could finish onboarding
+        // believing in spaces that were never created.
+        setError(
+          `Could not create ${failed.join(", ")}. You can add ${failed.length > 1 ? "them" : "it"} later from the sidebar.`,
+        );
+        return;
+      }
+      setStep("assistant");
     } catch {
-      setStep("agent"); // non-fatal — spaces are optional
+      setError("Could not create your spaces. You can add them later from the sidebar.");
     } finally {
       setBusy(false);
     }
   }
 
-  function finish() {
-    if (workspaceSlug) {
-      router.push(`/w/${workspaceSlug}`);
-      router.refresh();
+  async function createKey() {
+    if (!workspace) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_id: workspace.id, name: agentName.trim() || "Claude" }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "Could not create a key");
+      // `createApiKey` returns the plain key once, as `secret`; only the hash
+      // is stored, so there is no second chance to read it.
+      const secret: string | undefined = body.key?.secret;
+      if (!secret) throw new Error("The key was created but could not be read. Find it in Settings → API keys.");
+      setIssuedKey(secret);
+      posthog.capture("onboarding_key_created", { workspace_id: workspace.id });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create a key");
+    } finally {
+      setBusy(false);
     }
   }
 
-  function toggleSpace(name: string) {
-    if (existingNames.includes(name)) return; // can't remove already-created defaults
-    setPicked((p) => (p.includes(name) ? p.filter((n) => n !== name) : [...p, name]));
+  async function copyKey() {
+    if (!issuedKey) return;
+    try {
+      await navigator.clipboard.writeText(issuedKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Could not copy — select the key and copy it manually.");
+    }
+  }
+
+  function finish() {
+    if (!workspace) return;
+    posthog.capture("onboarding_completed", { workspace_id: workspace.id });
+    router.push(`/w/${workspace.slug}`);
+    router.refresh();
   }
 
   function addCustomSpace() {
     const name = customDraft.trim();
-    if (!name) return;
-    const all = [...SUGGESTED.map((s) => s.name), ...customSpaces];
-    if (!all.some((n) => n.toLowerCase() === name.toLowerCase())) {
-      setCustomSpaces((c) => [...c, name]);
-      setPicked((p) => [...p, name]);
-    }
+    const known = [...SUGGESTED_SPACES.map((s) => s.name), ...customSpaces, ...existingSpaces];
+    if (!canAddCustomSpace(name, known)) return;
+    setCustomSpaces((c) => [...c, name]);
+    setPicked((p) => [...p, name]);
     setCustomDraft("");
   }
 
+  const allSpaceOptions = [
+    ...SUGGESTED_SPACES,
+    ...customSpaces.map((name) => ({ emoji: CUSTOM_SPACE_EMOJI, name, desc: "Your own space" })),
+  ];
+  const knownSpaceNames = [
+    ...SUGGESTED_SPACES.map((s) => s.name),
+    ...customSpaces,
+    ...existingSpaces,
+  ];
+  const newSpaceCount = spacesToCreate(picked, existingSpaces, customSpaces).length;
+
+  if (booting) return <BootingScreen />;
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", minHeight: "100vh", background: "var(--bg-base)", fontFamily: "var(--font-sans)" }}>
-      <StepRail currentKey={step} />
-      <Stage>
-        {step === "account" && (
-          <StageInner
-            eyebrow="Step 1 of 5"
-            title="Set up your account."
-            sub="Aqli is your company's knowledge base — one your team writes and your AI tools can read. You'll be writing in under five minutes."
-            topRight={<span>Already have an account? <Link href="/login" style={{ color: "var(--accent)", fontWeight: 500, textDecoration: "none" }}>Log in</Link></span>}
-          >
-            <form onSubmit={submitAccount} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-              <Field label="Full name" hint="So your team and agents can see who wrote what.">
-                <TextInput value={fullName} onChange={setFullName} placeholder="Ada Lovelace" required autoFocus />
-              </Field>
-              <Field label="Work email">
-                <TextInput type="email" value={email} onChange={setEmail} placeholder="you@team.com" required />
-              </Field>
-              <Field label="Password" hint="At least 6 characters. We never see it.">
-                <TextInput type="password" value={password} onChange={setPassword} placeholder="••••••••••••" minLength={6} required />
-              </Field>
-              {error && <Msg tone="error">{error}</Msg>}
-              {notice && <Msg tone="ok">{notice}</Msg>}
-              <Footer
-                right={<button type="submit" className="btn btn-primary" style={{ height: 38, padding: "0 18px" }} disabled={busy || !fullName.trim()}>{busy ? "Creating…" : "Continue →"}</button>}
-                left={<span style={{ fontSize: 12, color: "var(--text-muted)", maxWidth: 320 }}>By continuing you agree to the Terms and Privacy policy.</span>}
-              />
-            </form>
-          </StageInner>
-        )}
+    <div className="onb">
+      <StepRail current={step} />
+      <div className="onb-stage">
+        <div className="onb-topbar">
+          {step === "account" ? (
+            <span>
+              Already have an account?{" "}
+              <Link href="/login" style={{ color: "var(--accent)", fontWeight: 500, textDecoration: "none" }}>
+                Log in
+              </Link>
+            </span>
+          ) : workspace ? (
+            <span>
+              Workspace{" "}
+              <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspace.name}</strong>
+            </span>
+          ) : email ? (
+            <span>
+              Signed in as{" "}
+              <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{email}</strong>
+            </span>
+          ) : null}
+        </div>
 
-        {step === "workspace" && (
-          <StageInner
-            eyebrow="Step 2 of 5"
-            title="Name your workspace."
-            sub="One workspace per team or organisation. You can rename it later."
-            topRight={email ? <span>Signed in as <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{email}</strong></span> : null}
-          >
-            <form onSubmit={submitWorkspace} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-              <Field label="Workspace name">
-                <TextInput value={workspaceName} onChange={(v) => setWorkspaceName(v)} placeholder="e.g. ACME" required autoFocus />
-              </Field>
-              <Field label="Workspace URL" hint="Used for share links and AI integrations.">
-                <TextInput mono prefix="aqli.app /" value={slugTouched ? slug : effectiveSlug} onChange={(v) => { setSlug(v); setSlugTouched(true); }} placeholder="acme" />
-              </Field>
-              <div style={{ padding: "16px 18px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", display: "flex", alignItems: "flex-start", gap: 12 }}>
-                <span style={{ color: "var(--accent)", marginTop: 1 }}><IconSparkle size={16} /></span>
-                <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>
-                  We&apos;ll start you off with a Company space for handbooks and policies. You&apos;ll pick spaces for your teams next.
-                </div>
-              </div>
-              {error && <Msg tone="error">{error}</Msg>}
-              <Footer
-                left={<button type="button" className="btn btn-ghost" onClick={() => setStep("account")} style={{ height: 38 }}>← Back</button>}
-                right={<button type="submit" className="btn btn-primary" style={{ height: 38, padding: "0 18px" }} disabled={busy || !workspaceName.trim()}>{busy ? "Creating…" : "Continue →"}</button>}
-              />
-            </form>
-          </StageInner>
-        )}
+        <div className="onb-body">
+          {/* The spaces step carries eight options; it gets a wider column so
+              they lay out two-up and the primary action stays above the fold. */}
+          <div className={`onb-col${step === "spaces" ? " is-wide" : ""}`}>
+            {step === "account" &&
+              (awaitingConfirmation ? (
+                <Stage
+                  eyebrow="Check your inbox"
+                  title="Confirm your email."
+                  sub={`We sent a link to ${email}. Opening it brings you straight back here to name your workspace.`}
+                >
+                  <Panel>
+                    <PanelRow icon={<IconCheckCircle size={15} />} tone="ok">
+                      Your account exists. Nothing else happens in this tab until the link is
+                      opened — you can close it safely.
+                    </PanelRow>
+                  </Panel>
+                  {error && <Msg tone="error">{error}</Msg>}
+                  {notice && <Msg tone="ok">{notice}</Msg>}
+                  <Footer
+                    left={
+                      <button type="button" className="btn btn-ghost onb-btn" onClick={resendConfirmation} disabled={busy}>
+                        {busy ? "Sending…" : "Resend email"}
+                      </button>
+                    }
+                    right={
+                      <Link href="/login" className="btn btn-primary onb-btn onb-btn-primary">
+                        Already confirmed? Log in
+                      </Link>
+                    }
+                  />
+                </Stage>
+              ) : (
+                <Stage
+                  eyebrow={stepEyebrow("account")}
+                  title="Set up your account."
+                  sub="Aqli is your company's knowledge base — one your team writes and your AI tools can read. You'll be writing in under five minutes."
+                >
+                  <form onSubmit={submitAccount} className="onb-form">
+                    <Field label="Full name" hint="So your team and agents can see who wrote what.">
+                      <TextInput value={fullName} onChange={setFullName} placeholder="Ada Lovelace" required autoFocus />
+                    </Field>
+                    <Field label="Work email">
+                      <TextInput type="email" value={email} onChange={setEmail} placeholder="you@team.com" required />
+                    </Field>
+                    <Field label="Password" hint="At least 6 characters. We never see it.">
+                      <TextInput type="password" value={password} onChange={setPassword} placeholder="••••••••••••" minLength={6} required />
+                    </Field>
+                    {error && <Msg tone="error">{error}</Msg>}
+                    <Footer
+                      left={
+                        <span style={{ fontSize: 12, color: "var(--text-muted)", maxWidth: 320 }}>
+                          By continuing you agree to the{" "}
+                          <Link href="/terms" style={{ color: "var(--text-secondary)" }}>Terms</Link> and{" "}
+                          <Link href="/privacy" style={{ color: "var(--text-secondary)" }}>Privacy policy</Link>.
+                        </span>
+                      }
+                      right={
+                        <button type="submit" className="btn btn-primary onb-btn onb-btn-primary" disabled={busy || !fullName.trim()}>
+                          {busy ? "Creating…" : "Continue"}
+                        </button>
+                      }
+                    />
+                  </form>
+                </Stage>
+              ))}
 
-        {step === "spaces" && (
-          <StageInner
-            eyebrow="Step 3 of 5"
-            title="What lives where?"
-            sub="One space per team usually works. Pick the teams you have — add or remove anytime."
-            topRight={workspaceName ? <span>Workspace <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspaceName}</strong></span> : null}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {[...SUGGESTED, ...customSpaces.map((name) => ({ emoji: "📁", name, desc: "Your own space" }))].map((s) => {
-                const on = picked.includes(s.name);
-                const locked = existingNames.includes(s.name);
-                return (
-                  <button
-                    key={s.name}
-                    type="button"
-                    onClick={() => toggleSpace(s.name)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 14, padding: "14px 16px",
-                      border: `1px solid ${on ? "rgba(15,110,86,0.2)" : "var(--border)"}`,
-                      borderRadius: 8, background: on ? "rgba(15,110,86,0.04)" : "var(--bg-card)",
-                      cursor: locked ? "default" : "pointer", textAlign: "left", fontFamily: "var(--font-sans)",
-                    }}
+            {step === "workspace" && (
+              <Stage
+                eyebrow={stepEyebrow("workspace")}
+                title="Name your workspace."
+                sub="One workspace per team or organisation. You can rename it later."
+              >
+                <form onSubmit={submitWorkspace} className="onb-form">
+                  <Field label="Workspace name">
+                    <TextInput value={workspaceName} onChange={setWorkspaceName} placeholder="e.g. ACME" required autoFocus />
+                  </Field>
+                  <Field
+                    label="Workspace URL"
+                    hint={slugError ? undefined : "Used for share links and AI integrations."}
+                    error={slugError ?? (slugTouched && !slugCheck.ok ? slugCheck.reason : undefined)}
                   >
-                    <span style={{ width: 18, height: 18, borderRadius: 4, border: on ? "1.5px solid var(--accent)" : "1.5px solid var(--border-strong)", background: on ? "var(--accent)" : "var(--bg-card)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 18px" }}>
-                      {on && <IconCheck size={12} />}
-                    </span>
-                    <span style={{ fontSize: 18, lineHeight: 1, filter: "saturate(0.85)" }}>{s.emoji}</span>
-                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
-                      <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>{s.name}{locked && <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8 }}>added</span>}</span>
-                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{s.desc}</span>
+                    <TextInput
+                      mono
+                      prefix="aqli.app/w/"
+                      value={slugTouched ? slug : effectiveSlug}
+                      onChange={(v) => {
+                        setSlug(v);
+                        setSlugTouched(true);
+                        setSlugError(null);
+                      }}
+                      placeholder="acme"
+                      invalid={!!slugError}
+                    />
+                  </Field>
+
+                  {slugError && (
+                    <div className="onb-alts">
+                      <span className="onb-alts-label">Available instead</span>
+                      <div className="onb-alts-row">
+                        {slugAlternatives(workspaceName || effectiveSlug, takenSlugs).map((alt) => (
+                          <button
+                            key={alt}
+                            type="button"
+                            className="onb-chip"
+                            onClick={() => {
+                              setSlug(alt);
+                              setSlugTouched(true);
+                              setSlugError(null);
+                            }}
+                          >
+                            {alt}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </button>
-                );
-              })}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0 0" }}>
-                <div style={{ flex: 1 }}>
+                  )}
+
+                  <Panel>
+                    <PanelRow icon={<IconSparkle size={15} />}>
+                      We&apos;ll start you off with a{" "}
+                      <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>Company</strong>{" "}
+                      space for handbooks and policies. You&apos;ll pick spaces for your teams next.
+                    </PanelRow>
+                  </Panel>
+
+                  {error && <Msg tone="error">{error}</Msg>}
+                  <Footer
+                    right={
+                      <button type="submit" className="btn btn-primary onb-btn onb-btn-primary" disabled={busy || !workspaceName.trim() || !slugCheck.ok}>
+                        {busy ? "Creating…" : "Continue"}
+                      </button>
+                    }
+                  />
+                </form>
+              </Stage>
+            )}
+
+            {step === "spaces" && (
+              <Stage
+                eyebrow={stepEyebrow("spaces")}
+                title="What lives where?"
+                sub="One space per team usually works. Pick the teams you have — you can add or remove any of them later."
+              >
+                <div className="onb-spaces">
+                  {allSpaceOptions.map((s) => {
+                    const on = picked.some((p) => p.toLowerCase() === s.name.toLowerCase());
+                    const locked = existingSpaces.some((e) => e.toLowerCase() === s.name.toLowerCase());
+                    return (
+                      <button
+                        key={s.name}
+                        type="button"
+                        aria-pressed={on}
+                        disabled={locked}
+                        onClick={() => setPicked((p) => toggleSpace(p, s.name, existingSpaces))}
+                        className={`onb-space${on ? " is-on" : ""}${locked ? " is-locked" : ""}`}
+                      >
+                        <span className="onb-space-tick">{on && <IconCheck size={12} />}</span>
+                        <span className="onb-space-emoji">{s.emoji}</span>
+                        <span className="onb-space-copy">
+                          <span className="onb-space-name">
+                            {s.name}
+                            {locked && <span className="onb-space-tag">added</span>}
+                          </span>
+                          <span className="onb-space-desc">{s.desc}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="onb-custom">
                   <TextInput
                     value={customDraft}
                     onChange={setCustomDraft}
                     placeholder="Add your own — e.g. Legal, Design, Support"
                     onEnter={addCustomSpace}
                   />
+                  <button
+                    type="button"
+                    className="btn btn-ghost onb-btn"
+                    onClick={addCustomSpace}
+                    disabled={!canAddCustomSpace(customDraft, knownSpaceNames)}
+                  >
+                    Add
+                  </button>
                 </div>
-                <button type="button" className="btn btn-ghost" style={{ height: 42, padding: "0 16px" }} onClick={addCustomSpace} disabled={!customDraft.trim()}>
-                  Add
-                </button>
-              </div>
-            </div>
-            {error && <Msg tone="error">{error}</Msg>}
-            <Footer
-              left={<span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{picked.length} selected</span>}
-              right={<button type="button" className="btn btn-primary" style={{ height: 38, padding: "0 18px" }} onClick={submitSpaces} disabled={busy}>{busy ? "Creating…" : "Continue →"}</button>}
-            />
-          </StageInner>
-        )}
 
-        {step === "agent" && (
-          <StageInner
-            eyebrow="Step 4 of 5"
-            title="Give your AI access."
-            sub="Aqli works with any AI assistant your team uses — Claude, ChatGPT, Cursor, and more. They read your approved docs for context and draft updates for your review. Entirely optional — you can set this up later."
-            topRight={workspaceName ? <span>Workspace <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspaceName}</strong></span> : null}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <Field label="Assistant name" hint="So you can recognise it in the activity log.">
-                <TextInput value={agentName} onChange={setAgentName} placeholder="e.g. Claude, ChatGPT, Cursor" />
-              </Field>
-              <div style={{ padding: "16px 18px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: "var(--accent)" }}><IconKey size={14} /></span>
-                  <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-secondary)" }}>API key</span>
-                  <span className="badge badge-review" style={{ marginLeft: "auto" }}>Set up later</span>
-                </div>
-                <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>
-                  Generate a key any time from <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>Settings → API Keys</strong> and paste it into your AI tool. It can then read approved docs and submit drafts — nothing goes live without your review.
-                </div>
-              </div>
-            </div>
-            <Footer
-              left={<button type="button" className="btn btn-ghost" onClick={() => setStep("spaces")} style={{ height: 38 }}>← Back</button>}
-              right={
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <button type="button" className="btn btn-ghost" onClick={() => setStep("done")} style={{ height: 38 }}>Skip for now</button>
-                  <button type="button" className="btn btn-primary" style={{ height: 38, padding: "0 18px" }} onClick={() => setStep("done")}>Continue →</button>
-                </div>
-              }
-            />
-          </StageInner>
-        )}
+                {error && <Msg tone="error">{error}</Msg>}
+                <Footer
+                  left={
+                    <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
+                      {newSpaceCount === 0 ? "Company space only" : `${newSpaceCount} to create`}
+                    </span>
+                  }
+                  right={
+                    <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={submitSpaces} disabled={busy}>
+                      {busy ? "Creating…" : "Continue"}
+                    </button>
+                  }
+                />
+              </Stage>
+            )}
 
-        {step === "done" && (
-          <StageInner
-            eyebrow="All set"
-            title={`Welcome to Aqli.`}
-            sub={`Your workspace is live at aqli.app/${workspaceSlug ?? ""}. The next move is yours.`}
-            topRight={workspaceName ? <span>Workspace <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspaceName}</strong></span> : null}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <SummaryRow icon={<IconFolder />} label="Spaces" value={picked.join(" · ") || "Default spaces"} />
-              <SummaryRow icon={<IconRobot />} label="Workspace URL" value={`aqli.app/${workspaceSlug ?? ""}`} meta="Live" />
-              <SummaryRow icon={<IconKey />} label="AI assistant" value={agentName} meta="Add key in Settings" />
-            </div>
-            <Footer
-              left={<span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>You can change any of this later.</span>}
-              right={<button type="button" className="btn btn-primary" style={{ height: 38, padding: "0 18px" }} onClick={finish}>Open workspace →</button>}
-            />
-          </StageInner>
-        )}
-      </Stage>
+            {step === "assistant" && (
+              <Stage
+                eyebrow={stepEyebrow("assistant")}
+                title="Connect your AI."
+                sub="Aqli works with any assistant your team uses — Claude, ChatGPT, Cursor. They read your approved docs for context and draft updates for you to review. Optional, and changeable later."
+              >
+                {issuedKey ? (
+                  <>
+                    <Panel tone="ok">
+                      <PanelRow icon={<IconCheckCircle size={15} />} tone="ok">
+                        Key created for <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{agentName}</strong>. Copy it now —
+                        it is not shown again.
+                      </PanelRow>
+                      <div className="onb-key">
+                        <code>{issuedKey}</code>
+                        <button type="button" className="btn btn-ghost onb-btn" onClick={copyKey}>
+                          {copied ? "Copied" : "Copy"}
+                        </button>
+                      </div>
+                    </Panel>
+                    <Panel>
+                      <PanelRow icon={<IconRobot size={15} />}>
+                        Paste it into your assistant&apos;s tool settings. It can read approved docs
+                        and submit drafts — nothing goes live without your review.
+                      </PanelRow>
+                    </Panel>
+                  </>
+                ) : (
+                  <>
+                    <Field label="Assistant name" hint="So you can recognise it in the AI activity log.">
+                      <TextInput value={agentName} onChange={setAgentName} placeholder="e.g. Claude, ChatGPT, Cursor" onEnter={createKey} />
+                    </Field>
+                    <Panel>
+                      <PanelRow icon={<IconKey size={15} />}>
+                        We&apos;ll generate an access key scoped to read approved docs and propose
+                        changes. You can revoke it any time from <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>Settings → API keys</strong>.
+                      </PanelRow>
+                    </Panel>
+                  </>
+                )}
+
+                {error && <Msg tone="error">{error}</Msg>}
+                <Footer
+                  left={
+                    <button type="button" className="btn btn-ghost onb-btn" onClick={() => setStep("spaces")}>
+                      Back
+                    </button>
+                  }
+                  right={
+                    <div className="onb-actions">
+                      {!issuedKey && (
+                        <>
+                          <button type="button" className="btn btn-ghost onb-btn" onClick={() => setStep("done")}>
+                            Skip for now
+                          </button>
+                          <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={createKey} disabled={busy}>
+                            {busy ? "Creating…" : "Create key"}
+                          </button>
+                        </>
+                      )}
+                      {issuedKey && (
+                        <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={() => setStep("done")}>
+                          Continue
+                        </button>
+                      )}
+                    </div>
+                  }
+                />
+              </Stage>
+            )}
+
+            {step === "done" && (
+              <Stage
+                eyebrow="All set"
+                title="Welcome to Aqli."
+                sub="Your workspace is live. The next move is yours — write the first doc, or point your assistant at it."
+              >
+                <div className="onb-summary">
+                  <SummaryRow
+                    icon={<IconLink size={15} />}
+                    label="Workspace"
+                    value={`aqli.app/w/${workspace?.slug ?? ""}`}
+                    meta="Live"
+                  />
+                  <SummaryRow
+                    icon={<IconFolder size={15} />}
+                    label="Spaces"
+                    value={existingSpaces.join(" · ") || "Company"}
+                  />
+                  <SummaryRow
+                    icon={<IconRobot size={15} />}
+                    label="AI access"
+                    value={issuedKey ? `${agentName} — key issued` : "Not connected yet"}
+                    meta={issuedKey ? undefined : "Settings → API keys"}
+                    done={!!issuedKey}
+                  />
+                </div>
+                <Footer
+                  left={<span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>You can change any of this later.</span>}
+                  right={
+                    <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={finish} disabled={!workspace}>
+                      Open workspace
+                    </button>
+                  }
+                />
+              </Stage>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-function StepRail({ currentKey }: { currentKey: StepKey }) {
-  const currentIdx = STEPS.findIndex((s) => s.key === currentKey);
+/* ───────── Chrome ───────── */
+
+function BootingScreen() {
   return (
-    <aside style={{ background: "var(--bg-sidebar)", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", padding: "36px 32px 28px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 48 }}>
+    <div className="onb-boot">
+      <AqliMark size={26} />
+      <span>Getting your workspace ready…</span>
+    </div>
+  );
+}
+
+function StepRail({ current }: { current: StepKey }) {
+  const currentIdx = stepIndex(current);
+  const pct = Math.round((currentIdx / (ONBOARDING_STEPS.length - 1)) * 100);
+
+  return (
+    <aside className="onb-rail">
+      <div className="onb-rail-brand">
         <AqliMark size={22} />
-        <span style={{ fontSize: 17, letterSpacing: "0.08em", fontWeight: 500, color: "var(--text-primary)" }}>aqli</span>
+        <span>aqli</span>
       </div>
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 4 }}>Set up</div>
-        <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>About 3 minutes</div>
+
+      {/* Compact progress for narrow screens, where the full list is hidden. */}
+      <div className="onb-progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+        <div className="onb-progress-bar" style={{ width: `${pct}%` }} />
       </div>
-      <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2 }}>
-        {STEPS.map((s, i) => {
-          const isDone = i < currentIdx;
-          const isCurrent = i === currentIdx;
+      {/* No workspace name here — the top bar already carries it, and on narrow
+          screens the two sit within a few pixels of each other. */}
+      <div className="onb-progress-label">
+        {current === "done" ? "Setup complete" : `Step ${currentIdx + 1} of ${NUMBERED_STEPS.length}`}
+      </div>
+
+      <div className="onb-rail-head">
+        <div className="onb-rail-eyebrow">Set up</div>
+        <div className="onb-rail-time">About 3 minutes</div>
+      </div>
+
+      <ol className="onb-steps">
+        {ONBOARDING_STEPS.map((s, i) => {
+          const done = i < currentIdx;
+          const now = i === currentIdx;
+          // The terminal step is deliberately unnumbered — it asks nothing of
+          // the user, and numbering it would contradict the "step n of 4"
+          // eyebrow on every screen.
+          const terminal = s.key === "done";
           return (
-            <li key={s.key} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "10px 0" }}>
-              <span style={{ width: 22, height: 22, borderRadius: 999, background: isDone ? "var(--accent)" : isCurrent ? "var(--bg-card)" : "transparent", border: isCurrent || isDone ? "1.5px solid var(--accent)" : "1.5px solid var(--border-strong)", color: isDone ? "#fff" : isCurrent ? "var(--accent)" : "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 600, flex: "0 0 22px", marginTop: 1 }}>
-                {isDone ? <IconCheck size={12} /> : s.n}
+            <li key={s.key} className={`onb-step${now ? " is-now" : ""}${done ? " is-done" : ""}`} aria-current={now ? "step" : undefined}>
+              <span className="onb-step-dot">{done || terminal ? <IconCheck size={12} /> : i + 1}</span>
+              <span className="onb-step-copy">
+                <span className="onb-step-label">{s.label}</span>
+                <span className="onb-step-hint">{s.hint}</span>
               </span>
-              <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 13.5, fontWeight: isCurrent ? 500 : 400, color: isCurrent ? "var(--text-primary)" : isDone ? "var(--text-secondary)" : "var(--text-muted)", lineHeight: 1.25 }}>{s.label}</div>
-                <div style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.25 }}>{s.hint}</div>
-              </div>
             </li>
           );
         })}
       </ol>
-      <div style={{ marginTop: "auto", fontSize: 12.5, color: "var(--text-muted)", display: "flex", flexDirection: "column", gap: 4 }}>
-        <span>docs.aqli.app</span>
+
+      <div className="onb-rail-foot">
+        <span>Open source · MIT</span>
         <span>github.com/AAALI/aqli</span>
       </div>
     </aside>
   );
 }
 
-function Stage({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ flex: 1, minWidth: 0, background: "var(--bg-base)", display: "flex", flexDirection: "column", position: "relative" }}>
-      {children}
-    </div>
-  );
-}
-
-function StageInner({
+function Stage({
   eyebrow,
   title,
   sub,
-  topRight,
   children,
 }: {
-  eyebrow?: string;
+  eyebrow?: string | null;
   title: string;
   sub?: string;
-  topRight?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <>
-      <div style={{ height: 56, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "flex-end", fontSize: 12.5, color: "var(--text-muted)" }}>
-        {topRight}
-      </div>
-      <div style={{ flex: 1, padding: "12px 40px 56px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 0 }}>
-        <div style={{ width: "100%", maxWidth: 560, display: "flex", flexDirection: "column", gap: 32 }}>
-          <header style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {eyebrow && <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--accent)" }}>{eyebrow}</div>}
-            <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontSize: 40, lineHeight: 1.05, fontWeight: 400, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>{title}</h1>
-            {sub && <p style={{ margin: 0, fontSize: 15, lineHeight: 1.55, color: "var(--text-secondary)", maxWidth: 520 }}>{sub}</p>}
-          </header>
-          {children}
-        </div>
-      </div>
+      <header className="onb-head">
+        {eyebrow && <div className="onb-eyebrow">{eyebrow}</div>}
+        <h1 className="onb-title">{title}</h1>
+        {sub && <p className="onb-sub">{sub}</p>}
+      </header>
+      {children}
     </>
   );
 }
 
 function Footer({ left, right }: { left?: React.ReactNode; right: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-      <div>{left}</div>
-      <div>{right}</div>
+    <div className="onb-footer">
+      <div className="onb-footer-left">{left}</div>
+      <div className="onb-footer-right">{right}</div>
     </div>
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  error,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <span style={{ fontSize: 11.5, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-secondary)" }}>{label}</span>
+    <label className="onb-field">
+      <span className="onb-field-label">{label}</span>
       {children}
-      {hint && <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{hint}</span>}
+      {error ? (
+        <span className="onb-field-error">
+          <IconWarn size={12} /> {error}
+        </span>
+      ) : hint ? (
+        <span className="onb-field-hint">{hint}</span>
+      ) : null}
     </label>
   );
 }
@@ -465,6 +833,7 @@ function TextInput({
   autoFocus,
   minLength,
   onEnter,
+  invalid,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -476,41 +845,95 @@ function TextInput({
   autoFocus?: boolean;
   minLength?: number;
   onEnter?: () => void;
+  invalid?: boolean;
 }) {
+  const [focused, setFocused] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+
   return (
-    <div style={{ display: "flex", alignItems: "center", height: 42, padding: "0 12px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", fontFamily: mono ? "var(--font-mono)" : "var(--font-sans)" }}>
-      {prefix && <span style={{ color: "var(--text-muted)", fontSize: 13, marginRight: 6 }}>{prefix}</span>}
+    <span
+      className={`onb-input${focused ? " is-focused" : ""}${invalid ? " is-invalid" : ""}`}
+      onClick={() => ref.current?.focus()}
+    >
+      {prefix && <span className="onb-input-prefix">{prefix}</span>}
       <input
+        ref={ref}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         placeholder={placeholder}
         required={required}
         autoFocus={autoFocus}
         minLength={minLength}
-        onKeyDown={onEnter ? (e) => { if (e.key === "Enter") { e.preventDefault(); onEnter(); } } : undefined}
-        style={{ flex: 1, border: 0, outline: 0, background: "transparent", fontFamily: "inherit", fontSize: mono ? 13 : 14, color: "var(--text-primary)" }}
+        style={{ fontFamily: mono ? "var(--font-mono)" : "inherit", fontSize: mono ? 13 : 14 }}
+        onKeyDown={
+          onEnter
+            ? (e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onEnter();
+                }
+              }
+            : undefined
+        }
       />
+    </span>
+  );
+}
+
+function Panel({ tone, children }: { tone?: "ok"; children: React.ReactNode }) {
+  return <div className={`onb-panel${tone === "ok" ? " is-ok" : ""}`}>{children}</div>;
+}
+
+function PanelRow({
+  icon,
+  tone,
+  children,
+}: {
+  icon: React.ReactNode;
+  tone?: "ok";
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="onb-panel-row">
+      <span className={`onb-panel-icon${tone === "ok" ? " is-ok" : ""}`}>{icon}</span>
+      <div className="onb-panel-copy">{children}</div>
     </div>
   );
 }
 
 function Msg({ tone, children }: { tone: "error" | "ok"; children: React.ReactNode }) {
-  return (
-    <p style={{ margin: 0, fontSize: 13, color: tone === "error" ? "#993C1D" : "var(--approved-text)" }}>{children}</p>
-  );
+  return <p className={`onb-msg is-${tone}`}>{children}</p>;
 }
 
-function SummaryRow({ icon, label, value, meta }: { icon: React.ReactNode; label: string; value: string; meta?: string }) {
+function SummaryRow({
+  icon,
+  label,
+  value,
+  meta,
+  done = true,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  meta?: string;
+  done?: boolean;
+}) {
   return (
-    <div style={{ padding: "12px 16px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", display: "flex", alignItems: "center", gap: 14 }}>
-      <span style={{ width: 32, height: 32, borderRadius: 8, background: "var(--accent-light)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 32px" }}>{icon}</span>
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)" }}>{label}</span>
-        <span style={{ fontSize: 14, color: "var(--text-primary)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</span>
-      </div>
-      {meta && <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--text-muted)" }}>{meta}</span>}
-      <span style={{ color: "var(--accent)" }}><IconCheck size={16} /></span>
+    <div className="onb-summary-row">
+      <span className="onb-summary-icon">{icon}</span>
+      <span className="onb-summary-copy">
+        <span className="onb-summary-label">{label}</span>
+        <span className="onb-summary-value">{value}</span>
+      </span>
+      {meta && <span className="onb-summary-meta">{meta}</span>}
+      {done && (
+        <span className="onb-summary-tick">
+          <IconCheck size={15} />
+        </span>
+      )}
     </div>
   );
 }
