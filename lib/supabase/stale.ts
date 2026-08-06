@@ -13,6 +13,11 @@ function cutoffISO(staleDays: number): string {
 /**
  * Approved docs that haven't been reviewed within the freshness window.
  * Only approved docs go stale — drafts are expected to be incomplete.
+ *
+ * Records are excluded. `app.merge_proposal` sets `last_reviewed_at` only when
+ * `doc_class = 'canon'`, so a record's review date is null for its whole life:
+ * including them here puts every deploy log and meeting note permanently in the
+ * queue, and re-verifying a dated record is not a thing anyone does anyway.
  */
 export async function getStaleDocs(
   workspaceId: string,
@@ -26,6 +31,7 @@ export async function getStaleDocs(
     .select("*, space:spaces(id, workspace_id, name, slug, icon, created_at)")
     .eq("workspace_id", workspaceId)
     .eq("status", "approved")
+    .eq("doc_class", "canon")
     .or(`last_reviewed_at.is.null,last_reviewed_at.lt.${cutoff}`)
     .order("last_reviewed_at", { ascending: true, nullsFirst: true });
 
@@ -43,6 +49,7 @@ export async function getStaleCount(
     .from("docs")
     .select("*", { count: "exact", head: true })
     .eq("status", "approved")
+    .eq("doc_class", "canon")
     .or(`last_reviewed_at.is.null,last_reviewed_at.lt.${cutoff}`);
 
   if (error) throw error;

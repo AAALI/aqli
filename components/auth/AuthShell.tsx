@@ -7,7 +7,7 @@ export function AuthStage({ ornament, children }: { ornament: ReactNode; childre
       <div className="auth-ornament">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <AqliMark size={22} />
-          <span style={{ fontSize: 17, letterSpacing: "0.08em", fontWeight: 500, color: "var(--text-primary)" }}>AQLI</span>
+          <span style={{ fontSize: 17, letterSpacing: "0.08em", fontWeight: 500, color: "var(--text-primary)" }}>aqli</span>
         </div>
         <div className="auth-ornament-copy">
           {ornament}

@@ -115,14 +115,11 @@ export default function ReadingRail({
 
   return (
     <aside
+      className="doc-rail"
       style={{
-        width: 280,
-        flex: "0 0 280px",
         borderLeft: "1px solid var(--border)",
         background: "var(--bg-card)",
         overflowY: "auto",
-        display: "flex",
-        flexDirection: "column",
       }}
     >
       {/* Outline */}

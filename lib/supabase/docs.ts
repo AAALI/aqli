@@ -398,7 +398,11 @@ export async function searchDocs(workspaceId: string, query: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("docs")
-    .select("id, title, type, status, space_id, updated_at, body_md")
+    // `body_text` rather than `body_md`: the result snippet is prose, and the
+    // markdown source leaks `##`, `**` and table pipes into it. The
+    // `docs_maintain_derived` trigger keeps `body_text` in step with the
+    // markdown, so this is the same content with the syntax stripped.
+    .select("id, title, type, status, space_id, updated_at, body_text")
     .eq("workspace_id", workspaceId)
     .textSearch("search_vector", query, { type: "websearch" })
     .limit(20);

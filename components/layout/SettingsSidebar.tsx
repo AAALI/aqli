@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { setMobileNav, useMobileNav } from "./mobile-nav";
 import {
   IconGear,
   IconKey,
@@ -31,11 +33,25 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You",
     { id: "keys", href: `${settingsBase}/keys`, icon: <IconKey />, label: "API keys" },
     { id: "members", href: `${settingsBase}/members`, icon: <IconUsers />, label: "Members" },
     { id: "integrations", href: `${settingsBase}/integrations`, icon: <IconLink />, label: "Integrations" },
-    { id: "agents", href: agentLogHref, icon: <IconRobot />, label: "Agent log" },
+    // Same destination and same name as the workspace sidebar's entry, so the
+    // two navigations do not disagree about what the screen is called.
+    { id: "agents", href: agentLogHref, icon: <IconRobot />, label: "AI activity" },
   ];
 
+  const navOpen = useMobileNav();
+  useEffect(() => {
+    setMobileNav(false);
+  }, [pathname]);
+
   return (
-    <aside className="sb" style={{ paddingTop: 14 }}>
+    <>
+      <div
+        className="sb-scrim"
+        data-open={navOpen ? "" : undefined}
+        onClick={() => setMobileNav(false)}
+        aria-hidden="true"
+      />
+      <aside className="sb" data-open={navOpen ? "" : undefined} style={{ paddingTop: 14 }}>
       <div style={{ padding: "0 16px 12px" }}>
         <Link
           href={base}
@@ -67,6 +83,7 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You",
         workspaceSlug={workspaceSlug}
         roleLabel={roleLabel}
       />
-    </aside>
+      </aside>
+    </>
   );
 }

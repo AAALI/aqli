@@ -17,9 +17,22 @@ import { IconLink } from "@/components/aqli/icons";
 import type { KeyHandlerRegistry } from "@/components/editor/v2/types";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
+import {
+  hasTitleHeading,
+  prependTitleHeading,
+  stripTitleHeading,
+} from "@/lib/markdown/title-heading";
 import { typeLabel } from "@/lib/doc-display";
 import { formatDate, formatRelative, avatarColor } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
+
+/**
+ * A title is one line. The field is a textarea so long titles wrap on screen,
+ * which also means a paste or a drop can carry newlines into it.
+ */
+function singleLine(value: string): string {
+  return value.replace(/\s*[\r\n]+\s*/g, " ");
+}
 
 export default function DocEditorClient({
   doc,
@@ -50,6 +63,68 @@ export default function DocEditorClient({
   const pendingUpdates = useRef<Record<string, unknown> | null>(null);
   const saveInFlight = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  // The viewer hides a leading `# Title` that repeats the doc's own title, so
+  // the editor hides it too — otherwise opening a PR-imported doc shows the
+  // title twice. It is still part of the document: `bodyWithTitle` puts it back
+  // on every save, which is also what keeps it in step when the title changes.
+  const initialBody = useMemo(
+    () =>
+      doc.body_md
+        ? (markdownToTiptap(doc.body_md) as unknown as Record<string, unknown>)
+        : null,
+    [doc.body_md],
+  );
+  const carriesTitleHeading = useMemo(
+    () => hasTitleHeading(initialBody, doc.title),
+    [initialBody, doc.title],
+  );
+  // `onUpdate` is registered once, so both the flag and the heading text have
+  // to come from refs rather than the values that callback would close over.
+  const carriesTitleRef = useRef(carriesTitleHeading);
+  const titleValue = useRef(doc.title);
+  // The last title handed to the save queue. Distinct from `doc.title`, which
+  // never changes for the life of the component.
+  const persistedTitle = useRef(doc.title);
+  useEffect(() => {
+    carriesTitleRef.current = carriesTitleHeading;
+  }, [carriesTitleHeading]);
+  const bodyWithTitle = useCallback(
+    (json: Record<string, unknown>): Record<string, unknown> =>
+      carriesTitleRef.current
+        ? prependTitleHeading(json, titleValue.current)
+        : json,
+    [],
+  );
+
+  // Keep the title box exactly as tall as its content. Runs on mount too, so a
+  // long title arrives already unwrapped rather than one line high.
+  //
+  // How many lines the title wraps to depends on the width as much as the text,
+  // and the width moves without the text changing — a window resize, a rotation,
+  // the reading rail dropping out at its breakpoint. Only width is acted on:
+  // reacting to the height we just set would feed the observer its own output.
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    const fit = () => {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    };
+    fit();
+    let lastWidth = el.clientWidth;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? lastWidth;
+      if (width === lastWidth) return;
+      lastWidth = width;
+      fit();
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+    };
+  }, [title]);
 
   // Children (slash menu, selection toolbar) register key handlers that run
   // before ProseMirror's own keymap.
@@ -137,11 +212,13 @@ export default function DocEditorClient({
     // document actually is rather than a cached tree that may lag it — an
     // agent's merge writes body_md and body_json together, but a rollback or a
     // hand-edit only touches the markdown.
-    content: doc.body_md
-      ? markdownToTiptap(doc.body_md)
+    content: initialBody
+      ? carriesTitleHeading
+        ? stripTitleHeading(initialBody)
+        : initialBody
       : { type: "doc", content: [{ type: "paragraph" }] },
     onUpdate: ({ editor }) => {
-      const json = editor.getJSON() as Record<string, unknown>;
+      const json = bodyWithTitle(editor.getJSON() as Record<string, unknown>);
       // Queue immediately (arms the unload warning during the debounce
       // window); the timer only decides when the pump sends it.
       // body_json rides along as the editor's cache. body_md is the save.
@@ -199,13 +276,25 @@ export default function DocEditorClient({
   }, []);
 
   const saveTitle = useCallback(
-    (newTitle: string) => {
-      if (newTitle === doc.title) return;
+    (raw: string) => {
+      const newTitle = singleLine(raw).trim() || "Untitled";
+      titleValue.current = newTitle;
+      // Against the last value sent, not the prop: `doc` is the server's
+      // snapshot from page load, so renaming A -> B -> A would match it and
+      // skip the PUT, leaving the document stored as B.
+      if (newTitle === persistedTitle.current) return;
+      persistedTitle.current = newTitle;
       // Through the same queue so a title PUT can't race a body PUT.
-      queueUpdates({ title: newTitle || "Untitled" });
+      queueUpdates({ title: newTitle });
+      // A body that carries the title as its first heading has to be rewritten
+      // too, or the markdown keeps asserting the old name.
+      if (carriesTitleRef.current && editor) {
+        const json = bodyWithTitle(editor.getJSON() as Record<string, unknown>);
+        queueUpdates({ body_json: json, body_md: tiptapToMarkdown(json) });
+      }
       void pumpSaves();
     },
-    [queueUpdates, pumpSaves, doc.title],
+    [queueUpdates, pumpSaves, editor, bodyWithTitle],
   );
 
   const askAgent = useCallback(() => {
@@ -274,10 +363,14 @@ export default function DocEditorClient({
               padding: "56px 40px 120px",
             }}
           >
-            <input
-              type="text"
+            {/* A textarea, not an input: at 44px a real title runs past the
+                column, and an input clips it mid-word with no way to see the
+                rest. Rows grow with the text; Enter still moves to the body. */}
+            <textarea
+              ref={titleRef}
+              rows={1}
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => setTitle(singleLine(e.target.value))}
               onBlur={(e) => saveTitle(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -292,6 +385,9 @@ export default function DocEditorClient({
                 border: 0,
                 background: "transparent",
                 outline: "none",
+                resize: "none",
+                overflow: "hidden",
+                display: "block",
                 fontFamily: "var(--font-serif)",
                 fontWeight: 400,
                 fontSize: 44,
@@ -393,6 +489,7 @@ function EditorMetaBar({
 
   return (
     <div
+      className="ed2-metabar"
       style={{
         height: 44,
         flex: "0 0 44px",
@@ -462,6 +559,7 @@ function EditorMetaBar({
         </MetaField>
       )}
       <div
+        className="ed2-metabar-trail"
         style={{
           marginLeft: "auto",
           color: "var(--text-muted)",
@@ -484,7 +582,11 @@ function MetaField({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+    <div
+      className="ed2-metafield"
+      data-field={label.toLowerCase()}
+      style={{ alignItems: "center", gap: 8, minWidth: 0, flexShrink: 0 }}
+    >
       <span
         style={{
           color: "var(--text-muted)",

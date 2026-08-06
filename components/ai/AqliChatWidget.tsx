@@ -96,7 +96,9 @@ export default function AqliChatWidget({
         onClick={() => setOpen(true)}
         style={{
           position: "fixed",
-          bottom: 24,
+          // Screens with a bottom action strip (the editor) raise this so the
+          // launcher does not sit on top of their buttons.
+          bottom: "var(--dock-bottom, 24px)",
           right: 24,
           zIndex: 100,
           display: "inline-flex",
@@ -136,10 +138,15 @@ export default function AqliChatWidget({
     <div
       style={{
         position: "fixed",
-        bottom: 24,
+        bottom: "var(--dock-bottom, 24px)",
         right: 24,
         width: 360,
-        maxHeight: "min(560px, calc(100vh - 48px))",
+        // The panel grows upward from `--dock-bottom`, so the room above it is
+        // the viewport less that offset — not a fixed 24px top and bottom.
+        // `dvh`, not `vh`: on mobile the browser chrome retracts, and `vh`
+        // keeps measuring the tallest state, which is what lets the panel run
+        // off the top exactly when the viewport is shortest.
+        maxHeight: "min(560px, calc(100dvh - var(--dock-bottom, 24px) - 24px))",
         background: "var(--bg-card)",
         border: "1px solid var(--border-strong)",
         borderRadius: 14,

@@ -20,8 +20,20 @@ export default function ProcessStrip({
   ownerName: string | null;
   savedLabel: string;
 }) {
+  // This strip owns the bottom-right corner while the editor is open, so lift
+  // the floating chat launcher clear of it. `AqliChatWidget` reads the same
+  // variable; the default keeps it at 24px everywhere else.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--dock-bottom", "68px");
+    return () => {
+      root.style.removeProperty("--dock-bottom");
+    };
+  }, []);
+
   return (
     <div
+      className="ed2-processstrip"
       style={{
         height: 44,
         flex: "0 0 44px",
@@ -35,10 +47,12 @@ export default function ProcessStrip({
         color: "var(--text-muted)",
       }}
     >
-      <span>Editing</span>
-      {ownerName && <span>· {ownerName}</span>}
-      <span>·</span>
-      <span>{savedLabel}</span>
+      {/* Status text, not actions: it is the first thing to go when the strip
+          runs out of room, and the top bar carries the save state anyway. */}
+      <span className="ed2-strip-status">Editing</span>
+      {ownerName && <span className="ed2-strip-status">· {ownerName}</span>}
+      <span className="ed2-strip-status">·</span>
+      <span className="ed2-strip-status">{savedLabel}</span>
 
       <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
         <Link
