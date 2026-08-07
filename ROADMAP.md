@@ -55,7 +55,7 @@ The adoption gates a non-eng team hits in week one. In priority order:
    Markdown: `![alt](url)`. Nothing else matters until screenshots paste.
    *Shipped. The URL in `body_md` is `/api/images/<path>`, served by an
    authenticated route — canonical markdown cannot hold a link that expires.
-   Needs `20260806010000_doc_images_storage.sql` applied.*
+   Storage migrations applied to production and verified.*
 2. - [x] **Tables.** Tiptap Table extension + a `/table` slash command. Markdown
    round-trip: GFM tables in `tiptap-to-md` and `md-to-tiptap` (agents need to
    read and write them). *Shipped, with row/column controls — a table is the

@@ -105,11 +105,17 @@ The steps are independent up to 6, which is the one-way door.
    stops writing revisions, so it is for getting out of trouble, not for
    staying there.
 
-**`20260806010000_doc_images_storage.sql` is not part of this order.** It
-creates the `doc-images` bucket and its RLS policies — it touches only
-`storage` and reads `public.members`, so it neither depends on the backfill nor
-blocks it, and it can be applied whenever. Images in the editor do not work
-until it has been.
+**The two `doc-images` migrations are not part of this order, and are already
+applied.** `20260806010000_doc_images_storage.sql` creates the bucket and its
+RLS policies; `20260806020000_doc_images_require_doc_segment.sql` tightens the
+write guard to require a doc folder in the path. Both touch only `storage` and
+read `public.members`, so they neither depend on the backfill nor block it.
+
+Applied to production on 2026-08-07 and verified there: bucket private, 10 MB
+limit, PNG/JPEG/GIF/WebP only; RLS on with four `authenticated` policies; a
+path in another workspace and a malformed non-UUID first segment both fail to
+match, the latter without raising (which is why the policies compare
+`workspace_id::text` rather than casting the segment).
 
 Rollback files for each migration are in `supabase/migrations/rollback/`. The
 step-6 one restores the schema but not the data: once the app has been writing
