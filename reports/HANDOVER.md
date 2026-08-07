@@ -105,6 +105,18 @@ The steps are independent up to 6, which is the one-way door.
    stops writing revisions, so it is for getting out of trouble, not for
    staying there.
 
+**The two `doc-images` migrations are not part of this order, and are already
+applied.** `20260806010000_doc_images_storage.sql` creates the bucket and its
+RLS policies; `20260806020000_doc_images_require_doc_segment.sql` tightens the
+write guard to require a doc folder in the path. Both touch only `storage` and
+read `public.members`, so they neither depend on the backfill nor block it.
+
+Applied to production on 2026-08-07 and verified there: bucket private, 10 MB
+limit, PNG/JPEG/GIF/WebP only; RLS on with four `authenticated` policies; a
+path in another workspace and a malformed non-UUID first segment both fail to
+match, the latter without raising (which is why the policies compare
+`workspace_id::text` rather than casting the segment).
+
 Rollback files for each migration are in `supabase/migrations/rollback/`. The
 step-6 one restores the schema but not the data: once the app has been writing
 markdown-first, no migration can reconstruct what was only in the markdown.
@@ -150,12 +162,14 @@ fired and the document ordering has moved.
 
 ## Known gaps, recorded rather than papered over
 
-- **`review_all` has no UI.** The column and the disposition rule exist and are
-  tested, but nothing in the app sets a space's `review_policy`. Until a
-  settings control exists, every space is `review_agents`.
-- **Agent key scopes have no UI either.** Keys are created with
-  `{read,propose}`, so agent writes queue. Granting `write` is a SQL update
-  today.
+- ~~**`review_all` has no UI.**~~ Closed. Settings → Spaces sets each space's
+  `review_policy`, admin-only, and the option descriptions are written from
+  `decideDisposition`. Existing spaces keep `review_agents`; nothing changes
+  until someone chooses otherwise.
+- ~~**Agent key scopes have no UI either.**~~ Closed. Settings → API keys sets
+  scopes at creation and per key afterwards, admin-only. `read` is always
+  included server-side (`normalizeScopes`), because a key without it does
+  nothing.
 - **`/api/agent/docs/[id]/review` is vestigial.** Since step 5 an agent gets
   review by having its proposal queued. The endpoint still flags a document's
   status so existing agents do not break, and the queue lists those documents

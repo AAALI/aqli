@@ -50,12 +50,23 @@ Make the product make sense to a Head of People on day one.
 
 The adoption gates a non-eng team hits in week one. In priority order:
 
-1. **Images in the editor.** Tiptap Image extension + Supabase Storage bucket
-   (workspace-scoped, RLS on storage paths). Paste and drag-drop upload.
+1. - [x] **Images in the editor.** Tiptap Image extension + Supabase Storage
+   bucket (workspace-scoped, RLS on storage paths). Paste and drag-drop upload.
    Markdown: `![alt](url)`. Nothing else matters until screenshots paste.
-2. **Tables.** Tiptap Table extension + a `/table` slash command. Markdown
+   *Shipped. The URL in `body_md` is `/api/images/<path>`, served by an
+   authenticated route — canonical markdown cannot hold a link that expires.
+   Storage migrations applied to production and verified.*
+2. - [x] **Tables.** Tiptap Table extension + a `/table` slash command. Markdown
    round-trip: GFM tables in `tiptap-to-md` and `md-to-tiptap` (agents need to
-   read and write them).
+   read and write them). *Shipped, with row/column controls — a table is the
+   one node with no keyboard spelling.*
+
+   Both required repairing the schema first: the editor and the read view each
+   mounted a hand-rolled StarterKit instead of the allowlist, so a document
+   with a table failed to load and saving deleted it; and `Image` was a block
+   node, which meant markdown images were dropped along with their paragraph.
+   The round-trip gate missed both because it only asserted stability, never
+   preservation. An eslint rule now keeps the editor on one schema.
 3. **Comments & @mentions.** New `doc_comments` table; inline anchors optional
    at first — start with doc-level comments + mentions with email notification.
    This is how review feedback happens for people who don't use GitHub.
@@ -83,6 +94,9 @@ What makes Aqli the *reason to switch*, not just a cheaper Confluence:
    pipeline: knowledge capture where the work already happens.
 3. **Human review workflows.** Assigned reviewers, per-space approval rules
    (Legal approves Policy docs), scheduled re-verification cadences per doc type.
+   *Partly here already: Settings → Spaces turns on `review_all`, so a space
+   can require approval for every change including a human's. What is missing
+   is naming who approves.*
 4. **Public/shared docs.** Publish a doc or space read-only via share link —
    handbook pages, customer-facing docs. (GitBook's bread and butter.)
 

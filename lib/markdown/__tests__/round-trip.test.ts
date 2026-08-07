@@ -108,6 +108,105 @@ describe("adversarial round-trips", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Content preservation
+// ---------------------------------------------------------------------------
+
+/**
+ * A fixed point is not the same thing as lossless, and the difference was
+ * hiding a real bug.
+ *
+ * `expectFixedPoint` only asks that the *second* pass changes nothing. Content
+ * dropped by the *first* pass sails through: an image used to serialize to the
+ * empty string, and `normalize("") === ""` is a perfectly stable fixed point.
+ * So `"image with parentheses"` was green the whole time the converter was
+ * deleting every image in the corpus — and, because images are inline, the rest
+ * of the paragraph around them.
+ *
+ * These inputs are already canonical, so the stronger statement holds: one pass
+ * must return them byte for byte. That is what actually says "nothing was lost".
+ */
+const CANONICAL: Record<string, string> = {
+  "standalone image": "![alt](http://x.com/a.png)\n",
+  "image inside a sentence": "before ![alt](http://x.com/a.png) after\n",
+  "image with a title": '![alt](http://x.com/a.png "the title")\n',
+  "image with an empty alt": "![](http://x.com/a.png)\n",
+  "image in a table cell": "| a | b |\n| --- | --- |\n| ![i](http://x/i.png) | z |\n",
+  "image in a list item": "- ![i](http://x/i.png)\n",
+  "image next to a link": "[t](http://x) ![i](http://x/i.png)\n",
+  "two images in one paragraph": "![a](http://x/a.png) ![b](http://x/b.png)\n",
+  table: "| a | b |\n| --- | --- |\n| c | d |\n",
+  "table with marks": "| **b** | `c` |\n| --- | --- |\n| *i* | ~~s~~ |\n",
+  "task list": "- [ ] open\n- [x] done\n",
+  // The marker sits in its own paragraph inside the quote, so canonical form
+  // carries the blank `>` line. `"callout note"` above pins the normalization.
+  callout: "> [!NOTE]\n>\n> Body.\n",
+  "fenced code with a language": "```js\nconst x = 1;\n```\n",
+  "heading and paragraph": "## Section\n\nBody text.\n",
+  "hard break": "line one\\\nline two\n",
+};
+
+describe("content preservation", () => {
+  for (const [name, markdown] of Object.entries(CANONICAL)) {
+    it(`${name} round-trips byte for byte`, () => {
+      expect(normalize(markdown)).toBe(markdown);
+    });
+  }
+
+  /**
+   * The blanket version of the above: a document that uses every allowlisted
+   * node must still use every one of them after a round trip. A node that the
+   * parser cannot place, or the serializer cannot write, disappears from the
+   * second set and names itself.
+   */
+  it("every allowlisted node survives a round trip", () => {
+    const kitchenSink = [
+      "# Heading one",
+      "",
+      "## Heading two",
+      "",
+      "### Heading three",
+      "",
+      "Paragraph with a break\\",
+      "and an ![img](http://x/i.png) inline.",
+      "",
+      "- bullet",
+      "",
+      "1. ordered",
+      "",
+      "- [ ] task",
+      "",
+      "```js",
+      "const x = 1;",
+      "```",
+      "",
+      "> quoted",
+      "",
+      "---",
+      "",
+      "| head |",
+      "| --- |",
+      "| cell |",
+      "",
+    ].join("\n");
+
+    const typesIn = (markdown: string): Set<string> => {
+      const seen = new Set<string>();
+      parse(markdown).descendants((node) => {
+        if (node.type.name !== "text") seen.add(node.type.name);
+      });
+      return seen;
+    };
+
+    const before = typesIn(kitchenSink);
+    // Guard the guard: if the fixture stops exercising a node, this fails here
+    // rather than passing vacuously below.
+    expect([...before].sort()).toEqual([...ALLOWED_NODES].sort());
+
+    expect([...typesIn(normalize(kitchenSink))].sort()).toEqual([...before].sort());
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Schema/serializer coverage
 // ---------------------------------------------------------------------------
 

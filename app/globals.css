@@ -775,6 +775,89 @@ html, body {
   margin: 28px 0;
 }
 
+/* ───────── Editor: tables and images (roadmap Phase 2 §1–2) ───────── */
+
+/* `table-layout: fixed` matters for editing, not looks: with `auto`, every
+   keystroke in a cell re-measures the whole table and the columns twitch. */
+.ed2-prose table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin: 22px 0;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+.ed2-prose th,
+.ed2-prose td {
+  border: 1px solid var(--border-strong);
+  padding: 7px 10px;
+  text-align: left;
+  vertical-align: top;
+  min-width: 60px;
+  position: relative;
+}
+
+.ed2-prose th {
+  background: var(--bg-sidebar);
+  font-weight: 600;
+}
+
+/* Cells hold blocks, so a paragraph inside one would otherwise carry the
+   block margin and make every row unnecessarily tall. */
+.ed2-prose th > p,
+.ed2-prose td > p {
+  margin: 0;
+}
+
+/* ProseMirror's cell selection — without this, selecting across cells shows
+   nothing at all. */
+.ed2-prose .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent-light);
+  pointer-events: none;
+}
+
+.ed2-prose img {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+/* Clicking an image selects the node; say so. */
+.ed2-prose img.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Read view: the typography plugin styles tables, but not against these
+   tokens, and it leaves images without the editor's framing. */
+.prose :where(table):not(:where([class~="not-prose"] *)) {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.prose :where(th, td):not(:where([class~="not-prose"] *)) {
+  border: 1px solid var(--border-strong);
+  padding: 7px 10px;
+  vertical-align: top;
+}
+
+.prose :where(th):not(:where([class~="not-prose"] *)) {
+  background: var(--bg-sidebar);
+}
+
+.prose :where(img):not(:where([class~="not-prose"] *)) {
+  display: inline-block;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
 /* ───────── Landing page (LP1) — Aqli Loop demo ───────── */
 @keyframes lpFadeUp {
   from { opacity: 0; transform: translateY(8px); }

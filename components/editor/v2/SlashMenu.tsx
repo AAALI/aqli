@@ -10,7 +10,13 @@ import {
   type RefObject,
 } from "react";
 import type { Editor } from "@tiptap/react";
-import { IconLink, IconQuote, IconRobot } from "@/components/aqli/icons";
+import {
+  IconImage,
+  IconLink,
+  IconQuote,
+  IconRobot,
+  IconTable,
+} from "@/components/aqli/icons";
 import { MERMAID_TEMPLATE } from "@/components/editor/MermaidCodeBlock";
 import type { KeyHandlerRegistry, RelatedResult } from "./types";
 
@@ -30,6 +36,8 @@ const CMDS: Cmd[] = [
   { id: "bullet", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>•</span>, name: "Bulleted list", hint: "Plain list", keywords: "bullet list ul" },
   { id: "ordered", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>1.</span>, name: "Numbered list", hint: "Ordered list", keywords: "numbered ordered list ol" },
   { id: "quote", icon: <span style={{ fontFamily: "var(--font-serif)", fontSize: 15 }}>&ldquo;</span>, name: "Quote", hint: "Block quote", keywords: "quote blockquote" },
+  { id: "image", icon: <IconImage size={13} />, name: "Image", hint: "Upload a picture — or just paste one", keywords: "image picture screenshot photo upload media figure" },
+  { id: "table", icon: <IconTable size={13} />, name: "Table", hint: "Rows and columns", keywords: "table grid rows columns spreadsheet matrix" },
   { id: "diagram", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>⌥</span>, name: "Diagram", hint: "Flowchart, sequence, or process (Mermaid)", keywords: "diagram flowchart flow chart mermaid sequence process workflow" },
   { id: "code", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{"{}"}</span>, name: "Code block", hint: "Fenced code", keywords: "code fence pre" },
   { id: "divider", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>—</span>, name: "Divider", hint: "Horizontal rule", keywords: "divider rule hr" },
@@ -50,6 +58,7 @@ export default function SlashMenu({
   docId,
   base,
   onAskAgent,
+  onInsertImage,
 }: {
   editor: Editor;
   containerRef: RefObject<HTMLDivElement | null>;
@@ -58,6 +67,7 @@ export default function SlashMenu({
   docId: string;
   base: string;
   onAskAgent: () => void;
+  onInsertImage: () => void;
 }) {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [selected, setSelected] = useState(0);
@@ -169,6 +179,19 @@ export default function SlashMenu({
         case "divider":
           chain.setHorizontalRule().run();
           break;
+        case "table":
+          // Header row on by default: GFM has no headerless table, so the
+          // first row becomes one on save either way (see `table` in
+          // lib/markdown/serializer.ts). Starting with it visible means the
+          // editor shows what the markdown will say.
+          chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+          break;
+        case "image":
+          // Delete the "/image" text first, then hand off — the picker is a
+          // native dialog and the editor loses focus while it is open.
+          chain.run();
+          onInsertImage();
+          break;
         case "agent":
           chain.run();
           onAskAgent();
@@ -200,7 +223,7 @@ export default function SlashMenu({
       }
       if (cmd.id !== "cite") close();
     },
-    [editor, workspaceId, docId, onAskAgent, close],
+    [editor, workspaceId, docId, onAskAgent, onInsertImage, close],
   );
 
   const insertCitation = useCallback(
