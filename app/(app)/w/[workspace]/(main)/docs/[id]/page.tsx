@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDoc, getDocVersions, getBacklinks } from "@/lib/supabase/docs";
-import { getOwnerDirectory } from "@/lib/supabase/owners";
+import { getOwnerDirectory, ownerInfo } from "@/lib/supabase/owners";
+import { getDocCommentThread } from "@/lib/supabase/comments";
+import { listWorkspaceMembers, getMyRole } from "@/lib/supabase/members";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import AppTopBar from "@/components/layout/AppTopBar";
 import DownloadMarkdownButton from "@/components/docs/DownloadMarkdownButton";
@@ -12,6 +14,7 @@ import TrustLine from "@/components/docs/TrustLine";
 import WhatChangedBanner from "@/components/docs/WhatChangedBanner";
 import ReadingRail from "@/components/docs/ReadingRail";
 import PrChangedBanner from "@/components/docs/PrChangedBanner";
+import DocComments from "@/components/docs/DocComments";
 import { getDocActivity } from "@/lib/supabase/activity";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
 import { AutoApprovedChip, TypeBadge } from "@/components/aqli/badges";
@@ -29,12 +32,21 @@ export default async function DocViewPage({
   const doc = await getDoc(id).catch(() => null);
   if (!doc) notFound();
 
-  const [versions, backlinks, owners, supabase] = await Promise.all([
-    getDocVersions(id),
-    getBacklinks(id, doc.workspace_id),
-    getOwnerDirectory(doc.workspace_id),
-    createServerSupabaseClient(),
-  ]);
+  const [versions, backlinks, owners, thread, members, role, supabase] =
+    await Promise.all([
+      getDocVersions(id),
+      getBacklinks(id, doc.workspace_id),
+      getOwnerDirectory(doc.workspace_id),
+      // Non-fatal: a doc that loads without its thread is better than a doc
+      // that does not load.
+      getDocCommentThread(doc.workspace_id, id).catch(() => ({
+        comments: [],
+        names: {},
+      })),
+      listWorkspaceMembers(doc.workspace_id).catch(() => []),
+      getMyRole(doc.workspace_id),
+      createServerSupabaseClient(),
+    ]);
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -202,6 +214,20 @@ export default async function DocViewPage({
             <div id="doc-body" style={{ marginTop: 32 }}>
               <DocBody content={docBody} title={doc.title} />
             </div>
+
+            <DocComments
+              docId={doc.id}
+              initial={thread.comments}
+              names={thread.names}
+              members={members.map((m) => ({
+                user_id: m.user_id,
+                name: ownerInfo(m).name,
+                email: m.email,
+              }))}
+              currentUserId={user?.id ?? null}
+              canComment={role === "admin" || role === "editor"}
+              canModerate={role === "admin"}
+            />
           </article>
         </div>
 

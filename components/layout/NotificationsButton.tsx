@@ -8,6 +8,7 @@ import {
   IconRobot,
   IconCheck,
   IconClock,
+  IconAt,
   IconArrowUpRight,
 } from "@/components/aqli/icons";
 
@@ -16,9 +17,13 @@ const TINTS: Record<Notification["tint"], { bg: string; color: string; border: s
   ok: { bg: "var(--approved-bg)", color: "var(--approved-text)", border: "var(--approved-border)" },
   review: { bg: "var(--review-bg)", color: "var(--review-text)", border: "var(--review-border)" },
   stale: { bg: "var(--stale-bg)", color: "var(--stale-text)", border: "var(--stale-border)" },
+  // Being named is the one row here addressed to you personally, so it takes
+  // the accent rather than a status colour.
+  mention: { bg: "var(--accent-light)", color: "var(--accent)", border: "var(--approved-border)" },
 };
 
 function tintIcon(n: Notification) {
+  if (n.kind === "mention") return <IconAt size={14} />;
   if (n.kind === "review") return <IconRobot size={14} />;
   if (n.kind === "approval") return <IconCheck size={14} />;
   if (n.kind === "stale") return <IconClock size={14} />;

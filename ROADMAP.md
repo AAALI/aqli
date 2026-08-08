@@ -67,9 +67,29 @@ The adoption gates a non-eng team hits in week one. In priority order:
    node, which meant markdown images were dropped along with their paragraph.
    The round-trip gate missed both because it only asserted stability, never
    preservation. An eslint rule now keeps the editor on one schema.
-3. **Comments & @mentions.** New `doc_comments` table; inline anchors optional
-   at first — start with doc-level comments + mentions with email notification.
-   This is how review feedback happens for people who don't use GitHub.
+3. - [x] **Comments & @mentions.** Doc-level thread under the doc body, with an
+   `@` menu over workspace members. *Shipped.* Notes on what it is and is not:
+
+   `doc_comments` already existed — it predates the migrations folder, and the
+   review path has written rejection reasons into it since day one. Nothing
+   read them back, so a reviewer's "sent back because X" reached the author as
+   a doc silently returning to draft. The thread now shows the review trail and
+   ordinary comments together, because to a reader they are one conversation.
+   Review-trail entries cannot be deleted by anyone, including admins.
+
+   The table also had **no RLS** — under PostgREST that meant any authenticated
+   user could read every comment in every workspace. `20260808000000` adds the
+   policies, and `supabase/tests/doc_comments.sql` asserts the tenant boundary.
+
+   Mentions are stored in the comment body as `@[Name](user:<uuid>)` and
+   resolved server-side against the member list, so naming a uuid that is not a
+   member notifies nobody. They are deliberately **not** in the doc body: a
+   mention node in `lib/markdown/schema.ts` would be one more thing `body_md`
+   has to round-trip, and the allowlist exists to keep that set small.
+
+   **No email.** The repo has no mail transport, and adding one is its own
+   piece of work. Delivery is the notification bell, which grew a `mention`
+   kind. Inline anchors are still not built.
 4. **Import.** Markdown/zip first (cheap, also serves eng), then Notion export,
    then Confluence space export (XML). Nobody re-types their handbook.
 5. **Sub-pages.** `parent_doc_id` on docs; tree rendering in space sidebar with
@@ -79,6 +99,11 @@ The adoption gates a non-eng team hits in week one. In priority order:
    People/Finance/Legal. Blocks real HR adoption until it exists.
 
 Ship 1–2 as one release ("the editor holds real content now"), 3–4 next, 5–6 after.
+
+Item 4 is cheaper than it looks: `lib/confluence/storage-to-md.ts` and
+`scripts/confluence-fidelity.ts` already exist, so what is missing from
+Confluence import is the ingest surface, not the converter. The fidelity gate
+has still never run against the real export — see `reports/HANDOVER.md` §2.
 
 ## Phase 3 — Press the AI-native advantage
 

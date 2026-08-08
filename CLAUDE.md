@@ -70,10 +70,18 @@ pnpm test:sql   # boots a throwaway Postgres, replays every migration, runs supa
   nothing; it is retained so the step-3 backfill stays auditable.
 - **Autosave:** 2s debounce in `DocEditorClient`; title saves on blur. A save into a
   `review_all` space returns 202 and is *not* applied — the editor says "Sent for review".
+- **Comments** (`doc_comments`) hold two things: what people type, and the review trail the
+  review path writes (`rejection`, `change_request`). One thread, but the trail is
+  undeletable by anyone. Unlike the rest of `lib/supabase/*`, `comments.ts` both reads *and*
+  writes on the RLS client — the policies added in `20260808000000` already decide who may
+  post, so the service client would only step around them. Mentions live in the comment body
+  as `@[Name](user:<uuid>)` (`lib/mentions.ts`) and are **never** doc-body nodes: the
+  markdown allowlist stays as small as it is on purpose.
 
 ## Data model (Supabase)
 
-`workspaces` → `spaces` → `docs` (+ `revisions`, `proposals`), `members` (workspace↔user role).
+`workspaces` → `spaces` → `docs` (+ `revisions`, `proposals`, `doc_comments`), `members`
+(workspace↔user role).
 `api_keys` carry an accountable `owner_user_id` and `scopes`. Schema lives in
 `supabase/migrations/`; helper functions live in the `app` schema, with thin `public` shims
 because PostgREST cannot reach `app`. Types mirror the DB in `types/`.

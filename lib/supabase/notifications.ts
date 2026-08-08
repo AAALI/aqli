@@ -2,10 +2,13 @@ import { getPendingReviewDocs } from "./review";
 import { getStaleDocs } from "./stale";
 import { getWorkspaceAgentActivity } from "./activity";
 import { getSpaces } from "./spaces";
+import { getMentionsOfUser } from "./comments";
+import { getOwnerDirectory } from "./owners";
+import { createServerSupabaseClient } from "./server";
 import { formatRelative } from "@/lib/utils";
 
-export type NotifTint = "agent" | "ok" | "review" | "stale";
-export type NotifKind = "review" | "approval" | "agent" | "stale";
+export type NotifTint = "agent" | "ok" | "review" | "stale" | "mention";
+export type NotifKind = "review" | "approval" | "agent" | "stale" | "mention";
 
 export type Notification = {
   id: string;
@@ -33,20 +36,61 @@ const AGENT_VERB: Record<string, { body: string; tint: NotifTint; kind: NotifKin
 
 /**
  * The notification feed for the top-bar bell — composed from real signals:
- * docs awaiting review, recent agent activity, and stale docs. Replaces the
- * former `lib/mock/agents` NOTIFS placeholder.
+ * docs awaiting review, comments that name you, recent agent activity, and
+ * stale docs. Replaces the former `lib/mock/agents` NOTIFS placeholder.
+ *
+ * Mentions are the one signal here addressed to a specific person rather than
+ * to the workspace, which is why the signed-in user is read inside: everything
+ * else on this list is the same for every member.
+ *
+ * There is no email leg. This repo has no mail transport of any kind, and
+ * bolting one on is its own piece of work — the bell is the whole delivery
+ * mechanism for now, and the composer says so.
  */
 export async function getNotifications(workspaceId: string): Promise<Notification[]> {
-  const [reviews, stale, agentActivity, spaces] = await Promise.all([
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const [reviews, stale, agentActivity, spaces, mentions, directory] = await Promise.all([
     getPendingReviewDocs(workspaceId),
     getStaleDocs(workspaceId),
     getWorkspaceAgentActivity(workspaceId, 15),
     getSpaces(workspaceId),
+    user
+      ? getMentionsOfUser(workspaceId, user.id).catch(() => [])
+      : Promise.resolve([]),
+    getOwnerDirectory(workspaceId),
   ]);
 
   const spaceName = (id: string | null) => spaces.find((s) => s.id === id)?.name ?? "";
   const now = Date.now();
   const rows: (Notification & { ts: number })[] = [];
+
+  const names: Record<string, string> = {};
+  for (const [id, info] of Object.entries(directory)) names[id] = info.name;
+
+  for (const c of mentions) {
+    if (!c.doc) continue;
+    const ts = Date.parse(c.created_at);
+    rows.push({
+      id: `mention-${c.id}`,
+      kind: "mention",
+      tint: "mention",
+      actor: c.author_id ? (names[c.author_id] ?? "A teammate") : "A teammate",
+      body: "mentioned you on",
+      target: c.doc.title,
+      space: spaceName(c.doc.space_id),
+      when: formatRelative(c.created_at),
+      // Straight to the thread rather than the top of the doc — the reason
+      // you were pinged is at the bottom of the page.
+      href: `docs/${c.doc.id}#doc-comments`,
+      unread: now - ts < DAY,
+      today: now - ts < DAY,
+      ts,
+    });
+  }
 
   for (const d of reviews) {
     const ts = Date.parse(d.updated_at);
