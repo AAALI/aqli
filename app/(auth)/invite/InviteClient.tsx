@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AuthStage, AuthField, authInputStyle } from "@/components/auth/AuthShell";
 import { IconMail, IconCheck, IconX, IconArrowUpRight } from "@/components/aqli/icons";
 import type { InvitationDetails, Role } from "@/types/invitation";
-import posthog from "posthog-js";
+import * as analytics from "@/lib/analytics";
 
 const fieldInput: React.CSSProperties = { flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "var(--text-primary)", fontFamily: "inherit" };
 
@@ -76,7 +76,7 @@ export default function InviteClient() {
       const { data, error } = await supabase.rpc("accept_invitation", { p_token: token });
       if (error) throw error;
       const slug = (data as string) || details?.workspace_slug;
-      posthog.capture("invitation_accepted", { workspace_slug: slug });
+      analytics.capture("invitation_accepted", { workspace_slug: slug });
       router.push(slug ? `/w/${slug}` : "/");
       router.refresh();
     } catch (e) {
@@ -107,12 +107,12 @@ export default function InviteClient() {
           setBusy(false);
           return;
         }
-        posthog.identify(data.user!.id, { email });
-        posthog.capture("user_signed_up", { email, via: "invite" });
+        analytics.identify(data.user!.id, { email });
+        analytics.capture("user_signed_up", { email, via: "invite" });
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        if (data.user) posthog.identify(data.user.id, { email });
+        if (data.user) analytics.identify(data.user.id, { email });
       }
       await accept();
     } catch (err) {

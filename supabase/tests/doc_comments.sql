@@ -226,6 +226,38 @@ begin
   assert caught, 'a client forged a review-trail entry';
 end $$;
 
+-- `mentions` is what the notification feed reads, so it cannot be a free text
+-- field for the client. Naming someone outside the workspace — here, carol —
+-- is refused at the database, not only by the route that normally filters it.
+do $$
+declare caught boolean := false;
+begin
+  perform set_config('test.uid', (select v from t where k = 'bob')::text, true);
+  begin
+    insert into doc_comments (doc_id, workspace_id, author_id, body, mentions)
+    values ((select v from t where k = 'doc_a'), (select v from t where k = 'ws_a'),
+            (select v from t where k = 'bob'), 'pinging an outsider',
+            array[(select v from t where k = 'carol')]);
+  exception when insufficient_privilege then caught := true;
+  end;
+  assert caught, 'a comment mentioned a user outside the workspace';
+end $$;
+
+-- A mention of a real member still goes through, including alongside the
+-- author's own id, and an empty array is the ordinary case.
+do $$
+begin
+  perform set_config('test.uid', (select v from t where k = 'bob')::text, true);
+  insert into doc_comments (doc_id, workspace_id, author_id, body, mentions)
+  values ((select v from t where k = 'doc_a'), (select v from t where k = 'ws_a'),
+          (select v from t where k = 'bob'), 'a legitimate mention',
+          array[(select v from t where k = 'alice'), (select v from t where k = 'viewer')]);
+
+  insert into doc_comments (doc_id, workspace_id, author_id, body)
+  values ((select v from t where k = 'doc_a'), (select v from t where k = 'ws_a'),
+          (select v from t where k = 'bob'), 'no mentions at all');
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- 4. Mentions are queryable by the id they contain
 --
@@ -236,11 +268,21 @@ reset role;
 
 do $$
 begin
+  -- The seeded comment naming Bob.
   assert (select count(*) from doc_comments
           where mentions @> array[(select v from t where k = 'bob')]) = 1,
     'the mentions array did not match the mentioned user';
+  -- The legitimate two-member mention above names both of these.
   assert (select count(*) from doc_comments
-          where mentions @> array[(select v from t where k = 'viewer')]) = 0;
+          where mentions @> array[(select v from t where k = 'viewer')]) = 1;
+  assert (select count(*) from doc_comments
+          where mentions @> array[(select v from t where k = 'alice'),
+                                  (select v from t where k = 'viewer')]) = 1,
+    'a two-member mention did not match on both ids';
+  -- Carol is in workspace B; the insert policy refused that row entirely.
+  assert (select count(*) from doc_comments
+          where mentions @> array[(select v from t where k = 'carol')]) = 0,
+    'an out-of-workspace mention was stored';
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -271,12 +313,13 @@ begin
   get diagnostics n = row_count;
   assert n = 0, 'a non-admin deleted someone else''s comment';
 
-  -- Alice, an admin, can.
+  -- Alice, an admin, can — over every remaining comment in her workspace:
+  -- the seeded one, plus the two Bob added in the mentions section.
   perform set_config('test.uid', (select v from t where k = 'alice')::text, true);
   delete from doc_comments where comment_type = 'comment'
     and workspace_id = (select v from t where k = 'ws_a');
   get diagnostics n = row_count;
-  assert n = 1, 'an admin could not moderate a comment in their workspace';
+  assert n = 3, format('an admin could not moderate every comment in their workspace (deleted %s)', n);
 
   -- But the rejection reason survives even the admin.
   delete from doc_comments where comment_type = 'rejection';

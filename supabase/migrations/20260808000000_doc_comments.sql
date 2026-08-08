@@ -102,6 +102,38 @@ $$;
 revoke all on function app.doc_in_workspace(uuid, uuid) from public;
 grant execute on function app.doc_in_workspace(uuid, uuid) to authenticated, service_role;
 
+-- Whether every id in `ids` is a member of `ws`. Empty and null both pass:
+-- a comment naming nobody is the common case.
+--
+-- `lib/mentions.ts` already filters mentions to members before insert, but that
+-- is the application talking to itself. The `mentions` column is what the
+-- notification feed reads, and PostgREST is reachable without going through
+-- the route, so the constraint belongs here too: without it a member could
+-- insert a comment carrying any uuid at all and have the feed deliver "you
+-- were mentioned" to whoever owns it.
+create or replace function app.all_members(ws uuid, ids uuid[])
+returns boolean
+language sql
+security definer
+stable
+set search_path = public, pg_temp
+as $$
+  -- The loop variable is `mention_id`, not `id`: `members` has an `id` column
+  -- of its own, and the inner query's scope would win the name, silently
+  -- comparing `m.user_id = m.id` and failing every non-empty array.
+  select not exists (
+    select 1
+    from unnest(coalesce(ids, '{}'::uuid[])) as mention_id
+    where not exists (
+      select 1 from members m
+      where m.workspace_id = ws and m.user_id = mention_id
+    )
+  );
+$$;
+
+revoke all on function app.all_members(uuid, uuid[]) from public;
+grant execute on function app.all_members(uuid, uuid[]) to authenticated, service_role;
+
 alter table public.doc_comments enable row level security;
 
 grant select, insert, delete on table public.doc_comments to authenticated;
@@ -127,6 +159,7 @@ create policy doc_comments_insert on public.doc_comments
     and comment_type = 'comment'
     and (select app.member_role(workspace_id)) in ('admin', 'editor')
     and (select app.doc_in_workspace(doc_id, workspace_id))
+    and (select app.all_members(workspace_id, mentions))
   );
 
 -- Delete: your own comment, or anything in your workspace if you are an admin.

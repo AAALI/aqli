@@ -101,7 +101,23 @@ export async function createDocComment(
 
   // Resolve mentions against the member list. Anyone named who is not a member
   // stays in the text and gets no notification — see `extractMentionedMembers`.
-  const members = await listWorkspaceMembers(workspaceId).catch(() => []);
+  //
+  // A failure here is not survivable, which is why it is not swallowed: an
+  // empty member list makes every mention look like a non-member, so the
+  // comment would post with its mentions silently dropped and nobody notified.
+  // Refusing the post is recoverable; a comment that pinged no one and says it
+  // did is not.
+  let members;
+  try {
+    members = await listWorkspaceMembers(workspaceId);
+  } catch (err) {
+    console.error(`createDocComment: member lookup failed for ${workspaceId}:`, err);
+    throw new CommentError(
+      503,
+      "Could not check who is in this workspace, so the comment was not posted. Try again.",
+    );
+  }
+
   const mentions = extractMentionedMembers(
     text,
     members.map((m) => m.user_id),

@@ -145,6 +145,57 @@ markdown-first, no migration can reconstruct what was only in the markdown.
 
 ---
 
+## 3. The Cloudflare Workers bundle is over the free-plan limit
+
+**Blocked on:** a plan decision, not a code change.
+
+`Workers Builds: aqli` has been failing since #45. It is not that PR's fault and
+not this one's — the worker is simply too big for the plan.
+
+```bash
+npx opennextjs-cloudflare build
+npx wrangler deploy --dry-run     # prints the number Cloudflare enforces
+```
+
+| | gzipped |
+|---|---|
+| Free plan limit | **3072 KiB** |
+| Before this branch | 3417 KiB — 345 over |
+| After the posthog fix below | **3345 KiB** — 273 over |
+
+Measured by stubbing each dependency out and rebuilding:
+
+| Remove | Saves | Leaves |
+|---|---|---|
+| `@composio/core` | **294 KiB** | 3051 KiB |
+| `posthog-js` from the server graph | **72 KiB** | *(done)* |
+| `openai` SDK → REST calls | ~40 KiB | |
+
+**The posthog one is fixed** and was a plain bug: importing `posthog-js` in a
+Client Component puts it in the worker too, because Client Components are
+server-rendered. Calls now go through `lib/analytics.ts`, which imports it in
+the browser at call time. `instrumentation-client.ts` keeps its eager `init` —
+that entrypoint never enters the worker graph.
+
+**Everything after that is a bad trade.** Note the arithmetic: cutting
+`@composio/core`, the single biggest dependency in the app, still lands at
+3051 KiB — **21 KiB under the limit**. Next's own runtime is ~2 MiB of the
+3 MiB budget, which leaves about 1 MiB for an entire product. The next feature
+of any size breaks the deploy again.
+
+**Recommendation: move to the Workers Paid plan ($5/month), which raises the
+limit to 10 MiB.** That is the fix. Rewriting the Composio SDK as REST calls
+buys 294 KiB and costs a re-implementation of
+`triggers.verifyWebhook` — signature verification, the one piece of that
+integration where a subtle mistake is a security bug rather than a broken
+feature. Do not do it to save $5.
+
+If the free plan is a hard constraint, the order is: drop `@composio/core`
+(and the GitHub PR integration with it), then the `openai` SDK. Both are
+removals of working features, and both should be decided deliberately.
+
+---
+
 ## Running the tests
 
 ```bash

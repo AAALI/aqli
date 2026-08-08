@@ -448,6 +448,7 @@ const VERB: Record<string, string> = {
   status_changed: "updated",
   review_requested: "requested review for",
   changes_requested: "requested changes on",
+  commented: "commented on",
   rejected: "rejected",
 };
 

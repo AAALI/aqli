@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { avatarColor } from "@/lib/utils";
 import { formatMention } from "@/lib/mentions";
 
@@ -117,6 +117,11 @@ export default function MentionTextarea({
   minHeight?: number;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  // Stable across renders, so `aria-activedescendant` can point at an option
+  // by id — the only way a screen reader learns which row is highlighted when
+  // focus never leaves the textarea.
+  const menuId = useId();
+  const optionId = (i: number) => `${menuId}-option-${i}`;
   const [query, setQueryState] = useState<{ from: number; query: string } | null>(null);
   const [highlighted, setHighlighted] = useState(0);
 
@@ -209,6 +214,11 @@ export default function MentionTextarea({
         value={value}
         disabled={disabled}
         placeholder={placeholder}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-activedescendant={open ? optionId(selected) : undefined}
+        aria-autocomplete="list"
         onChange={(e) => {
           onChange(e.target.value);
           sync(e.target);
@@ -247,6 +257,7 @@ export default function MentionTextarea({
 
       {open && (
         <div
+          id={menuId}
           role="listbox"
           aria-label="Mention a teammate"
           style={{
@@ -266,6 +277,7 @@ export default function MentionTextarea({
           {matches.map((c, i) => (
             <button
               key={c.user_id}
+              id={optionId(i)}
               role="option"
               aria-selected={i === selected}
               type="button"

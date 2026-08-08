@@ -70,9 +70,10 @@ pnpm test:sql   # boots a throwaway Postgres, replays every migration, runs supa
   nothing; it is retained so the step-3 backfill stays auditable.
 - **Autosave:** 2s debounce in `DocEditorClient`; title saves on blur. A save into a
   `review_all` space returns 202 and is *not* applied — the editor says "Sent for review".
-- **Comments** (`doc_comments`) hold two things: what people type, and the review trail the
-  review path writes (`rejection`, `change_request`). One thread, but the trail is
-  undeletable by anyone. Unlike the rest of `lib/supabase/*`, `comments.ts` both reads *and*
+- **Comments** (`doc_comments`) hold two things: what people type (`comment`), and the review
+  trail (`review_request`, `approval`, `rejection`, `change_request`) — everything the review
+  path writes on the service client. One thread, but the trail is undeletable by anyone, and
+  the insert policy pins clients to `comment` so the trail cannot be forged. Unlike the rest of `lib/supabase/*`, `comments.ts` both reads *and*
   writes on the RLS client — the policies added in `20260808000000` already decide who may
   post, so the service client would only step around them. Mentions live in the comment body
   as `@[Name](user:<uuid>)` (`lib/mentions.ts`) and are **never** doc-body nodes: the

@@ -10,7 +10,7 @@ import { formatRelative } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
 import type { ProposalWithContext } from "@/types/proposal";
 import ProposalCard from "./ProposalCard";
-import posthog from "posthog-js";
+import * as analytics from "@/lib/analytics";
 
 type Props = {
   proposals: ProposalWithContext[];
@@ -74,7 +74,7 @@ export default function ReviewQueueClient({
         }));
         return;
       }
-      posthog.capture("proposal_reviewed", {
+      analytics.capture("proposal_reviewed", {
         proposal_id: id,
         action,
         workspace_id: workspaceId,
@@ -93,7 +93,7 @@ export default function ReviewQueueClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, workspace_id: workspaceId, ...extra }),
       });
-      posthog.capture("doc_reviewed", { doc_id: docId, action, workspace_id: workspaceId });
+      analytics.capture("doc_reviewed", { doc_id: docId, action, workspace_id: workspaceId });
       router.refresh();
     } finally {
       setLoading(null);

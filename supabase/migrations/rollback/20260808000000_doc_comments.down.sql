@@ -14,9 +14,9 @@
 
 begin;
 
-drop policy if exists "members read doc comments" on public.doc_comments;
-drop policy if exists "editors write doc comments" on public.doc_comments;
-drop policy if exists "authors delete own doc comments" on public.doc_comments;
+drop policy if exists doc_comments_read on public.doc_comments;
+drop policy if exists doc_comments_insert on public.doc_comments;
+drop policy if exists doc_comments_delete on public.doc_comments;
 
 alter table public.doc_comments disable row level security;
 
@@ -34,6 +34,8 @@ alter table public.doc_comments alter column comment_type drop default;
 
 alter table public.doc_comments drop column if exists mentions;
 
+-- After the policies above, which are the only callers.
 drop function if exists app.doc_in_workspace(uuid, uuid);
+drop function if exists app.all_members(uuid, uuid[]);
 
 commit;

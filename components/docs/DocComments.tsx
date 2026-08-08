@@ -79,7 +79,9 @@ export default function DocComments({
   docId,
   initial,
   names: initialNames,
+  threadFailed,
   members,
+  membersFailed,
   currentUserId,
   canComment,
   canModerate,
@@ -87,7 +89,14 @@ export default function DocComments({
   docId: string;
   initial: DocCommentView[];
   names: Record<string, string>;
+  /**
+   * The thread could not be read. Distinct from an empty thread, which is a
+   * fact about the doc rather than about the request.
+   */
+  threadFailed: boolean;
   members: { user_id: string; name: string; email: string }[];
+  /** The member list could not be read, so the `@` menu has nothing to offer. */
+  membersFailed: boolean;
   currentUserId: string | null;
   /** Viewers read the thread but do not add to it — the insert policy agrees. */
   canComment: boolean;
@@ -101,6 +110,8 @@ export default function DocComments({
   const [chosen, setChosen] = useState<Map<string, string>>(new Map());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(threadFailed);
+  const [retrying, setRetrying] = useState(false);
 
   const candidates: MentionCandidate[] = useMemo(
     () => withUniqueLabels(members),
@@ -110,6 +121,35 @@ export default function DocComments({
   const remember = useCallback((c: MentionCandidate) => {
     setChosen((prev) => new Map(prev).set(c.label, c.user_id));
   }, []);
+
+  /**
+   * Re-read the thread after a failed load.
+   *
+   * `router.refresh()` alongside it, because the member list this component
+   * cannot fetch on its own is a server prop — refreshing re-runs the page's
+   * loaders and repopulates the `@` menu in the same click.
+   */
+  async function retry() {
+    if (retrying) return;
+    setRetrying(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/docs/${docId}/comments`);
+      if (!res.ok) throw new Error(String(res.status));
+      const payload = (await res.json()) as {
+        comments: DocCommentView[];
+        names: Record<string, string>;
+      };
+      setComments(payload.comments);
+      setNames(payload.names);
+      setLoadFailed(false);
+      router.refresh();
+    } catch {
+      setError("Still could not load the comments.");
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   async function post() {
     const text = draft.trim();
@@ -151,12 +191,23 @@ export default function DocComments({
 
   async function remove(id: string) {
     const previous = comments;
+    setError(null);
     setComments((prev) => prev.filter((c) => c.id !== id));
-    const res = await fetch(`/api/docs/${docId}/comments/${id}`, { method: "DELETE" });
-    if (!res.ok) {
+    try {
+      const res = await fetch(`/api/docs/${docId}/comments/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setComments(previous);
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(payload.error ?? "Could not delete that comment.");
+        return;
+      }
+      // The activity trail is server-rendered and still lists the comment.
+      router.refresh();
+    } catch {
+      // A network failure leaves the row deleted on screen and present in the
+      // database, which is the one outcome worth undoing.
       setComments(previous);
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(payload.error ?? "Could not delete that comment.");
+      setError("Could not reach the server.");
     }
   }
 
@@ -181,11 +232,39 @@ export default function DocComments({
           Comments
         </h2>
         <span style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
-          {count}
+          {loadFailed ? "—" : count}
         </span>
       </div>
 
-      {comments.length === 0 ? (
+      {loadFailed ? (
+        <div
+          role="alert"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 20,
+            padding: "12px 14px",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            background: "var(--bg-card)",
+          }}
+        >
+          <span style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+            The comments could not be loaded. This doc may well have some — the thread just
+            is not readable right now.
+          </span>
+          <button
+            className="btn btn-secondary"
+            onClick={retry}
+            disabled={retrying}
+            style={{ marginLeft: "auto" }}
+          >
+            {retrying ? "Retrying…" : "Try again"}
+          </button>
+        </div>
+      ) : comments.length === 0 ? (
         <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--text-muted)" }}>
           No comments yet. {canComment ? "Ask a question, or @mention whoever owns this." : ""}
         </p>
@@ -279,14 +358,39 @@ export default function DocComments({
             onSubmit={post}
             candidates={candidates}
             disabled={busy}
-            placeholder="Add a comment. Type @ to mention a teammate."
+            placeholder={
+              membersFailed
+                ? "Add a comment."
+                : "Add a comment. Type @ to mention a teammate."
+            }
           />
           {error && (
             <span style={{ fontSize: 12, color: "var(--stale-text)" }}>{error}</span>
           )}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
-              Mentioned teammates see it in their notifications.
+              {membersFailed ? (
+                <>
+                  The member list could not be loaded, so @mentions are unavailable.{" "}
+                  <button
+                    onClick={retry}
+                    disabled={retrying}
+                    style={{
+                      border: 0,
+                      background: "transparent",
+                      padding: 0,
+                      cursor: "pointer",
+                      color: "var(--accent)",
+                      font: "inherit",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    {retrying ? "Retrying…" : "Retry"}
+                  </button>
+                </>
+              ) : (
+                "Mentioned teammates see it in their notifications."
+              )}
             </span>
             <button
               className="btn btn-primary"
