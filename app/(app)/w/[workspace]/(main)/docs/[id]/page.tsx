@@ -13,9 +13,8 @@ import WhatChangedBanner from "@/components/docs/WhatChangedBanner";
 import ReadingRail from "@/components/docs/ReadingRail";
 import PrChangedBanner from "@/components/docs/PrChangedBanner";
 import { getDocActivity } from "@/lib/supabase/activity";
-import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
 import { AutoApprovedChip, TypeBadge } from "@/components/aqli/badges";
-import DocBody from "@/components/docs/DocBody";
+import DocBodyClient from "@/components/docs/DocBodyClient";
 import { IconEdit, IconHistory } from "@/components/aqli/icons";
 import { typeLabel } from "@/lib/doc-display";
 import { isStale } from "@/lib/utils";
@@ -60,11 +59,6 @@ export default async function DocViewPage({
     ? (await getDocActivity(doc.workspace_id, doc.id, 25).catch(() => [])).find(
         (a) => a.metadata?.source === "github_pr",
       ) ?? null
-    : null;
-  // Markdown is canonical since step 6. The viewer parses it rather than
-  // rendering the cached tree, so what is shown is what is stored.
-  const docBody = doc.body_md
-    ? (markdownToTiptap(doc.body_md) as Record<string, unknown>)
     : null;
   const historyHref = `${base}/docs/${doc.id}/history`;
   const spaceCrumb = doc.space
@@ -200,7 +194,7 @@ export default async function DocViewPage({
             />
 
             <div id="doc-body" style={{ marginTop: 32 }}>
-              <DocBody content={docBody} title={doc.title} />
+              <DocBodyClient bodyMd={doc.body_md} title={doc.title} />
             </div>
           </article>
         </div>

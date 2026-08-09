@@ -11,6 +11,7 @@ import {
 import type { Doc, DocFrontmatter } from "@/types/doc";
 import type { IntegrationConnection } from "@/types/integration";
 import { getPullRequest, listPullRequestFiles } from "./github";
+import { isAutoApproveEnabled } from "./policy";
 import { generateImplementedText } from "./ai";
 import {
   buildFixNoteMarkdown,
@@ -127,9 +128,10 @@ export async function processGithubWebhookPayload(
  * GitHub). Admins can turn this off on the GitHub settings page, routing
  * PR-sourced docs to the review queue instead.
  */
-export function isAutoApproveEnabled(connection: IntegrationConnection): boolean {
-  return connection.metadata?.auto_approve !== false;
-}
+// `isAutoApproveEnabled` moved to ./policy.ts. It is re-exported so the pipeline
+// keeps one import site, but callers that only want the policy must import it
+// from there — importing it from here pulls in this whole module.
+export { isAutoApproveEnabled } from "./policy";
 
 export async function processPullRequestData(
   connection: IntegrationConnection,

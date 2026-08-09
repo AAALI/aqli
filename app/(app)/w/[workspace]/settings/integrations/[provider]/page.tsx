@@ -4,7 +4,7 @@ import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getSpaces } from "@/lib/supabase/spaces";
 import { getIntegrationConnection } from "@/lib/supabase/integration-connections";
 import { getGitHubPolicyStats, type GitHubPolicyStats } from "@/lib/supabase/github-stats";
-import { isAutoApproveEnabled } from "@/lib/integrations/source/feature-doc";
+import { isAutoApproveEnabled } from "@/lib/integrations/source/policy";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { SettingsCard, SettingsHeader, StatCell } from "@/components/settings/primitives";
 import { providerLogo } from "@/components/settings/BrandLogos";
