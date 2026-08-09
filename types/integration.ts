@@ -14,9 +14,16 @@ export type IntegrationConnection = {
   user_id: string;
   provider: IntegrationProvider;
   status: IntegrationStatus;
+  /**
+   * Unused since the direct-GitHub switch, but still written so the
+   * commented-out Composio path can be restored without a backfill.
+   */
   composio_user_id: string;
   connected_account_id: string | null;
+  /** Composio trigger ids. Superseded by `github_hook_ids`. */
   trigger_ids: string[];
+  /** GitHub repo webhook ids, one per watched repo. */
+  github_hook_ids: number[];
   default_space_id: string | null;
   metadata: Record<string, unknown>;
   last_event_at: string | null;

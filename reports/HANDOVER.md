@@ -123,6 +123,53 @@ markdown-first, no migration can reconstruct what was only in the markdown.
 
 ---
 
+## 3. GitHub is connected with a pasted token now
+
+**Needs a human because:** existing GitHub connections stop working on deploy,
+and no migration can fix that — the replacement credential is a token only the
+workspace admin can create.
+
+`@composio/core` is gone. It cost 294 KiB gzipped inside Cloudflare's 3 MiB
+Workers limit, for OAuth, webhook delivery, and four REST calls, all of which
+`lib/integrations/source/github.ts` now does with `fetch`.
+
+**What an admin has to do, per workspace with GitHub connected:**
+
+1. Create a token at `github.com/settings/tokens/new` with **`repo`** and
+   **`admin:repo_hook`**.
+2. Settings → Integrations → GitHub, paste it, re-select the repositories.
+
+Until they do, PR merges stop creating docs. Nothing breaks loudly — the old
+Composio triggers just stop having anywhere to deliver to.
+
+**Old Composio triggers are not cleaned up.** They still exist in the Composio
+account and will keep firing at `/api/integrations/composio/webhook`, which is
+now a commented-out file and therefore a 404. Delete them in Composio, and
+cancel the account if nothing else uses it.
+
+**`integration_secrets` is service-role only.** It holds repo-scoped tokens, so
+it has RLS on and deliberately **no policies** — that combination is what makes
+it unreadable from any user session. `supabase/tests/integration_secrets.sql`
+asserts it, including that no policy exists, because adding one "so the
+settings page can check for a token" would hand every viewer a token.
+
+**Linear enrichment is gone.** It ran entirely through Composio's toolkit and
+had nothing to swap in. A PR mentioning `ABC-123` is still matched to the right
+doc; the issue's title and description no longer reach the generated summary.
+Restoring it needs a Linear API token of its own.
+
+**The Composio code is commented, not deleted** — `lib/integrations/source/
+composio.ts`, the four route files under `app/api/integrations/composio/`, and
+the two functions it needed in `feature-doc.ts` and `integration-connections.ts`.
+`composio_user_id` is still written on every connection so putting it back needs
+no backfill. Restoring also needs `pnpm add @composio/core`.
+
+Rollback: `rollback/20260809000000_github_direct_tokens.down.sql`, replayed
+against a scratch database. It drops every stored token, which is not
+recoverable — they were pasted in by hand and exist nowhere else.
+
+---
+
 ## Running the tests
 
 ```bash

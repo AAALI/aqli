@@ -30,7 +30,7 @@ export default function GitHubRepoPicker({
 
   useEffect(() => {
     let active = true;
-    fetch(`/api/integrations/composio/repos?workspace_id=${workspaceId}`)
+    fetch(`/api/integrations/github/repos?workspace_id=${workspaceId}`)
       .then(async (r) => {
         const data = await r.json();
         if (!active) return;
@@ -67,7 +67,7 @@ export default function GitHubRepoPicker({
     setSaving(true);
     setSaved(null);
     try {
-      const res = await fetch("/api/integrations/composio/repos", {
+      const res = await fetch("/api/integrations/github/repos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
