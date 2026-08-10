@@ -3,10 +3,15 @@ import { embedDoc } from "@/lib/ai/embedder";
 import { logActivity } from "@/lib/supabase/activity";
 import { proposeAgentDoc, setAgentDocStatus } from "@/lib/supabase/agent-docs";
 import { claimPullRequestMerge } from "@/lib/supabase/integration-webhook-events";
-import { getServiceIntegrationByComposioUser, updateIntegrationConnection } from "@/lib/supabase/integration-connections";
+import {
+  getIntegrationSecret,
+  getServiceIntegrationByHookId,
+  updateIntegrationConnection,
+} from "@/lib/supabase/integration-connections";
 import type { Doc, DocFrontmatter } from "@/types/doc";
 import type { IntegrationConnection } from "@/types/integration";
-import { executeComposioTool, GITHUB_PR_TRIGGER } from "./composio";
+import { getPullRequest, listPullRequestFiles } from "./github";
+import { isAutoApproveEnabled } from "./policy";
 import { generateImplementedText } from "./ai";
 import {
   buildFixNoteMarkdown,
@@ -22,94 +27,125 @@ import {
   type PullRequestSummary,
 } from "./pr";
 
-// PR lifecycle actions we treat as potential merges. Composio's slim payload
-// fires for many actions; we ignore everything except the close path (which
-// covers actual merges) so we don't act on `opened` / `synchronize` etc.
+// PR lifecycle actions we treat as potential merges. The hook subscribes to
+// `pull_request`, which fires for many actions; we ignore everything except the
+// close path (which covers actual merges) so we don't act on `opened` /
+// `synchronize` etc.
 const MERGE_CANDIDATE_ACTIONS = new Set(["closed", "merged"]);
 
 type WebhookPayload = Record<string, unknown>;
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
-}
-
-function firstString(...values: unknown[]): string | undefined {
-  for (const v of values) if (typeof v === "string" && v.length > 0) return v;
-  return undefined;
-}
-
 /**
- * Composio's V3 webhook envelope isn't perfectly documented and field names
- * vary (snake_case vs camelCase, nesting under `data`). Pull the trigger slug,
- * the Composio user id, and the GitHub event payload from any of the known
- * shapes so a real event isn't silently dropped over a key-name mismatch.
+ * Resolve a verified GitHub delivery to the connection that registered its hook.
+ *
+ * Compare this with `extractTrigger` below, which it replaces. That function
+ * existed because Composio's envelope varied — snake_case or camelCase, nested
+ * under `data`, or `data.payload`, or the root — so it had to search every
+ * known shape to avoid dropping a real event over a key-name mismatch. GitHub
+ * documents one shape, and the hook id arrives in a header, so this is a read.
+ *
+ * The caller has already checked the signature. `hookId` comes from the
+ * `X-GitHub-Hook-ID` header, which is how the delivery is traced back to a
+ * workspace in the first place.
  */
-function extractTrigger(payload: WebhookPayload) {
-  const metadata = asRecord(payload.metadata) ?? {};
-  const data = asRecord(payload.data) ?? {};
-  const dataMeta = asRecord(data.metadata) ?? {};
-
-  const triggerSlug = firstString(
-    metadata.trigger_slug, metadata.triggerSlug, metadata.triggerName,
-    dataMeta.trigger_slug, dataMeta.triggerSlug,
-    payload.triggerSlug, payload.trigger_slug,
-  );
-  const userId = firstString(
-    metadata.user_id, metadata.userId, metadata.connectedAccountUserId,
-    dataMeta.user_id, dataMeta.userId,
-    payload.user_id, payload.userId,
-  );
-  // The GitHub event itself can be at payload.data, payload.data.payload, etc.
-  const eventData =
-    asRecord(data.payload) ?? (Object.keys(data).length ? data : asRecord(payload.payload)) ?? payload;
-
-  return { triggerSlug, userId, eventData };
-}
-
-export async function processComposioWebhookPayload(
+export async function processGithubWebhookPayload(
+  hookId: number,
   payload: WebhookPayload,
-  options: { webhookEventId?: string | null } = {},
+  options: {
+    webhookEventId?: string | null;
+    /** Already resolved by the caller; avoids a second lookup for the same row. */
+    connection?: IntegrationConnection;
+  } = {},
 ) {
-  const type = firstString(payload.type, payload.event, payload.eventType);
-  const { triggerSlug, userId, eventData } = extractTrigger(payload);
+  const connection =
+    options.connection ?? (await getServiceIntegrationByHookId(hookId, "github"));
+  if (!connection) return { ignored: true, reason: "connection_not_found", hookId };
 
-  if (type && type !== "composio.trigger.message") {
-    return { ignored: true, reason: "unsupported_event", type };
-  }
-  if (triggerSlug && triggerSlug !== GITHUB_PR_TRIGGER) {
-    return { ignored: true, reason: "unsupported_trigger", triggerSlug };
-  }
-  if (!userId) {
-    console.warn("[composio webhook] no user id found. payload keys:", Object.keys(payload));
-    return { ignored: true, reason: "missing_user" };
-  }
-
-  const connection = await getServiceIntegrationByComposioUser(userId, "github");
-  if (!connection) return { ignored: true, reason: "connection_not_found", userId };
-
-  return processPullRequestData(connection, eventData, {
+  return processPullRequestData(connection, payload, {
     enrich: true,
     webhookEventId: options.webhookEventId,
   });
 }
+
+// --- Composio, kept for reference --------------------------------------------
+//
+// The old entry point and the envelope normalisation it needed. Restoring it
+// also needs `getServiceIntegrationByComposioUser` in
+// lib/supabase/integration-connections.ts, commented out alongside this.
+//
+// /**
+//  * Composio's V3 webhook envelope isn't perfectly documented and field names
+//  * vary (snake_case vs camelCase, nesting under `data`). Pull the trigger slug,
+//  * the Composio user id, and the GitHub event payload from any of the known
+//  * shapes so a real event isn't silently dropped over a key-name mismatch.
+//  */
+// function extractTrigger(payload: WebhookPayload) {
+//   const metadata = asRecord(payload.metadata) ?? {};
+//   const data = asRecord(payload.data) ?? {};
+//   const dataMeta = asRecord(data.metadata) ?? {};
+//
+//   const triggerSlug = firstString(
+//     metadata.trigger_slug, metadata.triggerSlug, metadata.triggerName,
+//     dataMeta.trigger_slug, dataMeta.triggerSlug,
+//     payload.triggerSlug, payload.trigger_slug,
+//   );
+//   const userId = firstString(
+//     metadata.user_id, metadata.userId, metadata.connectedAccountUserId,
+//     dataMeta.user_id, dataMeta.userId,
+//     payload.user_id, payload.userId,
+//   );
+//   // The GitHub event itself can be at payload.data, payload.data.payload, etc.
+//   const eventData =
+//     asRecord(data.payload) ?? (Object.keys(data).length ? data : asRecord(payload.payload)) ?? payload;
+//
+//   return { triggerSlug, userId, eventData };
+// }
+//
+// export async function processComposioWebhookPayload(
+//   payload: WebhookPayload,
+//   options: { webhookEventId?: string | null } = {},
+// ) {
+//   const type = firstString(payload.type, payload.event, payload.eventType);
+//   const { triggerSlug, userId, eventData } = extractTrigger(payload);
+//
+//   if (type && type !== "composio.trigger.message") {
+//     return { ignored: true, reason: "unsupported_event", type };
+//   }
+//   if (triggerSlug && triggerSlug !== GITHUB_PR_TRIGGER) {
+//     return { ignored: true, reason: "unsupported_trigger", triggerSlug };
+//   }
+//   if (!userId) {
+//     console.warn("[composio webhook] no user id found. payload keys:", Object.keys(payload));
+//     return { ignored: true, reason: "missing_user" };
+//   }
+//
+//   const connection = await getServiceIntegrationByComposioUser(userId, "github");
+//   if (!connection) return { ignored: true, reason: "connection_not_found", userId };
+//
+//   return processPullRequestData(connection, eventData, {
+//     enrich: true,
+//     webhookEventId: options.webhookEventId,
+//   });
+// }
 
 /**
  * Workspace policy: merged PRs auto-approve by default (they were reviewed in
  * GitHub). Admins can turn this off on the GitHub settings page, routing
  * PR-sourced docs to the review queue instead.
  */
-export function isAutoApproveEnabled(connection: IntegrationConnection): boolean {
-  return connection.metadata?.auto_approve !== false;
-}
+// `isAutoApproveEnabled` moved to ./policy.ts. It is re-exported so the pipeline
+// keeps one import site, but callers that only want the policy must import it
+// from there — importing it from here pulls in this whole module.
+export { isAutoApproveEnabled } from "./policy";
 
 export async function processPullRequestData(
   connection: IntegrationConnection,
   eventData: unknown,
   options: { enrich: boolean; webhookEventId?: string | null },
 ) {
-  // Composio's slim webhook envelope omits `merged` / `merged_at`, so we
-  // first parse a lenient candidate (action + identifiers) and decide what
-  // to do based on `action` and any explicit merge signal in the payload.
+  // Parse a lenient candidate (action + identifiers) first and decide what to
+  // do from `action` plus any explicit merge signal. GitHub's own payload does
+  // carry `merged`, but /simulate supplies hand-written ones that may not.
   const candidate = parsePullRequestCandidate(eventData);
   if (!candidate) return { ignored: true, reason: "unparseable_pr" };
 
@@ -118,14 +154,21 @@ export async function processPullRequestData(
   }
 
   // Resolve a PR summary with a confirmed `merged: true`, enriching from the
-  // GitHub REST API (via Composio) when the webhook payload alone can't tell
-  // us. In non-enrich mode (used by /simulate where the caller supplies a
-  // full GitHub-shaped payload), we trust the candidate's merge signal.
+  // GitHub REST API when the webhook payload alone can't tell us. In non-enrich
+  // mode (used by /simulate where the caller supplies a full GitHub-shaped
+  // payload), we trust the candidate's merge signal.
   let pr: PullRequestSummary;
   let files: PullRequestFileSummary[];
   if (options.enrich) {
     const resolved = await resolveMergedPullRequest(connection, candidate);
-    if (!resolved) return { ignored: true, reason: "closed_without_merge" };
+    if (resolved.status === "not_merged") {
+      return { ignored: true, reason: "closed_without_merge" };
+    }
+    if (resolved.status === "unavailable") {
+      // Thrown, not ignored: the caller records the event as errored, so
+      // GitHub's redelivery is not deduped away as already handled.
+      throw new Error(`PR enrichment unavailable — ${resolved.reason}`);
+    }
     pr = resolved.pr;
     files = resolved.files;
   } else {
@@ -210,68 +253,121 @@ export async function processPullRequestData(
 }
 
 /**
- * Resolve a candidate PR (typically from a slim Composio webhook) into a full
- * PR summary with confirmed `merged: true` plus the changed files. Returns
- * null when the PR is closed without merging, or when GitHub couldn't be
- * reached to verify the merge state (we'd rather drop a webhook than create
- * a spurious Fix Note for a closed-but-not-merged PR).
+ * Resolve a candidate PR into a summary with confirmed `merged: true`, plus the
+ * changed files.
+ *
+ * Three outcomes, and keeping them apart is the point:
+ *
+ *   - a summary — the PR is merged, act on it.
+ *   - `"not_merged"` — GitHub said so. Final; the delivery is done with.
+ *   - `"unavailable"` — we could not ask. **Not** the same thing. Returning
+ *     "not merged" for a failed request marks the webhook event `ignored`, and
+ *     since the event is claimed by delivery id, GitHub's retry dedups against
+ *     it and the merge is lost for good. Surfacing it as a failure lets the
+ *     caller throw, which leaves the event errored and the retry able to work.
  */
+type ResolvedPr =
+  | { status: "merged"; pr: PullRequestSummary; files: PullRequestFileSummary[] }
+  | { status: "not_merged" }
+  | { status: "unavailable"; reason: string };
+
 async function resolveMergedPullRequest(
   connection: IntegrationConnection,
   candidate: PullRequestCandidate,
-): Promise<{ pr: PullRequestSummary; files: PullRequestFileSummary[] } | null> {
+): Promise<ResolvedPr> {
+  // The token lives in `integration_secrets`, service-role only.
+  let secret;
+  try {
+    secret = await getIntegrationSecret(connection.workspace_id, connection.id);
+  } catch (err) {
+    return { status: "unavailable", reason: `secret lookup failed: ${String(err)}` };
+  }
+  if (!secret) {
+    // Nothing to enrich with. A candidate that already claims a merge is still
+    // usable; one that doesn't cannot be confirmed either way.
+    if (!candidate.merged) return { status: "not_merged" };
+    return { status: "merged", pr: { ...stripAction(candidate), merged: true }, files: [] };
+  }
+
   const [prDetails, filesResult] = await Promise.all([
-    executeComposioTool({
-      composioUserId: connection.composio_user_id,
-      toolkit: "github",
-      tool: "GITHUB_GET_A_PULL_REQUEST",
-      arguments: { owner: candidate.owner, repo: candidate.repo, pull_number: candidate.number },
-    }).catch((err) => {
-      console.warn("[composio] GITHUB_GET_A_PULL_REQUEST failed", err);
-      return null;
-    }),
-    executeComposioTool({
-      composioUserId: connection.composio_user_id,
-      toolkit: "github",
-      tool: "GITHUB_LIST_PULL_REQUESTS_FILES",
-      arguments: { owner: candidate.owner, repo: candidate.repo, pull_number: candidate.number },
-    }).catch(() => null),
+    getPullRequest(secret.access_token, candidate.owner, candidate.repo, candidate.number)
+      .then((pr) => ({ ok: true as const, pr }))
+      .catch((err) => {
+        console.warn("[github] GET pull request failed", candidate.owner, candidate.repo, candidate.number, err);
+        return { ok: false as const, err };
+      }),
+    listPullRequestFiles(secret.access_token, candidate.owner, candidate.repo, candidate.number)
+      .catch((err) => {
+        // Logged rather than swallowed, matching the branch above. A missing
+        // file list degrades the generated summary; it does not invalidate the
+        // merge, so it is not promoted to a failure.
+        console.warn("[github] list PR files failed", candidate.owner, candidate.repo, candidate.number, err);
+        return null;
+      }),
   ]);
 
-  // Prefer the GitHub-confirmed PR object; fall back to the candidate only
-  // if the candidate already carries an explicit merge signal.
-  const enriched = normalizePullRequestEvent(readData(prDetails));
+  if (!prDetails.ok) {
+    // Could not reach GitHub. If the delivery itself claimed a merge, trust it
+    // rather than dropping a real event; otherwise say so and let the caller
+    // make it retryable.
+    if (candidate.merged) {
+      return {
+        status: "merged",
+        pr: { ...stripAction(candidate), merged: true },
+        files: normalizeFiles(filesResult),
+      };
+    }
+    return { status: "unavailable", reason: "could not read the pull request from GitHub" };
+  }
+
+  const enriched = normalizePullRequestEvent(prDetails.pr);
   if (!enriched) {
-    if (!candidate.merged) return null;
+    // GitHub answered and the PR is not merged — closed, or still open.
+    if (!candidate.merged) return { status: "not_merged" };
     return {
+      status: "merged",
       pr: { ...stripAction(candidate), merged: true },
-      files: normalizeFiles(readData(filesResult)),
+      files: normalizeFiles(filesResult),
     };
   }
 
-  return {
-    pr: enriched,
-    files: normalizeFiles(readData(filesResult)),
-  };
+  return { status: "merged", pr: enriched, files: normalizeFiles(filesResult) };
 }
 
-async function fetchLinearIssue(connection: IntegrationConnection, issueKey: string) {
-  const result = await executeComposioTool({
-    composioUserId: connection.composio_user_id,
-    toolkit: "linear",
-    tool: "LINEAR_GET_LINEAR_ISSUE",
-    arguments: { issue_id: issueKey, id: issueKey },
-  }).catch(() => null);
-  const data = readData(result);
-  if (!data || typeof data !== "object") return { key: issueKey };
-  const rec = data as Record<string, unknown>;
-  return {
-    key: issueKey,
-    title: readString(rec.title),
-    description: readString(rec.description),
-    url: readString(rec.url),
-  };
+/**
+ * Linear enrichment, which the direct switch gives up.
+ *
+ * This went through Composio's Linear toolkit — the one capability here with no
+ * GitHub equivalent to swap in. A PR that mentions ABC-123 still gets its key
+ * recorded and matched against existing docs; what it no longer gets is the
+ * issue's title and description folded into the generated text.
+ *
+ * Restoring it means either a Linear API token of its own (`lib/integrations/
+ * linear.ts` already parses the URLs) or putting Composio back.
+ */
+async function fetchLinearIssue(_connection: IntegrationConnection, issueKey: string) {
+  return { key: issueKey };
 }
+
+// The Composio version, for reference:
+//
+// async function fetchLinearIssue(connection: IntegrationConnection, issueKey: string) {
+//   const result = await executeComposioTool({
+//     composioUserId: connection.composio_user_id,
+//     toolkit: "linear",
+//     tool: "LINEAR_GET_LINEAR_ISSUE",
+//     arguments: { issue_id: issueKey, id: issueKey },
+//   }).catch(() => null);
+//   const data = readData(result);
+//   if (!data || typeof data !== "object") return { key: issueKey };
+//   const rec = data as Record<string, unknown>;
+//   return {
+//     key: issueKey,
+//     title: readString(rec.title),
+//     description: readString(rec.description),
+//     url: readString(rec.url),
+//   };
+// }
 
 async function findMatchingDoc(
   workspaceId: string,
@@ -507,12 +603,6 @@ function normalizeFiles(value: unknown): PullRequestFileSummary[] {
       deletions: readNumber(rec.deletions),
     }];
   });
-}
-
-function readData(value: unknown) {
-  if (!value || typeof value !== "object") return value;
-  const rec = value as Record<string, unknown>;
-  return rec.data ?? rec.result ?? rec.response_data ?? value;
 }
 
 function readString(value: unknown) {

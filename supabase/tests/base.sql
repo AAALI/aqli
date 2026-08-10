@@ -4,6 +4,7 @@
 
 create schema if not exists extensions;
 create schema if not exists auth;
+create schema if not exists storage;
 
 -- --- auth stub -------------------------------------------------------------
 create table auth.users (
@@ -16,6 +17,32 @@ create or replace function auth.uid() returns uuid
 language sql stable as $$
   select nullif(current_setting('test.uid', true), '')::uuid;
 $$;
+
+-- --- storage stub ----------------------------------------------------------
+--
+-- Supabase provides these; a scratch cluster does not, and the doc-images
+-- migration (20260806010000) fails to replay without them. Only the columns
+-- that migration touches are reproduced — enough for the bucket row and the
+-- four policies on `storage.objects` to be created and asserted against.
+create table storage.buckets (
+  id text primary key,
+  name text not null,
+  public boolean not null default false,
+  file_size_limit bigint,
+  allowed_mime_types text[],
+  created_at timestamptz default now()
+);
+
+create table storage.objects (
+  id uuid primary key default gen_random_uuid(),
+  bucket_id text references storage.buckets(id),
+  name text,
+  owner uuid,
+  metadata jsonb,
+  created_at timestamptz default now()
+);
+
+alter table storage.objects enable row level security;
 
 -- --- core tables -----------------------------------------------------------
 create table workspaces (

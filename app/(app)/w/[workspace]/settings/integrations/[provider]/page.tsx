@@ -4,7 +4,7 @@ import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getSpaces } from "@/lib/supabase/spaces";
 import { getIntegrationConnection } from "@/lib/supabase/integration-connections";
 import { getGitHubPolicyStats, type GitHubPolicyStats } from "@/lib/supabase/github-stats";
-import { isAutoApproveEnabled } from "@/lib/integrations/source/feature-doc";
+import { isAutoApproveEnabled } from "@/lib/integrations/source/policy";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { SettingsCard, SettingsHeader, StatCell } from "@/components/settings/primitives";
 import { providerLogo } from "@/components/settings/BrandLogos";
@@ -12,6 +12,7 @@ import GitHubRepoPicker from "@/components/integrations/GitHubRepoPicker";
 import AutoApprovePolicyToggle from "@/components/integrations/AutoApprovePolicyToggle";
 import { IconChevLeft } from "@/components/aqli/icons";
 import { formatRelative } from "@/lib/utils";
+import GitHubTokenForm from "@/components/integrations/GitHubTokenForm";
 import type { IntegrationProvider } from "@/types/integration";
 import type { Space } from "@/types/space";
 
@@ -76,9 +77,9 @@ export default async function IntegrationDetailPage({
           })()}
 
           {provider === "github" ? (
-            <GitHubConfig workspaceId={workspace.id} workspaceSlug={workspace.slug} spaces={spaces} connected={connected} connection={connection} stats={stats} />
+            <GitHubConfig workspaceId={workspace.id} spaces={spaces} connected={connected} connection={connection} stats={stats} />
           ) : (
-            <LinearConfig workspaceId={workspace.id} workspaceSlug={workspace.slug} connected={connected} connectionError={connection?.last_error ?? null} />
+            <LinearConfig connected={connected} connectionError={connection?.last_error ?? null} />
           )}
         </div>
       </div>
@@ -88,14 +89,12 @@ export default async function IntegrationDetailPage({
 
 function GitHubConfig({
   workspaceId,
-  workspaceSlug,
   spaces,
   connected,
   connection,
   stats,
 }: {
   workspaceId: string;
-  workspaceSlug: string;
   spaces: Space[];
   connected: boolean;
   connection: Awaited<ReturnType<typeof getIntegrationConnection>>;
@@ -149,22 +148,12 @@ function GitHubConfig({
               spaces={spaces.map((s) => ({ id: s.id, name: s.name }))}
               defaultSpaceId={defaultSpaceId}
             />
-            <form method="post" action="/api/integrations/composio/connect" style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-              <input type="hidden" name="__form" value="true" />
-              <input type="hidden" name="provider" value="github" />
-              <input type="hidden" name="workspace_id" value={workspaceId} />
-              <input type="hidden" name="workspace_slug" value={workspaceSlug} />
-              <button className="btn btn-secondary" style={{ width: "fit-content" }}>Reconnect GitHub</button>
-            </form>
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+              <GitHubTokenForm workspaceId={workspaceId} connected />
+            </div>
           </div>
         ) : (
-          <form method="post" action="/api/integrations/composio/connect">
-            <input type="hidden" name="__form" value="true" />
-            <input type="hidden" name="provider" value="github" />
-            <input type="hidden" name="workspace_id" value={workspaceId} />
-            <input type="hidden" name="workspace_slug" value={workspaceSlug} />
-            <button className="btn btn-primary" style={{ width: "fit-content" }}>Connect GitHub</button>
-          </form>
+          <GitHubTokenForm workspaceId={workspaceId} connected={false} />
         )}
       </SettingsCard>
 
@@ -210,34 +199,53 @@ function formatLatency(ms: number | null): string {
 }
 
 function LinearConfig({
-  workspaceId,
-  workspaceSlug,
   connected,
   connectionError,
 }: {
-  workspaceId: string;
-  workspaceSlug: string;
   connected: boolean;
   connectionError: string | null;
 }) {
   return (
     <SettingsCard title="Connection" sub="Linear is preferred context for PR matching, but PRs without tickets still create review docs.">
-      <ConnectionStatus connected={connected} error={connectionError} />
-      <form method="post" action="/api/integrations/composio/connect">
-        <input type="hidden" name="__form" value="true" />
-        <input type="hidden" name="provider" value="linear" />
-        <input type="hidden" name="workspace_id" value={workspaceId} />
-        <input type="hidden" name="workspace_slug" value={workspaceSlug} />
-        <button className="btn btn-primary">{connected ? "Reconnect Linear" : "Connect Linear"}</button>
-      </form>
+      <ConnectionStatus
+        connected={connected}
+        error={connectionError}
+        idle="Linear connections are unavailable."
+        connectedText="Connected, but no longer enriching — see below."
+      />
+      {/*
+        Linear ran entirely on Composio's toolkit and had no direct
+        implementation to swap in when the SDK was removed. Rather than leave a
+        Connect button that posts to a route which no longer exists, say so.
+
+        A PR mentioning ABC-123 still has its key extracted and matched against
+        existing docs; what is gone is pulling the issue's title and description
+        into the generated text. Restoring it needs a Linear API token of its
+        own — `lib/integrations/linear.ts` already parses the URLs.
+      */}
+      <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+        Connecting Linear needed a third-party service that Aqli no longer depends on. Pull
+        requests that mention an issue key are still matched to the right doc — only the issue
+        title and description are missing from the summary.
+      </p>
     </SettingsCard>
   );
 }
 
-function ConnectionStatus({ connected, error }: { connected: boolean; error: string | null }) {
+function ConnectionStatus({
+  connected,
+  error,
+  connectedText = "Connected with a personal access token.",
+  idle = "Not connected. Paste a GitHub token to start watching repositories.",
+}: {
+  connected: boolean;
+  error: string | null;
+  connectedText?: string;
+  idle?: string;
+}) {
   return (
     <div style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-base)", fontSize: 13, color: error ? "#993C1D" : "var(--text-secondary)" }}>
-      {error ?? (connected ? "Connected through Composio." : "Not connected. Click connect to start Composio OAuth.")}
+      {error ?? (connected ? connectedText : idle)}
     </div>
   );
 }
