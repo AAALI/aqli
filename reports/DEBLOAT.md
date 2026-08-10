@@ -6,8 +6,15 @@ for before anything is removed.
 **Headline:** the codebase is smaller than the brief assumes and the worker is
 comfortable. The two biggest named targets — `lib/confluence/` and
 `components/landing/` — are both live, and deleting either would cost something
-real. What *is* dead is smaller and duller: about 950 lines across five
+real. What *is* dead is smaller and duller: about 340 lines across seven
 orphaned files and three unreachable routes.
+
+**The two findings worth reading first are not deletions.** Reviewer feedback
+on rejected docs is written to a table nothing reads and displayed nowhere
+(finding A), and a purpose-built `document_links` table sits empty while the
+feature it was built for runs an unindexable `ilike` scan on every doc page
+view (finding B). Both were found by auditing tables rather than code, which is
+the axis the brief's method does not cover.
 
 ---
 
@@ -155,14 +162,119 @@ deletion.
 
 ---
 
+## Second pass — what the first sweep missed
+
+The first pass audited routes and exports. It did not audit dependencies,
+tables, SQL functions, pages, static assets or CSS. Doing that turned up two
+things that matter more than any of the deletions above, and one correction to
+this report.
+
+### A. `doc_comments` is write-only — reviewer feedback is silently discarded
+
+This is a defect, not bloat, and it is the most important finding here.
+
+`rejectDoc` and `requestChanges` (`lib/supabase/review.ts:174,200`) are both
+live — `/api/review/[id]/route.ts` calls them from the review queue. Each takes
+the reviewer's typed text (a rejection `reason`, a change-request `note`) and
+writes it to `doc_comments`.
+
+The only function that reads that table is `getDocComments`
+(`lib/supabase/review.ts:219`), and it **has zero callers**. The same text is
+also copied into `doc_activity.metadata.reason` / `.note`, and
+`DocActivityFeed.tsx:83` renders only `metadata.to_status` — never the reason.
+
+So the text is stored in two places and displayed in neither. A doc author
+whose work is rejected sees "*Reviewer* rejected this doc" and cannot find out
+why. `types/comment.ts` (16 lines, zero importers) is unused for the same
+reason.
+
+**This is a missing read, not dead code. Do not delete `getDocComments` — wire
+it up.** That is the opposite of the disposition my first pass implied.
+
+### B. `document_links` — a purpose-built table that nothing writes, next to an unindexed scan
+
+`document_links` is created with two indexes, RLS enabled and a read policy
+(`20260805000000_markdown_canonical_schema.sql:299-448`, spec §2.2). No
+TypeScript reads or writes it — the only mention outside migrations is its
+entry in `lib/db/scoped.ts:33`.
+
+Meanwhile the feature it was built for is implemented anyway:
+
+```ts
+// lib/supabase/docs.ts:390
+.ilike("body_md", `%/docs/${docId}%`)
+```
+
+A leading-wildcard `ilike` over every document body in the workspace cannot use
+an index, and it runs on every doc page view. The table that would fix it is
+sitting empty. So this is dead schema **and** a live performance problem whose
+solution was already built and never connected.
+
+Either wire `document_links` up (populate it in the merge path, read it in
+`getBacklinks`) or drop it. Both are real work; neither is a quiet deletion.
+
+### C. Correction — `mermaid` is not unused, and there is a fifth protected loader
+
+My dependency scan first reported `mermaid` as having zero importers. That was
+a bad regex: it is loaded via `await import("mermaid")` inside
+`components/editor/MermaidView.tsx`, which exists precisely so the extension
+can be pulled in with `ssr: false`. Its header records that mermaid's tree —
+cytoscape, katex, dagre, d3 — came to **3.2 MiB** of a 3 MiB worker.
+
+**The brief's do-not-delete list names four `ssr: false` loaders. There are
+five.** `MermaidView.tsx` is the same pattern and the single largest saving of
+any of them. It should be on that list.
+
+### D. Additional dead items
+
+| What | Size | What breaks | Confidence |
+|---|---|---|---|
+| `hast-util-to-string` dependency | — | Nothing. Zero references in the entire repo. | High |
+| `types/comment.ts` | 16 lines | Nothing (see finding A). | High |
+| `isFixedPoint` (`lib/markdown/index.ts:90`) | ~8 lines | Nothing. Zero references anywhere, including tests. | High |
+| `nextStep` / `prevStep` (`lib/onboarding/plan.ts`) | ~12 lines | Nothing in production — tested, never called by the app. | High |
+| `app/…/settings/agents/page.tsx` | 9 lines | A legacy-URL redirect to `agent-log` with no inbound link. Harmless; delete only if you don't care about old bookmarks. | Medium |
+| `.avatar-ali`, `.avatar-khalid`, `.avatar-sara`, `.avatar-lg` | 4 rules | Nothing. Design-handoff leftovers; the app uses `avatar-sm` + `avatarColor()`. | High |
+
+### E. Checked and clean — negative results worth recording
+
+- **All 24 pages are reachable.** `search` has no nav link but is reached from
+  the command palette (`CommandPalette.tsx:160`).
+- **`public/` is 72 KB.** The handover's "7.4 MB of static assets" is
+  `_next/static` build output, not committed files. `_headers` and `llms.txt`
+  are unreferenced by code *by design* — Cloudflare and crawlers consume them.
+- **`app/globals.css`: 131 of 136 classes used.** Not a bloat site.
+- **All 15 `app`/`public` SQL functions are live.** The four with no TypeScript
+  references (`is_member`, `md_headings`, `md_to_text`, `record_migration_gate`)
+  are called from RLS policies, the `docs_maintain_derived` trigger, and the
+  backfill script.
+- **No stranded v1 editor.** `AqliEditor` is live via `DocBody` and
+  `lib/markdown/schema.ts`.
+- **Every other npm dependency is imported.** (`react-dom` has no direct import
+  but is a Next peer.)
+- **My export sweep was ~85% false positives** — symbols used within their own
+  defining file. Worth stating so nobody re-runs it and trusts the raw output:
+  of ~78 hits, the genuinely dead ones are the six in section D plus the two
+  already listed above.
+
+---
+
 ## Recommendation
 
-1. **PR 1 — dead code.** The six-row table above, ~302 lines. No schema change,
-   no rollback file needed. Low risk.
-2. **Decision needed — the 663 commented Composio lines.** Delete or keep? My
+Ordered by what actually matters, which is not the deletions.
+
+1. **Fix the discarded reviewer feedback (finding A).** Users are losing
+   written input today. Wire `getDocComments` into the doc page, or render
+   `metadata.reason` in `DocActivityFeed`. Smallest change, highest value,
+   nothing to do with bloat.
+2. **Decide `document_links` (finding B).** Wire it up and drop the `ilike`
+   scan, or drop the table. Leaving it is the worst of the three.
+3. **PR 1 — dead code.** The six-row table above plus section D, ~340 lines.
+   No schema change, no rollback file needed. Low risk.
+4. **Decision needed — the 663 commented Composio lines.** Delete or keep? My
    vote is delete; the handover's reasoning is why it is your call.
-3. **PR 2 (optional) — lazy-load `posthog-js`.** ~60 KiB off the worker.
-4. **The real prize is not a deletion.** Retiring `AQLI_MERGE_ENGINE` is what
+5. **PR 2 (optional) — lazy-load `posthog-js`.** ~60 KiB off the worker.
+6. **The real prize is not a deletion.** Retiring `AQLI_MERGE_ENGINE` is what
    unblocks `doc_versions`, `snapshotVersion`, and the
    `documents_no_direct_write` policy in one go. That needs the `body_md`
    backfill run first (handover item #1, blocked on `SUPABASE_SERVICE_KEY`).
