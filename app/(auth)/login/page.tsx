@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { AuthStage, AuthField, authInputStyle } from "@/components/auth/AuthShell";
 import { IconMail } from "@/components/aqli/icons";
-import posthog from "posthog-js";
+import * as analytics from "@/lib/analytics";
 
 export default function LoginPage() {
   return (
@@ -52,8 +52,8 @@ function LoginForm() {
       return;
     }
     if (data.user) {
-      posthog.identify(data.user.id, { email });
-      posthog.capture("user_logged_in", { email });
+      analytics.identify(data.user.id, { email });
+      analytics.capture("user_logged_in", { email });
     }
     router.push(next);
     router.refresh();

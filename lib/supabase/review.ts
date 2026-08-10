@@ -215,13 +215,7 @@ export async function requestChanges(
   });
 }
 
-/** Comments on a doc, newest first (review feedback trail). */
-export async function getDocComments(workspaceId: string, docId: string) {
-  const { data, error } = await scoped(workspaceId)
-    .from("doc_comments")
-    .select("*")
-    .eq("doc_id", docId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return data ?? [];
-}
+// The reader for these rows lives in `lib/supabase/comments.ts` now, where the
+// review trail and ordinary comments are one thread. It reads through RLS
+// rather than the service client, which is possible since `doc_comments`
+// gained policies in 20260808000000.

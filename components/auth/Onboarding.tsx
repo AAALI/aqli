@@ -32,7 +32,7 @@ import {
   validateSlug,
   type StepKey,
 } from "@/lib/onboarding/plan";
-import posthog from "posthog-js";
+import * as analytics from "@/lib/analytics";
 
 type Workspace = { id: string; slug: string; name: string };
 
@@ -175,11 +175,11 @@ export default function Onboarding() {
         setAwaitingConfirmation(true);
         return;
       }
-      posthog.identify(data.user!.id, { email, name });
-      posthog.capture("user_signed_up", { email, name });
+      analytics.identify(data.user!.id, { email, name });
+      analytics.capture("user_signed_up", { email, name });
       setStep("workspace");
     } catch (err) {
-      posthog.captureException(err);
+      analytics.captureException(err);
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setBusy(false);
@@ -234,7 +234,7 @@ export default function Onboarding() {
 
       const created: Workspace = body.workspace;
       setWorkspace(created);
-      posthog.capture("workspace_created", {
+      analytics.capture("workspace_created", {
         workspace_id: created.id,
         workspace_slug: created.slug,
         workspace_name: created.name,
@@ -308,7 +308,7 @@ export default function Onboarding() {
       const secret: string | undefined = body.key?.secret;
       if (!secret) throw new Error("The key was created but could not be read. Find it in Settings → API keys.");
       setIssuedKey(secret);
-      posthog.capture("onboarding_key_created", { workspace_id: workspace.id });
+      analytics.capture("onboarding_key_created", { workspace_id: workspace.id });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create a key");
     } finally {
@@ -329,7 +329,7 @@ export default function Onboarding() {
 
   function finish() {
     if (!workspace) return;
-    posthog.capture("onboarding_completed", { workspace_id: workspace.id });
+    analytics.capture("onboarding_completed", { workspace_id: workspace.id });
     router.push(`/w/${workspace.slug}`);
     router.refresh();
   }

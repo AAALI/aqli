@@ -8,6 +8,7 @@ export type ActivityAction =
   | "approved"
   | "rejected"
   | "changes_requested"
+  | "commented"
   | "embedded"
   | "review_requested";
 

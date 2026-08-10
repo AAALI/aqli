@@ -105,6 +105,28 @@ The steps are independent up to 6, which is the one-way door.
    stops writing revisions, so it is for getting out of trouble, not for
    staying there.
 
+**`20260808000000_doc_comments.sql` is not part of this order either, and has
+not been applied.** It touches only `doc_comments` — RLS policies, a
+`comment_type` default and check, a `mentions uuid[]`, three indexes, and one
+`app.doc_in_workspace` helper. It neither reads nor writes `docs.body_md`, so
+it is independent of the backfill in both directions and can be applied to
+production whenever the comments feature is deployed.
+
+Two things to know before applying it:
+
+- **It closes a live hole.** Until it runs, `doc_comments` has no RLS, and a
+  table with RLS disabled applies no restriction — any authenticated user can
+  read every comment in every workspace through PostgREST. The rows in there
+  today are reviewers' rejection reasons. Worth applying ahead of the feature
+  rather than with it.
+- **`comment_type` becomes NOT NULL**, backfilled to `'comment'` for existing
+  null rows. Check what is actually in the column first if that matters:
+  `select comment_type, count(*) from doc_comments group by 1;`
+
+Rollback is `rollback/20260808000000_doc_comments.down.sql`. It drops the
+`mentions` column, and re-disables RLS — do not run it while the comments UI is
+deployed.
+
 **The two `doc-images` migrations are not part of this order, and are already
 applied.** `20260806010000_doc_images_storage.sql` creates the bucket and its
 RLS policies; `20260806020000_doc_images_require_doc_segment.sql` tightens the
@@ -143,7 +165,16 @@ them. Checked, because it is the intuitive suspect and it is the wrong one.
 | `main` | ~3410 | 338 over |
 | drop `@composio/core` | 3116 | 44 over |
 | stop server-rendering the editor | 2479 | 593 under |
-| move one helper out of the PR pipeline | **2215** | **857 under** |
+| move one helper out of the PR pipeline | 2215 | 857 under |
+| keep `posthog-js` out of the server graph | **2150** | **922 under** |
+
+### A browser SDK was in the server bundle
+
+Importing `posthog-js` from a Client Component puts it in the worker too,
+because Client Components are server-rendered — 72 KiB of browser analytics
+shipped to Cloudflare. Calls go through `lib/analytics.ts` now, which imports
+it in the browser at call time; `instrumentation-client.ts` keeps its eager
+`init`, since that entrypoint never enters the worker graph.
 
 ### The editor was in the worker to render nothing
 
@@ -190,7 +221,7 @@ chased. `lib/markdown/schema.ts` deriving the editor schema and the serializer
 from one list is what stopped tables and images being silently dropped; picking
 it apart to save bundle would trade a correctness guarantee for KiB.
 
-**857 KiB of headroom is enough to stop optimising.** The paid plan ($5/month,
+**922 KiB of headroom is enough to stop optimising.** The paid plan ($5/month,
 10 MiB) is still the better answer if this gets tight again — Next's runtime is
 ~2 MiB before any product code, and that does not change.
 
@@ -260,6 +291,11 @@ pnpm test:sql    # SQL — boots a throwaway Postgres, replays every migration
 `pnpm test:sql` needs a local `postgres` binary (`/usr/lib/postgresql/*/bin`)
 or a `DATABASE_URL` pointing at a scratch database. Every test file runs in a
 transaction and rolls back, so it is safe against a database you care about.
+
+It had been failing since the doc-images work landed: `20260806010000` writes
+to `storage.buckets`, which Supabase provides and a scratch cluster does not,
+so the replay died before reaching any test. `tests/base.sql` now stubs the
+`storage` schema with the columns those migrations touch.
 
 To check the step-6 interlock still bites:
 

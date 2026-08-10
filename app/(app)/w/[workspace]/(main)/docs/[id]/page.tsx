@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDoc, getDocVersions, getBacklinks } from "@/lib/supabase/docs";
-import { getOwnerDirectory } from "@/lib/supabase/owners";
+import { getOwnerDirectory, ownerInfo } from "@/lib/supabase/owners";
+import { getDocCommentThread } from "@/lib/supabase/comments";
+import { listWorkspaceMembers, getMyRole } from "@/lib/supabase/members";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import AppTopBar from "@/components/layout/AppTopBar";
 import DownloadMarkdownButton from "@/components/docs/DownloadMarkdownButton";
@@ -12,12 +14,33 @@ import TrustLine from "@/components/docs/TrustLine";
 import WhatChangedBanner from "@/components/docs/WhatChangedBanner";
 import ReadingRail from "@/components/docs/ReadingRail";
 import PrChangedBanner from "@/components/docs/PrChangedBanner";
+import DocComments from "@/components/docs/DocComments";
 import { getDocActivity } from "@/lib/supabase/activity";
 import { AutoApprovedChip, TypeBadge } from "@/components/aqli/badges";
 import DocBodyClient from "@/components/docs/DocBodyClient";
 import { IconEdit, IconHistory } from "@/components/aqli/icons";
 import { typeLabel } from "@/lib/doc-display";
 import { isStale } from "@/lib/utils";
+
+type Loaded<T> = { data: T; failed: false } | { data: null; failed: true };
+
+/**
+ * Load something the page can render without.
+ *
+ * A comment thread that failed to load must not arrive as an empty one: to a
+ * reader "no comments yet" and "we could not fetch the comments" look
+ * identical, and only one of them is true. It also should not take the
+ * document down with it — the doc body is why the reader is here. So the
+ * failure travels to the section that can show it and offer a retry.
+ */
+async function loadSection<T>(work: Promise<T>, what: string): Promise<Loaded<T>> {
+  try {
+    return { data: await work, failed: false };
+  } catch (err) {
+    console.error(`doc page: could not load ${what}:`, err);
+    return { data: null, failed: true };
+  }
+}
 
 export default async function DocViewPage({
   params,
@@ -28,12 +51,16 @@ export default async function DocViewPage({
   const doc = await getDoc(id).catch(() => null);
   if (!doc) notFound();
 
-  const [versions, backlinks, owners, supabase] = await Promise.all([
-    getDocVersions(id),
-    getBacklinks(id, doc.workspace_id),
-    getOwnerDirectory(doc.workspace_id),
-    createServerSupabaseClient(),
-  ]);
+  const [versions, backlinks, owners, thread, members, role, supabase] =
+    await Promise.all([
+      getDocVersions(id),
+      getBacklinks(id, doc.workspace_id),
+      getOwnerDirectory(doc.workspace_id),
+      loadSection(getDocCommentThread(doc.workspace_id, id), "the comment thread"),
+      loadSection(listWorkspaceMembers(doc.workspace_id), "the member list"),
+      getMyRole(doc.workspace_id),
+      createServerSupabaseClient(),
+    ]);
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -196,6 +223,22 @@ export default async function DocViewPage({
             <div id="doc-body" style={{ marginTop: 32 }}>
               <DocBodyClient bodyMd={doc.body_md} title={doc.title} />
             </div>
+
+            <DocComments
+              docId={doc.id}
+              initial={thread.data?.comments ?? []}
+              names={thread.data?.names ?? {}}
+              threadFailed={thread.failed}
+              members={(members.data ?? []).map((m) => ({
+                user_id: m.user_id,
+                name: ownerInfo(m).name,
+                email: m.email,
+              }))}
+              membersFailed={members.failed}
+              currentUserId={user?.id ?? null}
+              canComment={role === "admin" || role === "editor"}
+              canModerate={role === "admin"}
+            />
           </article>
         </div>
 

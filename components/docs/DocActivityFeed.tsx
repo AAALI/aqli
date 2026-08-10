@@ -13,6 +13,7 @@ const ACTION_LABELS: Record<string, string> = {
   approved: "approved this doc",
   rejected: "rejected this doc",
   changes_requested: "requested changes",
+  commented: "commented",
   embedded: "indexed for agent retrieval",
   review_requested: "requested human review",
 };

@@ -9,7 +9,7 @@ import AppTopBar from "@/components/layout/AppTopBar";
 import { IconPlus, IconX } from "@/components/aqli/icons";
 import { templateFor } from "@/components/editor/templates";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
-import posthog from "posthog-js";
+import * as analytics from "@/lib/analytics";
 
 type TypeDef = {
   id: DocType;
@@ -165,7 +165,7 @@ export default function NewDocClient({
           router.replace(`${base}/review`);
           return;
         }
-        posthog.capture("doc_created", {
+        analytics.capture("doc_created", {
           doc_id: doc.id,
           doc_type: selected.id,
           workspace_id: workspaceId,
@@ -176,7 +176,7 @@ export default function NewDocClient({
         setBusy(false);
       }
     } catch (err) {
-      posthog.captureException(err);
+      analytics.captureException(err);
       setBusy(false);
     }
   }

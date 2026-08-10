@@ -159,6 +159,7 @@ export async function getWorkspaceActivity(
       "status_changed",
       "review_requested",
       "changes_requested",
+      "commented",
       "rejected",
     ])
     .order("created_at", { ascending: false })
