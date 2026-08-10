@@ -19,7 +19,6 @@
     "test:sql": "./supabase/tests/run.sh"
   },
   "dependencies": {
-    "@composio/core": "^0.10.0",
     "@opennextjs/cloudflare": "^1.19.11",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",

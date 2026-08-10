@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getSpaceBySlug } from "@/lib/supabase/spaces";
-import NewDocClient from "./NewDocClient";
+import NewDocClientLoader from "./NewDocClientLoader";
 
 export default async function NewDocPage({
   params,
@@ -14,7 +14,7 @@ export default async function NewDocPage({
   if (!space) notFound();
 
   return (
-    <NewDocClient
+    <NewDocClientLoader
       workspaceId={workspace.id}
       workspaceSlug={workspace.slug}
       spaceId={space.id}

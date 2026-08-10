@@ -32,6 +32,7 @@ const SCOPE_COLUMN: Record<string, string | null> = {
   docs: "workspace_id",
   document_links: "workspace_id",
   integration_connections: "workspace_id",
+  integration_secrets: "workspace_id",
   integration_webhook_events: "workspace_id",
   invitations: "workspace_id",
   members: "workspace_id",

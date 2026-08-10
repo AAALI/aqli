@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getDoc, getDocVersions } from "@/lib/supabase/docs";
-import HistoryClient from "./HistoryClient";
+import HistoryClientLoader from "./HistoryClientLoader";
 
 export default async function DocHistoryPage({
   params,
@@ -13,7 +13,7 @@ export default async function DocHistoryPage({
   const versions = await getDocVersions(id);
 
   return (
-    <HistoryClient
+    <HistoryClientLoader
       workspaceSlug={wsSlug}
       docId={doc.id}
       docTitle={doc.title}

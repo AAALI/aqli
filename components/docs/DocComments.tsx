@@ -112,6 +112,15 @@ export default function DocComments({
   const [error, setError] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(threadFailed);
   const [retrying, setRetrying] = useState(false);
+  /**
+   * The comment currently being deleted, if any.
+   *
+   * Deletion is optimistic and rolls back on failure by restoring the list it
+   * captured when it started. Two overlapping deletions each capture a
+   * snapshot, so the second one rolling back would resurrect the comment the
+   * first one successfully removed. One at a time avoids reasoning about it.
+   */
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const candidates: MentionCandidate[] = useMemo(
     () => withUniqueLabels(members),
@@ -153,7 +162,8 @@ export default function DocComments({
 
   async function post() {
     const text = draft.trim();
-    if (!text || busy) return;
+    // A post landing mid-deletion would be dropped by that deletion's rollback.
+    if (!text || busy || deleting) return;
     setBusy(true);
     setError(null);
     try {
@@ -190,7 +200,9 @@ export default function DocComments({
   }
 
   async function remove(id: string) {
+    if (deleting) return;
     const previous = comments;
+    setDeleting(id);
     setError(null);
     setComments((prev) => prev.filter((c) => c.id !== id));
     try {
@@ -208,6 +220,8 @@ export default function DocComments({
       // database, which is the one outcome worth undoing.
       setComments(previous);
       setError("Could not reach the server.");
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -313,13 +327,15 @@ export default function DocComments({
                     {(mine || canModerate) && !trail && (
                       <button
                         onClick={() => remove(c.id)}
+                        disabled={deleting !== null}
                         aria-label="Delete comment"
                         title="Delete comment"
                         style={{
                           marginLeft: "auto",
                           border: 0,
                           background: "transparent",
-                          cursor: "pointer",
+                          cursor: deleting ? "default" : "pointer",
+                          opacity: deleting ? 0.4 : 1,
                           color: "var(--text-muted)",
                           padding: 2,
                           lineHeight: 0,
@@ -395,7 +411,7 @@ export default function DocComments({
             <button
               className="btn btn-primary"
               onClick={post}
-              disabled={busy || draft.trim().length === 0}
+              disabled={busy || deleting !== null || draft.trim().length === 0}
             >
               {busy ? "Posting…" : "Comment"}
             </button>

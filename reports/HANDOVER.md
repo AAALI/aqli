@@ -145,54 +145,139 @@ markdown-first, no migration can reconstruct what was only in the markdown.
 
 ---
 
-## 3. The Cloudflare Workers bundle is over the free-plan limit
+## 3. The Cloudflare worker: what was actually in it
 
-**Blocked on:** a plan decision, not a code change.
-
-`Workers Builds: aqli` has been failing since #45. It is not that PR's fault and
-not this one's — the worker is simply too big for the plan.
+`Workers Builds` had been red since #45 because the worker exceeded the
+free-plan limit. The number Cloudflare enforces is the one printed by:
 
 ```bash
 npx opennextjs-cloudflare build
-npx wrangler deploy --dry-run     # prints the number Cloudflare enforces
+npx wrangler deploy --dry-run     # "Total Upload: ... / gzip: N KiB"
 ```
 
-| | gzipped |
-|---|---|
-| Free plan limit | **3072 KiB** |
-| Before this branch | 3417 KiB — 345 over |
-| After the posthog fix below | **3345 KiB** — 273 over |
+Static assets are **not** in that number — they upload separately (7.4 MB, 158
+files). Neither are the repo's markdown specs, `reports/`, `scripts/`, or
+`lib/confluence/`: nothing imports them from a route, so the bundler never sees
+them. Checked, because it is the intuitive suspect and it is the wrong one.
 
-Measured by stubbing each dependency out and rebuilding:
-
-| Remove | Saves | Leaves |
+| | gzipped | vs 3072 KiB limit |
 |---|---|---|
-| `@composio/core` | **294 KiB** | 3051 KiB |
-| `posthog-js` from the server graph | **72 KiB** | *(done)* |
-| `openai` SDK → REST calls | ~40 KiB | |
+| `main` | ~3410 | 338 over |
+| drop `@composio/core` | 3116 | 44 over |
+| stop server-rendering the editor | 2479 | 593 under |
+| move one helper out of the PR pipeline | 2215 | 857 under |
+| keep `posthog-js` out of the server graph | **2150** | **922 under** |
 
-**The posthog one is fixed** and was a plain bug: importing `posthog-js` in a
-Client Component puts it in the worker too, because Client Components are
-server-rendered. Calls now go through `lib/analytics.ts`, which imports it in
-the browser at call time. `instrumentation-client.ts` keeps its eager `init` —
-that entrypoint never enters the worker graph.
+### A browser SDK was in the server bundle
 
-**Everything after that is a bad trade.** Note the arithmetic: cutting
-`@composio/core`, the single biggest dependency in the app, still lands at
-3051 KiB — **21 KiB under the limit**. Next's own runtime is ~2 MiB of the
-3 MiB budget, which leaves about 1 MiB for an entire product. The next feature
-of any size breaks the deploy again.
+Importing `posthog-js` from a Client Component puts it in the worker too,
+because Client Components are server-rendered — 72 KiB of browser analytics
+shipped to Cloudflare. Calls go through `lib/analytics.ts` now, which imports
+it in the browser at call time; `instrumentation-client.ts` keeps its eager
+`init`, since that entrypoint never enters the worker graph.
 
-**Recommendation: move to the Workers Paid plan ($5/month), which raises the
-limit to 10 MiB.** That is the fix. Rewriting the Composio SDK as REST calls
-buys 294 KiB and costs a re-implementation of
-`triggers.verifyWebhook` — signature verification, the one piece of that
-integration where a subtle mistake is a security bug rather than a broken
-feature. Do not do it to save $5.
+### The editor was in the worker to render nothing
 
-If the free plan is a hard constraint, the order is: drop `@composio/core`
-(and the GitHub PR integration with it), then the `openai` SDK. Both are
-removals of working features, and both should be decided deliberately.
+Five chunks carried ProseMirror, three of them near-identical copies of the
+same ~450 KiB — one per route tree that shows a document.
+
+None of it produced output. `DocBody` and `DocEditorClient` both set
+`immediatelyRender: false`, which is required for SSR correctness with Tiptap
+and means the server pass emits an empty container. So the worker shipped a
+rich-text editor, its extensions, and the entire markdown schema in order to
+render `<div></div>`.
+
+They now load through `next/dynamic` with `ssr: false`:
+
+- `components/docs/DocBodyClient.tsx`
+- `app/…/docs/[id]/edit/DocEditorClientLoader.tsx`
+- `app/…/s/[space]/new/NewDocClientLoader.tsx`
+- `app/…/docs/[id]/history/HistoryClientLoader.tsx`
+
+Each is a thin Client Component that exists only because Next 16 rejects
+`ssr: false` in a Server Component.
+
+**The rule these encode:** anything reachable from a page's server module graph
+is in the worker, whether or not it renders. Keep the loaders' own imports
+trivial — `DocBody` takes `body_md` and parses it in the browser precisely
+because doing the conversion in the wrapper would drag `aqliSchema` back in.
+
+### One import can cost 684 KiB
+
+The integrations settings page imported `isAutoApproveEnabled` — a one-line
+predicate over `metadata` — from `feature-doc.ts`. That pulled the whole PR
+pipeline into the page's bundle: the agent doc writer, both markdown
+converters, `aqliSchema`, and ProseMirror behind it.
+
+It lives in `lib/integrations/source/policy.ts` now, which imports nothing but
+a type. Worth remembering as a shape: a small helper in a big module is a big
+import.
+
+### What is left, and is meant to be
+
+`lib_supabase_agent-docs` still carries the markdown pipeline. That one is real
+— agents write markdown and the server converts it — and it should not be
+chased. `lib/markdown/schema.ts` deriving the editor schema and the serializer
+from one list is what stopped tables and images being silently dropped; picking
+it apart to save bundle would trade a correctness guarantee for KiB.
+
+**922 KiB of headroom is enough to stop optimising.** The paid plan ($5/month,
+10 MiB) is still the better answer if this gets tight again — Next's runtime is
+~2 MiB before any product code, and that does not change.
+
+---
+
+## 4. GitHub is connected with a pasted token now
+
+**Needs a human because:** existing GitHub connections stop working on deploy,
+and no migration can fix that — the replacement credential is a token only the
+workspace admin can create.
+
+`@composio/core` is gone. It cost 294 KiB gzipped inside Cloudflare's 3 MiB
+Workers limit, for OAuth, webhook delivery, and four REST calls, all of which
+`lib/integrations/source/github.ts` now does with `fetch`.
+
+**What an admin has to do, per workspace with GitHub connected:**
+
+1. Create a token at `github.com/settings/tokens/new` with **`repo`** and
+   **`admin:repo_hook`**.
+2. Settings → Integrations → GitHub, paste it, re-select the repositories.
+
+Until they do, PR merges stop creating docs. Nothing breaks loudly — the old
+Composio triggers just stop having anywhere to deliver to.
+
+**Old Composio triggers are not cleaned up.** They still exist in the Composio
+account and will keep firing at `/api/integrations/composio/webhook`, which no
+longer exists — the route files were removed, so the URL is a genuine 404. (An
+earlier revision only commented the files out, which does not work: Next
+registers a route for any `route.ts` under `app/`, so the endpoint kept
+answering.) The code lives in
+`lib/integrations/source/composio-routes.reference.ts`. Delete the triggers in
+Composio, and cancel the account if nothing else uses it.
+
+`/api/integrations/composio/policy` and `/simulate` are still live routes —
+they never used the SDK.
+
+**`integration_secrets` is service-role only.** It holds repo-scoped tokens, so
+it has RLS on and deliberately **no policies** — that combination is what makes
+it unreadable from any user session. `supabase/tests/integration_secrets.sql`
+asserts it, including that no policy exists, because adding one "so the
+settings page can check for a token" would hand every viewer a token.
+
+**Linear enrichment is gone.** It ran entirely through Composio's toolkit and
+had nothing to swap in. A PR mentioning `ABC-123` is still matched to the right
+doc; the issue's title and description no longer reach the generated summary.
+Restoring it needs a Linear API token of its own.
+
+**The Composio code is commented, not deleted** — `lib/integrations/source/
+composio.ts`, the four route files under `app/api/integrations/composio/`, and
+the two functions it needed in `feature-doc.ts` and `integration-connections.ts`.
+`composio_user_id` is still written on every connection so putting it back needs
+no backfill. Restoring also needs `pnpm add @composio/core`.
+
+Rollback: `rollback/20260809000000_github_direct_tokens.down.sql`, replayed
+against a scratch database. It drops every stored token, which is not
+recoverable — they were pasted in by hand and exist nowhere else.
 
 ---
 

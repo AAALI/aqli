@@ -27,14 +27,32 @@ async function client() {
   }
 }
 
+/**
+ * Run `fn` against the browser SDK, swallowing everything.
+ *
+ * The terminal `catch` is the point. `client()` handles a failed import, but
+ * the SDK call itself can also reject — and a rejection with nothing after it
+ * is an unhandled promise rejection, which surfaces in the console and, with
+ * `capture_exceptions` on in `instrumentation-client.ts`, gets reported as an
+ * error by the very SDK that produced it. Analytics must not be able to make
+ * noise about analytics.
+ */
+function fire(fn: (posthog: NonNullable<Awaited<ReturnType<typeof client>>>) => void): void {
+  void client()
+    .then((posthog) => {
+      if (posthog) fn(posthog);
+    })
+    .catch(() => undefined);
+}
+
 export function capture(event: string, properties?: Props): void {
-  void client().then((posthog) => posthog?.capture(event, properties));
+  fire((posthog) => posthog.capture(event, properties));
 }
 
 export function identify(distinctId: string, properties?: Props): void {
-  void client().then((posthog) => posthog?.identify(distinctId, properties));
+  fire((posthog) => posthog.identify(distinctId, properties));
 }
 
 export function captureException(error: unknown): void {
-  void client().then((posthog) => posthog?.captureException(error));
+  fire((posthog) => posthog.captureException(error));
 }

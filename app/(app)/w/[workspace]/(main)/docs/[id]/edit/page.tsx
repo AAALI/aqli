@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getDoc, getDocVersions } from "@/lib/supabase/docs";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import DocEditorClient from "./DocEditorClient";
+import DocEditorClientLoader from "./DocEditorClientLoader";
 
 export default async function DocEditPage({
   params,
@@ -29,7 +29,7 @@ export default async function DocEditPage({
         : null;
 
   return (
-    <DocEditorClient
+    <DocEditorClientLoader
       doc={doc}
       workspaceSlug={wsSlug}
       version={versions.length || 1}
