@@ -111,6 +111,14 @@ reset role;
 -- ---------------------------------------------------------------------------
 do $$
 begin
+  -- Assert the row is there first, so the post-delete count proves a cascade
+  -- rather than passing because the fixture never inserted anything.
+  assert (select count(*) from integration_secrets
+          where connection_id = (select v from t where k = 'conn')) = 1,
+    'fixture did not create the secret row';
+  assert (select access_token from integration_secrets
+          where connection_id = (select v from t where k = 'conn')) = 'ghp_supersecret';
+
   delete from integration_connections where id = (select v from t where k = 'conn');
   assert (select count(*) from integration_secrets) = 0,
     'deleting a connection left its token behind';

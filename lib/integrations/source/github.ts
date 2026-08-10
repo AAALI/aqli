@@ -29,12 +29,13 @@ export class GithubError extends Error {
   }
 }
 
-async function gh<T>(
+async function ghRaw(
   token: string,
-  path: string,
+  pathOrUrl: string,
   init: RequestInit = {},
-): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
+): Promise<Response> {
+  const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${API}${pathOrUrl}`;
+  const res = await fetch(url, {
     ...init,
     headers: {
       Accept: "application/vnd.github+json",
@@ -61,7 +62,49 @@ async function gh<T>(
     throw new GithubError(res.status, message);
   }
 
+  return res;
+}
+
+async function gh<T>(
+  token: string,
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const res = await ghRaw(token, path, init);
+  // 204 No Content has an empty body, and `res.json()` on it throws a
+  // SyntaxError that no caller is expecting — DELETE returns 204.
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
+}
+
+/**
+ * Follow `Link: <...>; rel="next"` until the last page.
+ *
+ * GitHub caps `per_page` at 100 and says nothing when there is more; without
+ * this, an account with 101 repos silently shows 100, and a PR touching 101
+ * files silently reports 100. Capped at 10 pages so a pathological PR cannot
+ * hold a request open indefinitely.
+ */
+async function ghPaged<T>(token: string, path: string, maxPages = 10): Promise<T[]> {
+  const out: T[] = [];
+  let next: string | null = path;
+
+  for (let page = 0; next && page < maxPages; page++) {
+    const res: Response = await ghRaw(token, next);
+    out.push(...((await res.json()) as T[]));
+    next = nextLink(res.headers.get("link"));
+  }
+  return out;
+}
+
+/** The `rel="next"` URL from a Link header, if there is one. */
+function nextLink(header: string | null): string | null {
+  if (!header) return null;
+  for (const part of header.split(",")) {
+    const match = /<([^>]+)>\s*;\s*rel="next"/.exec(part.trim());
+    if (match) return match[1];
+  }
+  return null;
 }
 
 /** Whether a token works, and who it belongs to. Used when one is pasted in. */
@@ -70,9 +113,9 @@ export async function verifyToken(token: string): Promise<{ login: string }> {
   return { login: user.login };
 }
 
-/** Repos the token can reach, most recently updated first. */
+/** Repos the token can reach, most recently updated first. Paginated. */
 export async function listRepos(token: string): Promise<GithubRepo[]> {
-  const repos = await gh<{ full_name: string; private: boolean }[]>(
+  const repos = await ghPaged<{ full_name: string; private: boolean }>(
     token,
     "/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member",
   );
@@ -94,7 +137,7 @@ export async function listPullRequestFiles(
   repo: string,
   number: number,
 ): Promise<Record<string, unknown>[]> {
-  return gh(token, `/repos/${owner}/${repo}/pulls/${number}/files?per_page=100`);
+  return ghPaged(token, `/repos/${owner}/${repo}/pulls/${number}/files?per_page=100`);
 }
 
 /**
@@ -129,17 +172,25 @@ export async function createPullRequestHook(
   return hook.id;
 }
 
-/** Best-effort removal on disconnect. A hook already gone is not an error. */
+/**
+ * Remove a repo hook.
+ *
+ * Reports which happened rather than collapsing both into success: the caller
+ * only drops a hook id from the connection when it is `deleted` or `not_found`
+ * — proof the hook is gone. A hook we merely failed to reach must keep its id,
+ * or its deliveries stop resolving to a workspace and start 404ing.
+ */
 export async function deleteHook(
   token: string,
   owner: string,
   repo: string,
   hookId: number,
-): Promise<void> {
+): Promise<"deleted" | "not_found"> {
   try {
     await gh(token, `/repos/${owner}/${repo}/hooks/${hookId}`, { method: "DELETE" });
+    return "deleted";
   } catch (err) {
-    if (err instanceof GithubError && err.status === 404) return;
+    if (err instanceof GithubError && err.status === 404) return "not_found";
     throw err;
   }
 }

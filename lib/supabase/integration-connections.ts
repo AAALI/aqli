@@ -129,8 +129,12 @@ export async function getServiceIntegrationByHookId(
 /**
  * The GitHub token and webhook secret for a connection.
  *
- * `integration_secrets` has RLS on and no policies, so this only ever returns
- * a row on the service client — see `20260809000000_github_direct_tokens.sql`
+ * `getIntegrationSecret` and `saveIntegrationSecret` both go through `scoped()`
+ * — the service client — and must keep doing so. `integration_secrets` has RLS
+ * enabled with **no policies**, which denies every role that respects RLS; the
+ * service role is the only thing that can reach it, and that is the protection,
+ * not an oversight. Switching either to the request-scoped client would make
+ * them silently return nothing. See `20260809000000_github_direct_tokens.sql`
  * for why the token cannot live on `integration_connections` itself.
  */
 export async function getIntegrationSecret(
@@ -166,16 +170,11 @@ export async function saveIntegrationSecret(input: {
   if (error) throw error;
 }
 
-export async function deleteIntegrationSecret(
-  workspaceId: string,
-  connectionId: string,
-): Promise<void> {
-  const { error } = await scoped(workspaceId)
-    .from("integration_secrets")
-    .delete()
-    .eq("connection_id", connectionId);
-  if (error) throw error;
-}
+// No `deleteIntegrationSecret`. There is no disconnect flow to call it from,
+// `saveIntegrationSecret` upserts on `connection_id` so reconnecting replaces
+// the row, and the table's foreign key cascades when a connection is deleted —
+// asserted in supabase/tests/integration_secrets.sql. Adding one now would be a
+// function with no caller.
 
 // --- Composio, kept for reference --------------------------------------------
 //

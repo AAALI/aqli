@@ -11,6 +11,7 @@ import {
   finishWebhookEvent,
 } from "@/lib/supabase/integration-webhook-events";
 import { getPostHogClient } from "@/lib/posthog-server";
+import type { IntegrationConnection } from "@/types/integration";
 
 export const dynamic = "force-dynamic";
 
@@ -51,16 +52,31 @@ export async function POST(req: NextRequest) {
 
   // Which connection registered this hook. Unverified at this point, so it is
   // used for nothing but fetching the secret to verify against.
-  const connection = await getServiceIntegrationByHookId(hookId, "github").catch(() => null);
+  //
+  // A database failure is not "unknown hook". Answering 404 to one tells GitHub
+  // the hook is dead — it stops retrying, and after enough of them disables the
+  // hook entirely — so a transient outage would silently unsubscribe every
+  // watched repo. 5xx is retryable and says what actually happened.
+  let connection;
+  try {
+    connection = await getServiceIntegrationByHookId(hookId, "github");
+  } catch (err) {
+    console.error("[github webhook] connection lookup failed", deliveryId, err);
+    return NextResponse.json({ error: "Lookup failed" }, { status: 503 });
+  }
   if (!connection) {
     // Genuinely unknown hook — most likely one left behind on a repo after a
     // workspace disconnected. 404 rather than 401: there is nothing to verify.
     return NextResponse.json({ error: "Unknown hook" }, { status: 404 });
   }
 
-  const secret = await getIntegrationSecret(connection.workspace_id, connection.id).catch(
-    () => null,
-  );
+  let secret;
+  try {
+    secret = await getIntegrationSecret(connection.workspace_id, connection.id);
+  } catch (err) {
+    console.error("[github webhook] secret lookup failed for", connection.id, err);
+    return NextResponse.json({ error: "Lookup failed" }, { status: 503 });
+  }
   if (!secret) {
     console.error("[github webhook] no stored secret for connection", connection.id);
     return NextResponse.json({ error: "Integration is not configured" }, { status: 500 });
@@ -95,7 +111,7 @@ export async function POST(req: NextRequest) {
       });
     } catch (err) {
       console.error("[github webhook] claim failed; processing inline", err);
-      return processInline(hookId, parsed);
+      return processInline(hookId, parsed, connection);
     }
 
     if (claim.status === "already_processed") {
@@ -105,23 +121,35 @@ export async function POST(req: NextRequest) {
 
     // Ack fast and run the pipeline afterwards, so GitHub's 10-second delivery
     // timeout doesn't cancel-and-retry while we call OpenAI and Supabase.
+    //
+    // The claim is already written at this point, so a failure to dispatch
+    // would leave the event marked in-flight forever: the retry GitHub sends
+    // dedups against it, and nothing ever processes it. If handing off fails,
+    // fall back to doing the work inline rather than returning a cheerful 200.
     const eventId = claim.id;
-    const { ctx } = await getCloudflareContext({ async: true });
-    ctx.waitUntil(processInBackground(eventId, hookId, parsed));
+    try {
+      const { ctx } = await getCloudflareContext({ async: true });
+      ctx.waitUntil(processInBackground(eventId, hookId, parsed, connection));
+    } catch (err) {
+      console.error("[github webhook] background dispatch failed; inline", eventId, err);
+      return processInline(hookId, parsed, connection, eventId);
+    }
     return NextResponse.json({ ok: true, queued: true, event_id: eventId });
   }
 
-  return processInline(hookId, parsed);
+  return processInline(hookId, parsed, connection);
 }
 
 async function processInBackground(
   eventId: string,
   hookId: number,
   payload: Record<string, unknown>,
+  connection: IntegrationConnection,
 ) {
   try {
     const result = await processGithubWebhookPayload(hookId, payload, {
       webhookEventId: eventId,
+      connection,
     });
     console.log("[github webhook] result", eventId, JSON.stringify(result));
     await finishWebhookEvent({
@@ -143,13 +171,42 @@ async function processInBackground(
   }
 }
 
-async function processInline(hookId: number, payload: Record<string, unknown>) {
+/**
+ * Run the pipeline in the request.
+ *
+ * `eventId` is passed when a claim was already written — the event has to be
+ * closed out either way, or it stays pending and dedups its own retry.
+ */
+async function processInline(
+  hookId: number,
+  payload: Record<string, unknown>,
+  connection: IntegrationConnection,
+  eventId?: string,
+) {
   try {
-    const result = await processGithubWebhookPayload(hookId, payload);
+    const result = await processGithubWebhookPayload(hookId, payload, {
+      webhookEventId: eventId ?? null,
+      connection,
+    });
     console.log("[github webhook] inline result", JSON.stringify(result));
+    if (eventId) {
+      await finishWebhookEvent({
+        id: eventId,
+        status: result.ignored ? "ignored" : "done",
+        result,
+      }).catch((err) => console.error("[github webhook] finish failed", eventId, err));
+    }
     return NextResponse.json({ ok: true, result });
   } catch (err) {
     console.error("[github webhook] inline processing failed", err);
+    if (eventId) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      await finishWebhookEvent({ id: eventId, status: "error", lastError: message }).catch(
+        (e) => console.error("[github webhook] finish failed", eventId, e),
+      );
+    }
+    // 500 so GitHub retries; the claim is closed as errored, so the retry is
+    // not deduped away.
     return NextResponse.json({ error: "Processing failed" }, { status: 500 });
   }
 }

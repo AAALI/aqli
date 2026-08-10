@@ -64,3 +64,9 @@ comment on column public.integration_connections.github_hook_ids is
 -- connection created in the meantime.
 comment on column public.integration_connections.composio_user_id is
   'Unused by the direct-GitHub path but still written, so restoring the commented-out Composio integration stays possible.';
+
+-- `getServiceIntegrationByHookId` runs `github_hook_ids @> array[<id>]` on every
+-- inbound delivery. Without this the query is a sequential scan of every
+-- connection in the table; GIN is the index type for array containment.
+create index if not exists integration_connections_github_hooks_idx
+  on public.integration_connections using gin (github_hook_ids);

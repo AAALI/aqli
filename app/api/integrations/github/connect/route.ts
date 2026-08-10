@@ -68,13 +68,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
+  // `repositories` is written after the hooks are created, not here. It means
+  // "we are watching this", and a repo whose hook failed is not being watched —
+  // recording it up front made the settings page claim coverage that did not
+  // exist, and made a retry look like a no-op because the repo already appeared
+  // in the saved list.
   const connection = await upsertIntegrationConnection({
     workspaceId,
     userId: user.id,
     provider: "github",
     status: "initiated",
     defaultSpaceId,
-    metadata: { repositories: repos, github_login: login },
+    metadata: { github_login: login },
   });
 
   // One secret per connection, so one workspace's secret cannot validate
@@ -91,24 +96,28 @@ export async function POST(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
   const callbackUrl = new URL("/api/integrations/github/webhook", appUrl).toString();
 
-  const hookIds: number[] = [];
+  const watched: WatchedRepo[] = [];
+  const pending: string[] = [];
   const failures: string[] = [];
   for (const repo of repos) {
     try {
-      hookIds.push(
-        await createPullRequestHook(token, {
-          owner: repo.owner,
-          repo: repo.repo,
-          callbackUrl,
-          secret: webhookSecret,
-        }),
-      );
+      const hookId = await createPullRequestHook(token, {
+        owner: repo.owner,
+        repo: repo.repo,
+        callbackUrl,
+        secret: webhookSecret,
+      });
+      // The hook id is kept against the repo that owns it, not only in the flat
+      // `github_hook_ids` array, so removing one later is a targeted delete
+      // rather than trying every id against every repo.
+      watched.push({ ...repo, hook_id: hookId });
     } catch (err) {
       // Creating a hook needs admin on the repo, and GitHub answers a token
       // without it with 404 rather than 403. Report per repo instead of
       // concluding the token is bad.
       const detail = err instanceof GithubError ? err.message : "unknown error";
       failures.push(`${repo.full_name} (${detail})`);
+      pending.push(repo.full_name);
     }
   }
 
@@ -118,7 +127,10 @@ export async function POST(req: NextRequest) {
 
   await updateIntegrationConnection(workspaceId, connection.id, {
     status: "connected",
-    github_hook_ids: hookIds,
+    github_hook_ids: watched.map((r) => r.hook_id),
+    // Selected but unwatched, kept apart from `repositories` so the picker can
+    // show them still ticked and a re-save retries them.
+    metadata: { ...connection.metadata, repositories: watched, pending_repositories: pending },
     last_error: lastError,
   });
 
@@ -136,10 +148,12 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: failures.length === 0,
     login,
-    watching: hookIds.length,
+    watching: watched.length,
     error: lastError,
   });
 }
+
+type WatchedRepo = { owner: string; repo: string; full_name: string; hook_id: number };
 
 function parseRepos(value: unknown): { owner: string; repo: string; full_name: string }[] {
   const names = Array.isArray(value)

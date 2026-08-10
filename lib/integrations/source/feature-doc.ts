@@ -51,9 +51,14 @@ type WebhookPayload = Record<string, unknown>;
 export async function processGithubWebhookPayload(
   hookId: number,
   payload: WebhookPayload,
-  options: { webhookEventId?: string | null } = {},
+  options: {
+    webhookEventId?: string | null;
+    /** Already resolved by the caller; avoids a second lookup for the same row. */
+    connection?: IntegrationConnection;
+  } = {},
 ) {
-  const connection = await getServiceIntegrationByHookId(hookId, "github");
+  const connection =
+    options.connection ?? (await getServiceIntegrationByHookId(hookId, "github"));
   if (!connection) return { ignored: true, reason: "connection_not_found", hookId };
 
   return processPullRequestData(connection, payload, {
@@ -156,7 +161,14 @@ export async function processPullRequestData(
   let files: PullRequestFileSummary[];
   if (options.enrich) {
     const resolved = await resolveMergedPullRequest(connection, candidate);
-    if (!resolved) return { ignored: true, reason: "closed_without_merge" };
+    if (resolved.status === "not_merged") {
+      return { ignored: true, reason: "closed_without_merge" };
+    }
+    if (resolved.status === "unavailable") {
+      // Thrown, not ignored: the caller records the event as errored, so
+      // GitHub's redelivery is not deduped away as already handled.
+      throw new Error(`PR enrichment unavailable — ${resolved.reason}`);
+    }
     pr = resolved.pr;
     files = resolved.files;
   } else {
@@ -241,54 +253,85 @@ export async function processPullRequestData(
 }
 
 /**
- * Resolve a candidate PR (typically from a slim Composio webhook) into a full
- * PR summary with confirmed `merged: true` plus the changed files. Returns
- * null when the PR is closed without merging, or when GitHub couldn't be
- * reached to verify the merge state (we'd rather drop a webhook than create
- * a spurious Fix Note for a closed-but-not-merged PR).
+ * Resolve a candidate PR into a summary with confirmed `merged: true`, plus the
+ * changed files.
+ *
+ * Three outcomes, and keeping them apart is the point:
+ *
+ *   - a summary — the PR is merged, act on it.
+ *   - `"not_merged"` — GitHub said so. Final; the delivery is done with.
+ *   - `"unavailable"` — we could not ask. **Not** the same thing. Returning
+ *     "not merged" for a failed request marks the webhook event `ignored`, and
+ *     since the event is claimed by delivery id, GitHub's retry dedups against
+ *     it and the merge is lost for good. Surfacing it as a failure lets the
+ *     caller throw, which leaves the event errored and the retry able to work.
  */
+type ResolvedPr =
+  | { status: "merged"; pr: PullRequestSummary; files: PullRequestFileSummary[] }
+  | { status: "not_merged" }
+  | { status: "unavailable"; reason: string };
+
 async function resolveMergedPullRequest(
   connection: IntegrationConnection,
   candidate: PullRequestCandidate,
-): Promise<{ pr: PullRequestSummary; files: PullRequestFileSummary[] } | null> {
-  // The token lives in `integration_secrets`, service-role only. Without it
-  // there is nothing to enrich with, so fall back to the candidate on the same
-  // terms as a failed fetch: only if it already claims to be merged.
-  const secret = await getIntegrationSecret(connection.workspace_id, connection.id)
-    .catch(() => null);
+): Promise<ResolvedPr> {
+  // The token lives in `integration_secrets`, service-role only.
+  let secret;
+  try {
+    secret = await getIntegrationSecret(connection.workspace_id, connection.id);
+  } catch (err) {
+    return { status: "unavailable", reason: `secret lookup failed: ${String(err)}` };
+  }
   if (!secret) {
-    if (!candidate.merged) return null;
-    return { pr: { ...stripAction(candidate), merged: true }, files: [] };
+    // Nothing to enrich with. A candidate that already claims a merge is still
+    // usable; one that doesn't cannot be confirmed either way.
+    if (!candidate.merged) return { status: "not_merged" };
+    return { status: "merged", pr: { ...stripAction(candidate), merged: true }, files: [] };
   }
 
   const [prDetails, filesResult] = await Promise.all([
     getPullRequest(secret.access_token, candidate.owner, candidate.repo, candidate.number)
+      .then((pr) => ({ ok: true as const, pr }))
       .catch((err) => {
-        console.warn("[github] GET pull request failed", err);
-        return null;
+        console.warn("[github] GET pull request failed", candidate.owner, candidate.repo, candidate.number, err);
+        return { ok: false as const, err };
       }),
     listPullRequestFiles(secret.access_token, candidate.owner, candidate.repo, candidate.number)
-      .catch(() => null),
+      .catch((err) => {
+        // Logged rather than swallowed, matching the branch above. A missing
+        // file list degrades the generated summary; it does not invalidate the
+        // merge, so it is not promoted to a failure.
+        console.warn("[github] list PR files failed", candidate.owner, candidate.repo, candidate.number, err);
+        return null;
+      }),
   ]);
 
-  // Prefer the GitHub-confirmed PR object; fall back to the candidate only
-  // if the candidate already carries an explicit merge signal.
-  //
-  // `readData` unwrapped Composio's `{ data: ... }` result envelope. The REST
-  // API returns the object itself, so these go in directly.
-  const enriched = normalizePullRequestEvent(prDetails);
+  if (!prDetails.ok) {
+    // Could not reach GitHub. If the delivery itself claimed a merge, trust it
+    // rather than dropping a real event; otherwise say so and let the caller
+    // make it retryable.
+    if (candidate.merged) {
+      return {
+        status: "merged",
+        pr: { ...stripAction(candidate), merged: true },
+        files: normalizeFiles(filesResult),
+      };
+    }
+    return { status: "unavailable", reason: "could not read the pull request from GitHub" };
+  }
+
+  const enriched = normalizePullRequestEvent(prDetails.pr);
   if (!enriched) {
-    if (!candidate.merged) return null;
+    // GitHub answered and the PR is not merged — closed, or still open.
+    if (!candidate.merged) return { status: "not_merged" };
     return {
+      status: "merged",
       pr: { ...stripAction(candidate), merged: true },
       files: normalizeFiles(filesResult),
     };
   }
 
-  return {
-    pr: enriched,
-    files: normalizeFiles(filesResult),
-  };
+  return { status: "merged", pr: enriched, files: normalizeFiles(filesResult) };
 }
 
 /**

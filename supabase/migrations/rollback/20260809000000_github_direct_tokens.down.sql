@@ -12,6 +12,8 @@ begin;
 
 drop table if exists public.integration_secrets;
 
+drop index if exists public.integration_connections_github_hooks_idx;
+
 alter table public.integration_connections
   drop column if exists github_hook_ids;
 

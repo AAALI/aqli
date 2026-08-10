@@ -216,9 +216,16 @@ Until they do, PR merges stop creating docs. Nothing breaks loudly — the old
 Composio triggers just stop having anywhere to deliver to.
 
 **Old Composio triggers are not cleaned up.** They still exist in the Composio
-account and will keep firing at `/api/integrations/composio/webhook`, which is
-now a commented-out file and therefore a 404. Delete them in Composio, and
-cancel the account if nothing else uses it.
+account and will keep firing at `/api/integrations/composio/webhook`, which no
+longer exists — the route files were removed, so the URL is a genuine 404. (An
+earlier revision only commented the files out, which does not work: Next
+registers a route for any `route.ts` under `app/`, so the endpoint kept
+answering.) The code lives in
+`lib/integrations/source/composio-routes.reference.ts`. Delete the triggers in
+Composio, and cancel the account if nothing else uses it.
+
+`/api/integrations/composio/policy` and `/simulate` are still live routes —
+they never used the SDK.
 
 **`integration_secrets` is service-role only.** It holds repo-scoped tokens, so
 it has RLS on and deliberately **no policies** — that combination is what makes
