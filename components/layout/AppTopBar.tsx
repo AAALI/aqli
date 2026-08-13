@@ -13,6 +13,7 @@ export default function AppTopBar({
   saved,
   primary,
   share,
+  actions,
 }: {
   /** Workspace base path (e.g. `/w/acme`). Used by the notifications bell. */
   base?: string;
@@ -20,6 +21,12 @@ export default function AppTopBar({
   saved?: string | null;
   primary?: { label: string; href: string } | null;
   share?: boolean;
+  /**
+   * Screen-specific actions, rendered ahead of the global ones. The doc
+   * surfaces put History / Edit here so they need no second bar of their own —
+   * one 56px top bar is the whole of the app chrome.
+   */
+  actions?: React.ReactNode;
 }) {
   return (
     <div className="tb">
@@ -47,6 +54,7 @@ export default function AppTopBar({
       </div>
       <div className="tb-spacer" />
       <div className="tb-actions">
+        {actions}
         {share && <button className="btn btn-secondary">Share</button>}
         {primary && (
           <Link href={primary.href} className="btn btn-primary">

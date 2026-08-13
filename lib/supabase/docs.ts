@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "./server";
 import { submitProposal, type SubmitResult } from "@/lib/db/proposals";
+import { citingSection } from "@/lib/backlinks";
 import { mergeEngineEnabled } from "@/lib/flags";
 import type {
   Doc,
@@ -372,7 +373,10 @@ export type Backlink = {
   type: DocType;
   status: DocStatus;
   space: { name: string; slug: string } | null;
+  /** The heading in the citing doc that the citation sits under, if any. */
+  citesSection: string | null;
 };
+
 
 /**
  * Docs that link to this one — the "Cited by" backlinks in the viewer.
@@ -384,14 +388,19 @@ export async function getBacklinks(docId: string, workspaceId: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("docs")
-    .select("id, title, type, status, space:spaces(name, slug)")
+    .select("id, title, type, status, body_md, space:spaces(name, slug)")
     .eq("workspace_id", workspaceId)
     .neq("id", docId)
     .ilike("body_md", `%/docs/${docId}%`)
     .order("updated_at", { ascending: false })
     .limit(20);
   if (error) throw error;
-  return (data ?? []) as unknown as Backlink[];
+  return ((data ?? []) as unknown as (Omit<Backlink, "citesSection"> & {
+    body_md: string | null;
+  })[]).map(({ body_md, ...rest }) => ({
+    ...rest,
+    citesSection: citingSection(body_md, docId),
+  }));
 }
 
 export async function searchDocs(workspaceId: string, query: string) {

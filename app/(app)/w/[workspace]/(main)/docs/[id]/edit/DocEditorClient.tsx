@@ -4,15 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { Placeholder } from "@tiptap/extensions";
 import { CodeBlockWithMermaid } from "@/components/editor/MermaidCodeBlock";
+import Link from "next/link";
 import AppTopBar from "@/components/layout/AppTopBar";
-import { TypeBadge } from "@/components/aqli/badges";
-import DocStatusControl from "@/components/docs/DocStatusControl";
+import DocMetaRow from "@/components/docs/DocMetaRow";
 import SlashMenu from "@/components/editor/v2/SlashMenu";
 import SelectionToolbar from "@/components/editor/v2/SelectionToolbar";
 import EditorRail from "@/components/editor/v2/EditorRail";
-import CowriteChat from "@/components/editor/v2/CowriteChat";
+import FloatingAssistant from "@/components/ai/FloatingAssistant";
 import ProcessStrip from "@/components/editor/v2/ProcessStrip";
-import { IconLink } from "@/components/aqli/icons";
+import { IconEye } from "@/components/aqli/icons";
 import type { KeyHandlerRegistry } from "@/components/editor/v2/types";
 import { useDocImages } from "@/components/editor/useDocImages";
 import TableControls from "@/components/editor/v2/TableControls";
@@ -24,8 +24,7 @@ import {
   prependTitleHeading,
   stripTitleHeading,
 } from "@/lib/markdown/title-heading";
-import { typeLabel } from "@/lib/doc-display";
-import { formatDate, formatRelative, avatarColor } from "@/lib/utils";
+import { formatRelative } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
 
 /**
@@ -41,11 +40,14 @@ export default function DocEditorClient({
   workspaceSlug,
   version,
   ownerName,
+  reviewers,
 }: {
   doc: DocWithSpace;
   workspaceSlug: string;
   version: number;
   ownerName: string | null;
+  /** Who a review request would reach — shown in the process strip. */
+  reviewers: string[];
 }) {
   const base = `/w/${workspaceSlug}`;
   const [title, setTitle] = useState(doc.title);
@@ -351,33 +353,25 @@ export default function DocEditorClient({
         crumbs={[spaceCrumb, { label: title || "Untitled" }]}
         saved={savedLabel}
         share
-      />
-
-      <EditorMetaBar
-        doc={doc}
-        ownerName={ownerName}
-        version={version}
+        actions={
+          <Link
+            href={`${base}/docs/${doc.id}`}
+            className="btn btn-ghost"
+            style={{ gap: 6 }}
+          >
+            <IconEye size={13} />
+            <span>Read</span>
+          </Link>
+        }
       />
 
       <div className="main-body" style={{ position: "relative" }}>
-        <div
-          ref={scrollRef}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            overflowY: "auto",
-            background: "var(--bg-base)",
-            position: "relative",
-          }}
-        >
-          <article
-            className="ed2-article"
-            style={{
-              maxWidth: 720,
-              margin: "0 auto",
-              padding: "56px 40px 120px",
-            }}
-          >
+        <div ref={scrollRef} className="doc-scroll" style={{ position: "relative" }}>
+          <article className="doc-col">
+            {/* The doc's identity, inline with the doc rather than in a band
+                under the top bar. The only place this screen states status. */}
+            <DocMetaRow doc={doc} version={version} />
+
             {/* A textarea, not an input: at 44px a real title runs past the
                 column, and an input clips it mid-word with no way to see the
                 rest. Rows grow with the text; Enter still moves to the body. */}
@@ -412,21 +406,11 @@ export default function DocEditorClient({
               }}
             />
 
-            <div
-              style={{
-                marginTop: 8,
-                marginBottom: 36,
-                fontSize: 13.5,
-                color: "var(--text-muted)",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <span suppressHydrationWarning>Started {formatDate(doc.created_at)}</span>
-              <span>·</span>
-              <span>{savedLabel}</span>
-            </div>
+            {/* No "Started … · Saved just now" line here: the breadcrumb
+                already carries the save state, and repeating it under the
+                title was one of the three places this screen used to say the
+                same thing. */}
+            <div style={{ height: 36 }} />
 
             {images.error && (
               <div
@@ -493,20 +477,24 @@ export default function DocEditorClient({
           )}
         </div>
 
-        {/* Right rail — structural context */}
+        {/* Right rail — outline, corpus matches, standing consistency check */}
         {editor && (
           <EditorRail
             editor={editor}
             docTitle={title}
+            docType={doc.type}
             workspaceId={doc.workspace_id}
             docId={doc.id}
             base={base}
           />
         )}
 
-        {/* Floating Co-write chat */}
+        {/* The editor's one floating affordance. The workspace-wide Ask pill
+            stands down on this route (see AqliChatWidget), so only this one
+            ever occupies the corner. */}
         {editor && (
-          <CowriteChat
+          <FloatingAssistant
+            mode="cowrite"
             open={chatOpen}
             onToggle={setChatOpen}
             editor={editor}
@@ -520,138 +508,7 @@ export default function DocEditorClient({
         )}
       </div>
 
-      <ProcessStrip doc={doc} base={base} ownerName={ownerName} savedLabel={savedLabel} />
+      <ProcessStrip doc={doc} base={base} ownerName={ownerName} reviewers={reviewers} />
     </>
-  );
-}
-
-function EditorMetaBar({
-  doc,
-  ownerName,
-  version,
-}: {
-  doc: DocWithSpace;
-  ownerName: string | null;
-  version: number;
-}) {
-  const tags = doc.frontmatter?.tags ?? [];
-  const linkedLabel =
-    doc.frontmatter?.linear_issue_id ??
-    doc.frontmatter?.linear_project_id ??
-    (doc.frontmatter?.linked_project_url ? "Linked project" : null);
-
-  return (
-    <div
-      className="ed2-metabar"
-      style={{
-        height: 44,
-        flex: "0 0 44px",
-        borderBottom: "1px solid var(--border)",
-        display: "flex",
-        alignItems: "center",
-        padding: "0 40px",
-        gap: 18,
-        background: "var(--bg-base)",
-        fontSize: 12.5,
-        overflow: "hidden",
-      }}
-    >
-      <MetaField label="Type">
-        <TypeBadge type={typeLabel(doc.type)} />
-      </MetaField>
-      <MetaField label="Status">
-        <DocStatusControl docId={doc.id} status={doc.status} />
-      </MetaField>
-      <MetaField label="Owner">
-        {ownerName ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <span className="avatar avatar-sm" style={{ background: avatarColor(ownerName) }}>
-              {ownerName.charAt(0).toUpperCase()}
-            </span>
-            <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-              {ownerName}
-            </span>
-          </span>
-        ) : (
-          <span style={{ color: "var(--text-muted)" }}>Unassigned</span>
-        )}
-      </MetaField>
-      {linkedLabel && (
-        <MetaField label="Linear">
-          <a
-            href={doc.frontmatter?.linked_project_url ?? "#"}
-            target={doc.frontmatter?.linked_project_url ? "_blank" : undefined}
-            rel="noreferrer"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              color: "var(--accent)",
-              fontWeight: 500,
-              textDecoration: "none",
-              maxWidth: 230,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <IconLink size={12} />
-            {linkedLabel}
-          </a>
-        </MetaField>
-      )}
-      {tags.length > 0 && (
-        <MetaField label="Tags">
-          <span style={{ display: "inline-flex", gap: 4, minWidth: 0 }}>
-            {tags.slice(0, 3).map((tag) => (
-              <span key={tag} className="tag">
-                {tag}
-              </span>
-            ))}
-          </span>
-        </MetaField>
-      )}
-      <div
-        className="ed2-metabar-trail"
-        style={{
-          marginLeft: "auto",
-          color: "var(--text-muted)",
-          fontSize: 12,
-          whiteSpace: "nowrap",
-        }}
-      >
-        v{version} · Last reviewed{" "}
-        {doc.last_reviewed_at ? formatDate(doc.last_reviewed_at) : "not yet"}
-      </div>
-    </div>
-  );
-}
-
-function MetaField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className="ed2-metafield"
-      data-field={label.toLowerCase()}
-      style={{ alignItems: "center", gap: 8, minWidth: 0, flexShrink: 0 }}
-    >
-      <span
-        style={{
-          color: "var(--text-muted)",
-          fontSize: 11.5,
-          textTransform: "uppercase",
-          fontWeight: 500,
-          whiteSpace: "nowrap",
-        }}
-      >
-        {label}
-      </span>
-      {children}
-    </div>
   );
 }

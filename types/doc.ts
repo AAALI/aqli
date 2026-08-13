@@ -1,4 +1,5 @@
 import type { Space } from "./space";
+import type { VerifyCadence } from "@/lib/verify-cadence";
 
 export type DocType =
   | "general"
@@ -25,6 +26,11 @@ export type DocOrigin = "human" | "agent" | "system";
 
 export type DocFrontmatter = {
   tags: string[];
+  /**
+   * How often this doc should be re-verified. See `lib/verify-cadence.ts` —
+   * it lives here rather than in a column so setting one needs no migration.
+   */
+  verify_cadence?: VerifyCadence;
   linked_project_url?: string;
   linear_project_id?: string;
   linear_issue_id?: string;

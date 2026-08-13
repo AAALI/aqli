@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { getDoc, getDocVersions } from "@/lib/supabase/docs";
+import { listWorkspaceMembers } from "@/lib/supabase/members";
+import { ownerInfo } from "@/lib/supabase/owners";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import DocEditorClientLoader from "./DocEditorClientLoader";
 
@@ -12,8 +14,10 @@ export default async function DocEditPage({
   const doc = await getDoc(id).catch(() => null);
   if (!doc) notFound();
 
-  const [versions, supabase] = await Promise.all([
+  const [versions, members, supabase] = await Promise.all([
     getDocVersions(id),
+    // Non-fatal: the strip just drops the "will notify" clause if this fails.
+    listWorkspaceMembers(doc.workspace_id).catch(() => []),
     createServerSupabaseClient(),
   ]);
   const {
@@ -28,12 +32,20 @@ export default async function DocEditPage({
         ? "Team member"
         : null;
 
+  // Who a review request actually reaches: everyone who can act on the queue.
+  // Viewers can't, and telling the author they will notify themselves is noise.
+  const reviewers = members
+    .filter((m) => m.role === "admin" || m.role === "editor")
+    .filter((m) => m.user_id !== user?.id)
+    .map((m) => ownerInfo(m).name);
+
   return (
     <DocEditorClientLoader
       doc={doc}
       workspaceSlug={wsSlug}
       version={versions.length || 1}
       ownerName={ownerName}
+      reviewers={reviewers}
     />
   );
 }
