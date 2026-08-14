@@ -654,14 +654,8 @@ html, body {
   height: 0;
 }
 
-/* Editor v2 */
-.ed2-article {
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 1.7;
-}
-
+/* Editor v2. The writing column itself is `.doc-col`, shared with the
+   viewer — both surfaces read at the same measure. */
 .ed2-title-input {
   letter-spacing: 0;
 }
@@ -1616,10 +1610,168 @@ html, body {
    columns therefore have to leave the flow rather than shrink. */
 
 .doc-rail {
-  width: 280px;
-  flex: 0 0 280px;
+  width: 300px;
+  flex: 0 0 300px;
   display: flex;
   flex-direction: column;
+}
+
+/* ───────── The reading / writing column ─────────
+   Both doc surfaces share it: a 720px measure, centred, with 80px of plain
+   breathing room either side. The gutter is padding on the scroller rather
+   than on the column so the measure stays exactly 720px. */
+.doc-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--bg-base);
+  display: flex;
+  justify-content: center;
+  padding: 0 80px;
+}
+.doc-col {
+  width: 100%;
+  max-width: 720px;
+  padding: 40px 0 100px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.7;
+}
+@media (max-width: 1100px) {
+  .doc-scroll {
+    padding: 0 40px;
+  }
+}
+@media (max-width: 640px) {
+  .doc-scroll {
+    padding: 0 20px;
+  }
+}
+
+/* ───────── Rail blocks ─────────
+   Every block either shows data or a purposeful empty state; none of them is
+   a permanent placeholder. */
+.rail-block {
+  padding: 18px 20px;
+}
+.rail-block + .rail-block {
+  border-top: 1px solid var(--border);
+}
+.rail-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.rail-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Outline rows — the live heading list, current section highlighted. */
+.ol-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.ol-item:hover {
+  background: var(--bg-sidebar);
+}
+.ol-item.cur {
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 500;
+}
+.ol-item.missing {
+  color: var(--text-muted);
+  opacity: 0.72;
+  cursor: default;
+}
+.ol-item.missing:hover {
+  background: transparent;
+}
+.ol-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ol-pct {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
+.ol-item.cur .ol-pct {
+  color: var(--accent);
+}
+
+/* "Draw from" — an approved passage offered for quoting or citing. */
+.draw-card {
+  padding: 10px 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.draw-excerpt {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  border-left: 2px solid var(--border-strong);
+  padding-left: 8px;
+}
+
+/* The trust line under a viewer's title: resolved by default, warning when
+   the doc is actually overdue. */
+.trust {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  background: var(--approved-bg);
+  border: 1px solid var(--approved-border);
+  color: var(--approved-text);
+}
+.trust.warn {
+  background: var(--stale-bg);
+  border-color: var(--stale-border);
+  color: var(--stale-text);
+}
+
+/* The editor's bottom process strip — one dim row, no duplicated save state. */
+.pstrip {
+  height: 46px;
+  flex: 0 0 46px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-base);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
 }
 
 /* Rail first: the reading column needs the room before the sidebar does. */
@@ -1763,29 +1915,13 @@ html, body {
   }
 }
 
-/* Label and value sit on one line. Declared here rather than inline so the
-   narrow-screen rules below can hide a field outright. */
-.ed2-metafield {
-  display: inline-flex;
-}
-
 /* ───────── Editor chrome on narrow screens ─────────
-   The meta bar and the action strip are fixed-height flex rows with
-   `overflow: hidden`. Below the sidebar breakpoint their items no longer fit,
-   and clipped flex items overlap rather than truncate — the type badge lands
-   on top of the status label. Drop the fields that are repeated elsewhere on
-   the screen instead of letting everything collide. */
+   The process strip is a fixed-height flex row. Below the sidebar breakpoint
+   its items no longer fit, and clipped flex items overlap rather than
+   truncate. The status text goes; the buttons are the point of the strip.
+   (The old full-width meta bar this used to also handle is gone — its
+   contents now sit inline above the title.) */
 @media (max-width: 860px) {
-  .ed2-metabar {
-    padding: 0 16px;
-    gap: 12px;
-  }
-  /* Owner and the version/last-reviewed trail both appear on the read view. */
-  .ed2-metafield[data-field="owner"],
-  .ed2-metabar-trail {
-    display: none;
-  }
-
   .ed2-processstrip {
     padding: 0 12px;
     gap: 8px;
@@ -1795,17 +1931,81 @@ html, body {
   }
 }
 
-/* The co-write launcher sits inside the editor's scroll column, offset to
-   clear the 280px rail. Once the rail is hidden that offset pushes it off the
-   left edge, so it moves to the opposite corner from the Ask Aqli launcher. */
-.ed2-cowrite-dock {
-  right: 304px;
+/* ───────── The floating assistant ─────────
+   One per surface: Co-write in the editor, Ask in the viewer (see
+   `components/ai/FloatingAssistant.tsx`). It used to be two pills competing
+   for this corner, which is why the co-write launcher carried a 304px offset
+   to dodge the other one. With a single pill it simply sits bottom-right.
+   `--dock-bottom` is raised by the editor's process strip so the pill clears
+   it. */
+.assistant-dock {
+  position: fixed;
+  bottom: var(--dock-bottom, 24px);
+  right: 24px;
+  z-index: 100;
 }
 
-@media (max-width: 1100px) {
-  .ed2-cowrite-dock {
-    right: auto;
-    left: 16px;
-    max-width: calc(100% - 32px);
+.assistant-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 10px 12px;
+  background: var(--text-primary);
+  color: var(--bg-card);
+  border: 0;
+  border-radius: var(--r-pill);
+  box-shadow:
+    0 18px 36px -10px rgba(20, 20, 18, 0.32),
+    0 2px 6px rgba(20, 20, 18, 0.1);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.assistant-orb {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.assistant-kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: 0.62;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+
+.assistant-panel {
+  width: 360px;
+  /* Grows upward from `--dock-bottom`, so the room above it is the viewport
+     less that offset. `dvh`, not `vh`: on mobile the browser chrome retracts,
+     and `vh` keeps measuring the tallest state, which is what lets the panel
+     run off the top exactly when the viewport is shortest. */
+  max-height: min(560px, calc(100dvh - var(--dock-bottom, 24px) - 24px));
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-modal);
+  box-shadow:
+    0 24px 48px -12px rgba(20, 20, 18, 0.22),
+    0 4px 12px rgba(20, 20, 18, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@media (max-width: 420px) {
+  .assistant-panel {
+    width: calc(100vw - 32px);
+    right: 16px;
   }
 }

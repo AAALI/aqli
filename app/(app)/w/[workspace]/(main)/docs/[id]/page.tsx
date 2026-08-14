@@ -7,20 +7,21 @@ import { listWorkspaceMembers, getMyRole } from "@/lib/supabase/members";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import AppTopBar from "@/components/layout/AppTopBar";
 import DownloadMarkdownButton from "@/components/docs/DownloadMarkdownButton";
-import DocStatusControl from "@/components/docs/DocStatusControl";
 import RequestReviewButton from "@/components/docs/RequestReviewButton";
+import DocMetaRow from "@/components/docs/DocMetaRow";
 import ProvenanceBar from "@/components/docs/ProvenanceBar";
 import TrustLine from "@/components/docs/TrustLine";
 import WhatChangedBanner from "@/components/docs/WhatChangedBanner";
-import ReadingRail from "@/components/docs/ReadingRail";
+import ReadingRail, { type DiscussionEntry } from "@/components/docs/ReadingRail";
 import PrChangedBanner from "@/components/docs/PrChangedBanner";
 import DocComments from "@/components/docs/DocComments";
+import DocAskAssistant from "@/components/docs/DocAskAssistant";
 import { getDocActivity } from "@/lib/supabase/activity";
-import { AutoApprovedChip, TypeBadge } from "@/components/aqli/badges";
 import DocBodyClient from "@/components/docs/DocBodyClient";
 import { IconEdit, IconHistory } from "@/components/aqli/icons";
-import { typeLabel } from "@/lib/doc-display";
-import { isStale } from "@/lib/utils";
+import { isReviewTrail } from "@/types/comment";
+import { toPlainText } from "@/lib/mentions";
+import { cadenceOf, isStaleFor } from "@/lib/verify-cadence";
 
 type Loaded<T> = { data: T; failed: false } | { data: null; failed: true };
 
@@ -51,7 +52,7 @@ export default async function DocViewPage({
   const doc = await getDoc(id).catch(() => null);
   if (!doc) notFound();
 
-  const [versions, backlinks, owners, thread, members, role, supabase] =
+  const [versions, backlinks, owners, thread, members, role, activity, supabase] =
     await Promise.all([
       getDocVersions(id),
       getBacklinks(id, doc.workspace_id),
@@ -59,6 +60,7 @@ export default async function DocViewPage({
       loadSection(getDocCommentThread(doc.workspace_id, id), "the comment thread"),
       loadSection(listWorkspaceMembers(doc.workspace_id), "the member list"),
       getMyRole(doc.workspace_id),
+      getDocActivity(doc.workspace_id, doc.id, 50).catch(() => []),
       createServerSupabaseClient(),
     ]);
   const {
@@ -78,14 +80,22 @@ export default async function DocViewPage({
   // "Auto-approved" is a claim about status, not just origin — a PR-sourced
   // doc routed to review (auto-approve off) must not carry the chip.
   const isAutoApproved = Boolean(prUrl) && doc.status === "approved";
-  const stale = isStale(doc.last_reviewed_at);
+  const canEdit = role === "admin" || role === "editor";
+
+  // Freshness is measured against the doc's own cadence, not one global 90-day
+  // rule (see lib/verify-cadence.ts).
+  const cadence = cadenceOf(doc.frontmatter?.verify_cadence);
+  const stale = isStaleFor(doc.last_reviewed_at, cadence);
+
+  // Who last verified it. `last_reviewed_at` records when but not who, so the
+  // name comes from the activity log, which does.
+  const reviewerName =
+    activity.find((a) => a.action === "reviewed")?.actor_name ?? null;
 
   // 08c: the doc's latest PR merge event powers the "What this PR changed"
-  // banner. Only fetched for PR-sourced docs.
+  // banner. Only meaningful for PR-sourced docs.
   const prEvent = prUrl
-    ? (await getDocActivity(doc.workspace_id, doc.id, 25).catch(() => [])).find(
-        (a) => a.metadata?.source === "github_pr",
-      ) ?? null
+    ? (activity.find((a) => a.metadata?.source === "github_pr") ?? null)
     : null;
   const historyHref = `${base}/docs/${doc.id}/history`;
   const spaceCrumb = doc.space
@@ -101,71 +111,53 @@ export default async function DocViewPage({
         }))
       : [];
 
+  // What the rail's Discussion block shows: real reader comments, newest
+  // first, with the review trail left out — that is process, not conversation.
+  const readerComments = (thread.data?.comments ?? []).filter(
+    (c) => !isReviewTrail(c.comment_type),
+  );
+  const discussion: DiscussionEntry[] = readerComments
+    .slice(-3)
+    .reverse()
+    .map((c) => ({
+      id: c.id,
+      author: c.author_name,
+      excerpt: toPlainText(c.body, thread.data?.names ?? {}),
+      createdAt: c.created_at,
+    }));
+
   return (
     <>
-      <AppTopBar base={base} crumbs={[spaceCrumb, { label: doc.title }]} share />
-
-      {/* Slim action bar — actions only; type/status/version moved into the doc head */}
-      <div
-        style={{
-          height: 44,
-          flex: "0 0 44px",
-          borderBottom: "1px solid var(--border)",
-          padding: "0 24px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "flex-end",
-          gap: 6,
-          background: "var(--bg-base)",
-        }}
-      >
-        <Link href={historyHref} className="btn btn-ghost" style={{ gap: 6 }}>
-          <IconHistory size={13} />
-          <span>History</span>
-        </Link>
-        <DownloadMarkdownButton doc={doc} />
-        <Link href={`${base}/docs/${doc.id}/edit`} className="btn btn-secondary" style={{ gap: 6 }}>
-          <IconEdit size={13} />
-          <span>Edit</span>
-        </Link>
-        {doc.status === "draft" && <RequestReviewButton docId={doc.id} />}
-      </div>
+      {/* One top bar. Type, status, owner and version used to be restated in a
+          full-width strip beneath it; they now sit inline with the document. */}
+      <AppTopBar
+        base={base}
+        crumbs={[spaceCrumb, { label: doc.title }]}
+        share
+        actions={
+          <>
+            <Link href={historyHref} className="btn btn-ghost" style={{ gap: 6 }}>
+              <IconHistory size={13} />
+              <span>History</span>
+            </Link>
+            <DownloadMarkdownButton doc={doc} />
+            <Link
+              href={`${base}/docs/${doc.id}/edit`}
+              className="btn btn-secondary"
+              style={{ gap: 6 }}
+            >
+              <IconEdit size={13} />
+              <span>Edit</span>
+            </Link>
+            {doc.status === "draft" && <RequestReviewButton docId={doc.id} />}
+          </>
+        }
+      />
 
       <div className="main-body" style={{ position: "relative" }}>
-        {/* Reading column */}
-        <div
-          id="doc-scroll"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            overflowY: "auto",
-            background: "var(--bg-base)",
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
-          <article
-            id="doc-article"
-            style={{
-              width: "100%",
-              maxWidth: 760,
-              padding: "40px 56px 100px",
-              color: "var(--text-primary)",
-              fontFamily: "var(--font-sans)",
-              fontSize: 16,
-              lineHeight: 1.7,
-            }}
-          >
-            {/* Head — type, status, version */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-              <TypeBadge type={typeLabel(doc.type)} />
-              {isAutoApproved && <AutoApprovedChip />}
-              <DocStatusControl docId={doc.id} status={doc.status} />
-              <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-                v{version}
-                {doc.space ? ` · ${doc.space.name}` : ""}
-              </span>
-            </div>
+        <div id="doc-scroll" className="doc-scroll">
+          <article id="doc-article" className="doc-col">
+            <DocMetaRow doc={doc} version={version} autoApproved={isAutoApproved} />
 
             <h1
               style={{
@@ -187,8 +179,11 @@ export default async function DocViewPage({
             <TrustLine
               docId={doc.id}
               lastReviewedAt={doc.last_reviewed_at}
-              reviewerName={null}
+              reviewerName={reviewerName}
               stale={stale}
+              cadence={cadence}
+              frontmatter={doc.frontmatter}
+              canEdit={canEdit}
               prSource={
                 isAutoApproved
                   ? {
@@ -224,26 +219,43 @@ export default async function DocViewPage({
               <DocBodyClient bodyMd={doc.body_md} title={doc.title} />
             </div>
 
-            <DocComments
-              docId={doc.id}
-              initial={thread.data?.comments ?? []}
-              names={thread.data?.names ?? {}}
-              threadFailed={thread.failed}
-              members={(members.data ?? []).map((m) => ({
-                user_id: m.user_id,
-                name: ownerInfo(m).name,
-                email: m.email,
-              }))}
-              membersFailed={members.failed}
-              currentUserId={user?.id ?? null}
-              canComment={role === "admin" || role === "editor"}
-              canModerate={role === "admin"}
-            />
+            <div id="doc-comments">
+              <DocComments
+                docId={doc.id}
+                initial={thread.data?.comments ?? []}
+                names={thread.data?.names ?? {}}
+                threadFailed={thread.failed}
+                members={(members.data ?? []).map((m) => ({
+                  user_id: m.user_id,
+                  name: ownerInfo(m).name,
+                  email: m.email,
+                }))}
+                membersFailed={members.failed}
+                currentUserId={user?.id ?? null}
+                canComment={canEdit}
+                canModerate={role === "admin"}
+              />
+            </div>
           </article>
         </div>
 
-        <ReadingRail base={base} backlinks={backlinks} />
+        <ReadingRail
+          base={base}
+          backlinks={backlinks}
+          discussion={discussion}
+          discussionCount={readerComments.length}
+          discussionFailed={thread.failed}
+        />
       </div>
+
+      {/* Reading's one floating affordance. The workspace-wide pill stands
+          down on this route, so Ask never appears alongside Co-write. */}
+      <DocAskAssistant
+        workspaceId={doc.workspace_id}
+        workspaceSlug={wsSlug}
+        docId={doc.id}
+        docTitle={doc.title}
+      />
     </>
   );
 }

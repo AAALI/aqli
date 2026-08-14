@@ -4,55 +4,71 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RequestReviewButton from "@/components/docs/RequestReviewButton";
+import { StatusBadge } from "@/components/aqli/badges";
 import { IconHistory } from "@/components/aqli/icons";
 import { DOC_TYPES, type DocType, type DocWithSpace } from "@/types/doc";
-import { typeLabel } from "@/lib/doc-display";
+import { statusLabel, typeLabel } from "@/lib/doc-display";
 import type { Space } from "@/types/space";
 
+/** "Sara", "Sara and Amir", "Sara, Amir and 2 others". */
+function notifyList(names: string[]): string | null {
+  if (names.length === 0) return null;
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names[0]}, ${names[1]} and ${names.length - 2} other${names.length === 3 ? "" : "s"}`;
+}
+
+/**
+ * The editor's bottom strip: what happens to this doc when you stop typing.
+ *
+ * Deliberately not a status readout. It used to open with
+ * "Editing · Sara · Saved just now", which restated the breadcrumb's save
+ * state and the meta row's status for a third time on the same screen. What
+ * is left is the process — who owns it, who hears about it at review, and the
+ * three things you can do about that.
+ */
 export default function ProcessStrip({
   doc,
   base,
   ownerName,
-  savedLabel,
+  reviewers,
 }: {
   doc: DocWithSpace;
   base: string;
   ownerName: string | null;
-  savedLabel: string;
+  /** Who gets the review request — workspace admins and editors. */
+  reviewers: string[];
 }) {
   // This strip owns the bottom-right corner while the editor is open, so lift
-  // the floating chat launcher clear of it. `AqliChatWidget` reads the same
-  // variable; the default keeps it at 24px everywhere else.
+  // the floating assistant clear of it. The default keeps the pill at 24px
+  // everywhere else.
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--dock-bottom", "68px");
+    root.style.setProperty("--dock-bottom", "70px");
     return () => {
       root.style.removeProperty("--dock-bottom");
     };
   }, []);
 
+  const notify = notifyList(reviewers);
+
   return (
-    <div
-      className="ed2-processstrip"
-      style={{
-        height: 44,
-        flex: "0 0 44px",
-        borderTop: "1px solid var(--border)",
-        background: "var(--bg-base)",
-        display: "flex",
-        alignItems: "center",
-        padding: "0 24px",
-        gap: 14,
-        fontSize: 12.5,
-        color: "var(--text-muted)",
-      }}
-    >
-      {/* Status text, not actions: it is the first thing to go when the strip
-          runs out of room, and the top bar carries the save state anyway. */}
-      <span className="ed2-strip-status">Editing</span>
-      {ownerName && <span className="ed2-strip-status">· {ownerName}</span>}
-      <span className="ed2-strip-status">·</span>
-      <span className="ed2-strip-status">{savedLabel}</span>
+    <div className="pstrip ed2-processstrip">
+      {/* The same status fact as the meta row above the title, in the place
+          you act on it. Nothing else on this strip repeats. */}
+      <StatusBadge status={statusLabel(doc.status)} />
+      {ownerName && (
+        <>
+          <span className="ed2-strip-status">·</span>
+          <span className="ed2-strip-status">{ownerName}</span>
+        </>
+      )}
+      {notify && (
+        <>
+          <span className="ed2-strip-status">·</span>
+          <span className="ed2-strip-status">Will notify on review {notify}</span>
+        </>
+      )}
 
       <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
         <Link
@@ -64,13 +80,6 @@ export default function ProcessStrip({
           History
         </Link>
         <DocSettingsButton doc={doc} />
-        <Link
-          href={`${base}/docs/${doc.id}`}
-          className="btn btn-secondary"
-          style={{ height: 28, fontSize: 12 }}
-        >
-          Done
-        </Link>
         {doc.status === "draft" && <RequestReviewButton docId={doc.id} />}
       </span>
     </div>
