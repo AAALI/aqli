@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppTopBar from "@/components/layout/AppTopBar";
-import { IconHistory, IconRobot } from "@/components/aqli/icons";
+import { IconEye, IconHistory } from "@/components/aqli/icons";
+import { EmptyState } from "@/components/aqli/page";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
 import { formatRelative, formatDate } from "@/lib/utils";
 import { diffLines } from "@/lib/merge/diff";
@@ -86,37 +88,42 @@ export default function HistoryClient({
 
   return (
     <>
-      <AppTopBar base={base} crumbs={crumbs} />
-
-      {/* Doc context bar */}
-      <div style={{ flex: "0 0 56px", height: 56, padding: "0 32px", borderBottom: "1px solid var(--border)", background: "var(--bg-base)", display: "flex", alignItems: "center", gap: 16 }}>
-        <h2 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 20, letterSpacing: "-0.01em", color: "var(--text-primary)" }}>
-          {docTitle}
-        </h2>
-        <span style={{ color: "var(--border-strong)" }}>|</span>
-        <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
-          {versions.length} version{versions.length === 1 ? "" : "s"}
-        </span>
-        <div style={{ flex: 1 }} />
-        {selected && (
-          <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
-            {previous ? (
-              <>Comparing <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>v{previous.version_number}</strong> → <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>v{selected.version_number}</strong></>
-            ) : (
-              <>Showing <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>v{selected.version_number}</strong> (initial)</>
-            )}
-          </span>
-        )}
-      </div>
+      {/* One top bar. The doc title is in the breadcrumb, the version count is
+          on the timeline, and which versions are being compared is stated
+          above the diff — so the 56px context strip that restated all three
+          has gone. */}
+      <AppTopBar
+        base={base}
+        crumbs={crumbs}
+        actions={
+          <Link href={`${base}/docs/${docId}`} className="btn btn-ghost" style={{ gap: 6 }}>
+            <IconEye size={13} />
+            <span>Read</span>
+          </Link>
+        }
+      />
 
       <div className="main-body">
         {/* Timeline */}
         <aside style={{ width: 340, flex: "0 0 340px", borderRight: "1px solid var(--border)", background: "var(--bg-card)", overflow: "auto", padding: "20px 0 0" }}>
-          <div style={{ padding: "0 20px 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-            Timeline
+          <div
+            style={{
+              padding: "0 20px 12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+            }}
+          >
+            <span className="rail-label">Timeline</span>
+            {versions.length > 0 && (
+              <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
+                {versions.length}
+              </span>
+            )}
           </div>
           {versions.length === 0 ? (
-            <div style={{ padding: "0 20px", fontSize: 13, color: "var(--text-muted)" }}>
+            <div className="rail-empty" style={{ padding: "0 20px" }}>
               No revisions yet. One is recorded every time a change is merged.
             </div>
           ) : (
@@ -223,10 +230,11 @@ export default function HistoryClient({
               </div>
             </>
           ) : (
-            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <IconRobot size={16} /> No versions to compare yet.
-              </span>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <EmptyState title="Nothing to compare yet">
+                A revision is recorded every time a change is merged. Once there are
+                two, the diff between them shows up here.
+              </EmptyState>
             </div>
           )}
         </div>

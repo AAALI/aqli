@@ -63,3 +63,20 @@ export function isStaleFor(
   const days = CADENCE_DAYS[cadence];
   return Date.now() - new Date(lastReviewedAt).getTime() > days * 24 * 60 * 60 * 1000;
 }
+
+/** The shape both the viewer and the "Needs updating" query read a doc as. */
+export type Verifiable = {
+  last_reviewed_at: string | null;
+  frontmatter: { verify_cadence?: VerifyCadence } | null;
+};
+
+/**
+ * Whether a doc is overdue. **The** definition — the viewer's trust line and
+ * the "Needs updating" list both call this, and they have to agree: a doc that
+ * shows a green "Verified" line to its reader must not simultaneously be
+ * listed as needing attention. Two copies of this expression is exactly how
+ * that drifts.
+ */
+export function isDocOverdue(doc: Verifiable): boolean {
+  return isStaleFor(doc.last_reviewed_at, cadenceOf(doc.frontmatter?.verify_cadence));
+}

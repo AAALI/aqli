@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { TypeBadge } from "@/components/aqli/badges";
+import { PageHeader, EmptyState } from "@/components/aqli/page";
 import { IconRobot } from "@/components/aqli/icons";
 import { typeLabel } from "@/lib/doc-display";
 import { formatRelative } from "@/lib/utils";
@@ -46,17 +47,11 @@ export default function AgentLogClient({
 
   return (
     <div className="content" style={{ padding: "32px 40px" }}>
-      <header style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 22 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-          Audit
-        </div>
-        <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 34, letterSpacing: "-0.015em", lineHeight: 1.1 }}>
-          AI activity
-        </h1>
-        <p style={{ margin: 0, fontSize: 14, color: "var(--text-secondary)" }}>
-          Everything AI assistants have created or changed, in one auditable trail.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Audit"
+        title="AI activity"
+        sub="Everything AI assistants have created or changed, in one auditable trail."
+      />
 
       <div className="fpills" style={{ marginBottom: 18 }}>
         {FILTERS.map((f) => (
@@ -71,9 +66,22 @@ export default function AgentLogClient({
       </div>
 
       {filtered.length === 0 ? (
-        <div style={{ padding: "48px 0", textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-          No agent activity yet.
-        </div>
+        <EmptyState
+          title={
+            filter === "all"
+              ? "No agent has touched this workspace yet"
+              : `Nothing here under "${FILTERS.find((f) => f.key === filter)?.label}"`
+          }
+        >
+          {filter === "all" ? (
+            <>
+              Connect an agent with an API key and every doc it creates or changes will
+              be recorded here.
+            </>
+          ) : (
+            <>Try a different action, or switch back to All actions.</>
+          )}
+        </EmptyState>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 900 }}>
           {filtered.map((a) => (

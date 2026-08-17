@@ -4,9 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TypeBadge } from "@/components/aqli/badges";
+import { PageHeader, EmptyState } from "@/components/aqli/page";
 import { IconCheck, IconClock } from "@/components/aqli/icons";
 import { typeLabel } from "@/lib/doc-display";
 import { formatDate } from "@/lib/utils";
+import { CADENCE_LABEL, cadenceOf } from "@/lib/verify-cadence";
 import type { DocWithSpace } from "@/types/doc";
 
 function daysSinceReview(lastReviewedAt: string | null): number | null {
@@ -18,10 +20,9 @@ function daysSinceReview(lastReviewedAt: string | null): number | null {
 type Props = {
   docs: DocWithSpace[];
   workspaceSlug: string;
-  staleDays: number;
 };
 
-export default function StaleClient({ docs, workspaceSlug, staleDays }: Props) {
+export default function StaleClient({ docs, workspaceSlug }: Props) {
   const router = useRouter();
   const base = `/w/${workspaceSlug}`;
   const [loading, setLoading] = useState<string | null>(null);
@@ -38,98 +39,108 @@ export default function StaleClient({ docs, workspaceSlug, staleDays }: Props) {
 
   return (
     <div className="content" style={{ padding: "32px 40px" }}>
-      <header
-        style={{
-          display: "flex", flexDirection: "column", gap: 6,
-          paddingBottom: 24, marginBottom: 24, borderBottom: "1px solid var(--border)",
-        }}
-      >
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-          Keeping it current
-        </div>
-        <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 34, letterSpacing: "-0.015em", lineHeight: 1.1 }}>
-          Needs updating
-        </h1>
-        <p style={{ margin: 0, maxWidth: 640, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.55 }}>
-          Approved docs nobody has checked in {staleDays}+ days. They still serve your team and
-          your AI, but someone should confirm they&apos;re current before they&apos;re treated as
-          ground truth.
-        </p>
-      </header>
+      <div className="page-col">
+        <PageHeader
+          eyebrow="Keeping it current"
+          title="Needs updating"
+          divider
+          sub={
+            <>
+              Approved docs that are past their own re-verification cadence. They still
+              serve your team and your AI, but someone should confirm they&apos;re current
+              before they&apos;re treated as ground truth. A doc&apos;s cadence is set on
+              the doc itself.
+            </>
+          }
+        />
 
-      {docs.length === 0 ? (
-        <div
-          style={{
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            height: 240, color: "var(--text-muted)", gap: 8,
-          }}
-        >
-          <span style={{ width: 44, height: 44, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--accent-light)", color: "var(--accent)" }}>
-            <IconCheck size={20} sw={2.2} />
-          </span>
-          <p style={{ margin: 0, fontSize: 16, fontWeight: 500, color: "var(--text-secondary)" }}>
-            All your approved docs are up to date
-          </p>
-          <p style={{ margin: 0, fontSize: 13 }}>Every one has been verified in the last {staleDays} days.</p>
-        </div>
-      ) : (
-        <>
-          <div style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 16 }}>
-            {docs.length} {docs.length === 1 ? "doc needs" : "docs need"} verifying
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {docs.map((doc) => {
-              const days = daysSinceReview(doc.last_reviewed_at);
-              return (
-                <div
-                  key={doc.id}
-                  className="card"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "80px 1fr 150px 120px 150px",
-                    gap: 14, alignItems: "center", padding: "14px 18px",
-                  }}
-                >
-                  <TypeBadge type={typeLabel(doc.type)} />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                    <Link
-                      href={`${base}/docs/${doc.id}`}
-                      style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.005em", textDecoration: "none" }}
-                    >
-                      {doc.title}
-                    </Link>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      {doc.space?.name ?? "No space"}
+        {docs.length === 0 ? (
+          <EmptyState
+            tone="clear"
+            icon={<IconCheck size={20} sw={2.2} />}
+            title="All your approved docs are up to date"
+          >
+            Every one has been verified within the cadence it&apos;s held to.
+          </EmptyState>
+        ) : (
+          <>
+            <div style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 16 }}>
+              {docs.length} {docs.length === 1 ? "doc needs" : "docs need"} verifying
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {docs.map((doc) => {
+                const days = daysSinceReview(doc.last_reviewed_at);
+                const cadence = cadenceOf(doc.frontmatter?.verify_cadence);
+                return (
+                  <div
+                    key={doc.id}
+                    className="card stale-row"
+                    style={{ alignItems: "center", padding: "14px 18px" }}
+                  >
+                    <TypeBadge type={typeLabel(doc.type)} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                      <Link
+                        href={`${base}/docs/${doc.id}`}
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 500,
+                          color: "var(--text-primary)",
+                          letterSpacing: "-0.005em",
+                          textDecoration: "none",
+                        }}
+                      >
+                        {doc.title}
+                      </Link>
+                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        {doc.space?.name ?? "No space"}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
+                      {doc.last_reviewed_at
+                        ? `Verified ${formatDate(doc.last_reviewed_at)}`
+                        : "Never verified"}
+                      {/* Why *this* doc is listed — without the cadence, a doc
+                          checked 40 days ago looks arbitrarily flagged. */}
+                      <span style={{ color: "var(--text-muted)" }}>
+                        {" "}
+                        · due {CADENCE_LABEL[cadence]}
+                      </span>
                     </span>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        height: 22,
+                        padding: "0 8px",
+                        borderRadius: 6,
+                        background: "var(--stale-bg)",
+                        color: "var(--stale-text)",
+                        border: "1px solid var(--stale-border)",
+                        fontSize: 11.5,
+                        fontWeight: 500,
+                        width: "fit-content",
+                      }}
+                    >
+                      <IconClock size={11} />
+                      {days === null ? "—" : `${days}d`}
+                    </span>
+                    <button
+                      onClick={() => markReviewed(doc.id)}
+                      disabled={loading === doc.id}
+                      className="btn btn-secondary"
+                      style={{ gap: 6, justifySelf: "end" }}
+                    >
+                      <IconCheck size={13} sw={2.2} />
+                      <span>{loading === doc.id ? "Verifying…" : "Mark as verified"}</span>
+                    </button>
                   </div>
-                  <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
-                    {doc.last_reviewed_at ? `Verified ${formatDate(doc.last_reviewed_at)}` : "Never verified"}
-                  </span>
-                  <span
-                    style={{
-                      display: "inline-flex", alignItems: "center", gap: 5, height: 22, padding: "0 8px",
-                      borderRadius: 6, background: "var(--stale-bg)", color: "var(--stale-text)",
-                      border: "1px solid var(--stale-border)", fontSize: 11.5, fontWeight: 500, width: "fit-content",
-                    }}
-                  >
-                    <IconClock size={11} />
-                    {days === null ? "—" : `${days}d`}
-                  </span>
-                  <button
-                    onClick={() => markReviewed(doc.id)}
-                    disabled={loading === doc.id}
-                    className="btn btn-secondary"
-                    style={{ gap: 6, justifySelf: "end" }}
-                  >
-                    <IconCheck size={13} sw={2.2} />
-                    <span>{loading === doc.id ? "Verifying…" : "Mark as verified"}</span>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

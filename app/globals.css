@@ -1649,6 +1649,104 @@ html, body {
   }
 }
 
+/* ───────── Screen headers and empty states ─────────
+   Shared by every full-page view (see `components/aqli/page.tsx`). Before
+   this, each screen sized and spaced its own title, so no two announced
+   themselves the same way. */
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* "Nothing here yet" — a slot inviting you to fill it. */
+.empty-slot {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-modal);
+  padding: 48px 32px;
+  text-align: center;
+  background: var(--bg-card);
+}
+
+/* "Nothing left to do" — a resolved state, not an absence. */
+.empty-clear {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 72px 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.empty-orb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-light);
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+/* Search: results beside the Aqli answer rail. The rail drops below the
+   results before it squeezes them, same rule as the doc rail. */
+.search-layout {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+.search-rail {
+  width: 380px;
+  flex: 0 0 380px;
+}
+@media (max-width: 1100px) {
+  .search-layout {
+    flex-direction: column;
+  }
+  .search-rail {
+    width: 100%;
+    flex: 1 1 auto;
+  }
+}
+
+/* "Needs updating" rows: type · title · when + cadence · overdue · action. */
+.stale-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 210px 80px 150px;
+  gap: 14px;
+}
+@media (max-width: 900px) {
+  .stale-row {
+    grid-template-columns: 1fr auto;
+    row-gap: 10px;
+  }
+}
+
+/* The standard measure for a list-shaped screen. Wider than the 720px reading
+   column because rows carry metadata and actions, not prose. */
+.page-col {
+  max-width: 960px;
+  margin: 0 auto;
+}
+.page-col-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
 /* ───────── Rail blocks ─────────
    Every block either shows data or a purposeful empty state; none of them is
    a permanent placeholder. */

@@ -1,5 +1,5 @@
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
-import { getStaleDocs, DEFAULT_STALE_DAYS } from "@/lib/supabase/stale";
+import { getStaleDocs } from "@/lib/supabase/stale";
 import AppTopBar from "@/components/layout/AppTopBar";
 import StaleClient from "./StaleClient";
 
@@ -16,7 +16,7 @@ export default async function StalePage({
   return (
     <>
       <AppTopBar base={base} crumbs={[{ label: "Needs updating" }]} />
-      <StaleClient docs={docs} workspaceSlug={workspace.slug} staleDays={DEFAULT_STALE_DAYS} />
+      <StaleClient docs={docs} workspaceSlug={workspace.slug} />
     </>
   );
 }

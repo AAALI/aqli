@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { StatusBadge, TypeBadge } from "@/components/aqli/badges";
+import { PageHeader, EmptyState } from "@/components/aqli/page";
 import { IconSearch, IconSparkle, IconArrowUpRight, IconRobot } from "@/components/aqli/icons";
 import { typeLabel, statusLabel } from "@/lib/doc-display";
 import type { DocStatus, DocType } from "@/types/doc";
@@ -40,9 +41,11 @@ type AiAnswer = {
 export default function SearchClient({
   workspaceId,
   workspaceSlug,
+  spaces,
 }: {
   workspaceId: string;
   workspaceSlug: string;
+  spaces: { id: string; name: string }[];
 }) {
   const base = `/w/${workspaceSlug}`;
   const searchParams = useSearchParams();
@@ -53,6 +56,8 @@ export default function SearchClient({
   const [busy, setBusy] = useState(false);
   const [aiAnswer, setAiAnswer] = useState<AiAnswer>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  // null = every space. A real filter over the results already on screen.
+  const [spaceFilter, setSpaceFilter] = useState<string | null>(null);
 
   const doSearch = useCallback(
     async (q: string) => {
@@ -93,8 +98,17 @@ export default function SearchClient({
 
   function run(e: React.FormEvent) {
     e.preventDefault();
+    setSpaceFilter(null); // a new query's filter shouldn't survive from the old one
     doSearch(query);
   }
+
+  // Only spaces that actually have hits get a pill — a filter that can only
+  // ever return nothing is the same dead control in a different costume.
+  const spacesWithHits = spaces
+    .map((s) => ({ ...s, count: results.filter((r) => r.space_id === s.id).length }))
+    .filter((s) => s.count > 0);
+  const visible =
+    spaceFilter === null ? results : results.filter((r) => r.space_id === spaceFilter);
 
   // Honour an initial ?q= (e.g. handed off from the ⌘K palette's "Ask Aqli").
   // `query` is seeded from the param above; this only kicks off the fetch
@@ -109,7 +123,9 @@ export default function SearchClient({
     <>
       <AppTopBar base={base} crumbs={[{ label: "Search" }]} />
       <div className="content" style={{ padding: "28px 40px" }}>
-        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+        <div className="page-col-wide">
+          <PageHeader eyebrow="Find" title="Search" />
+
           {/* Search bar */}
           <form
             onSubmit={run}
@@ -139,31 +155,52 @@ export default function SearchClient({
             </button>
           </form>
 
-          <div className="fpills" style={{ marginBottom: 24 }}>
-            <button className="fpill is-active" type="button">All Spaces</button>
-            {searched && (
+          {/* Only shown once there is something to filter — an inert pill row
+              above an empty screen is chrome pretending to be a control. */}
+          {searched && results.length > 0 && (
+            <div className="fpills" style={{ marginBottom: 24, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className={`fpill ${spaceFilter === null ? "is-active" : ""}`}
+                onClick={() => setSpaceFilter(null)}
+              >
+                All spaces
+              </button>
+              {spacesWithHits.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`fpill ${spaceFilter === s.id ? "is-active" : ""}`}
+                  onClick={() => setSpaceFilter(s.id)}
+                >
+                  {s.name}
+                  <span style={{ marginLeft: 6, color: "var(--text-muted)" }}>{s.count}</span>
+                </button>
+              ))}
               <span style={{ marginLeft: 12, fontSize: 12, color: "var(--text-muted)" }}>
-                {results.length} result{results.length === 1 ? "" : "s"}
+                {visible.length} result{visible.length === 1 ? "" : "s"}
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
           {!searched && (
-            <div style={{ border: "1px dashed var(--border-strong)", borderRadius: 12, padding: "56px 32px", textAlign: "center", color: "var(--text-muted)", fontSize: 13.5, background: "var(--bg-card)" }}>
-              Search across every doc in this workspace — agents query the same index.
-            </div>
+            <EmptyState title="Search every doc in this workspace">
+              Titles and full text. Your agents query the same index through the API,
+              so what you find here is what they find.
+            </EmptyState>
           )}
 
           {searched && results.length === 0 && (
-            <div style={{ border: "1px dashed var(--border-strong)", borderRadius: 12, padding: "48px 32px", textAlign: "center", color: "var(--text-muted)", fontSize: 13.5, background: "var(--bg-card)" }}>
-              No results for &ldquo;{query}&rdquo;.
-            </div>
+            <EmptyState title={`Nothing matches “${query}”`}>
+              Try fewer words, or ask Aqli a question instead — it can answer from
+              approved docs even when no title matches.
+            </EmptyState>
           )}
 
           {searched && results.length > 0 && (
-            <div style={{ display: "flex", gap: 28, alignItems: "flex-start" }}>
+            <div className="search-layout">
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
-                {results.map((r) => {
+                {visible.map((r) => {
                   const [pre, match, post] = excerptParts(r.body_text, query);
                   const isAgent = r.author_type === "agent";
                   return (
@@ -211,7 +248,7 @@ export default function SearchClient({
                 })}
               </div>
 
-              <AiAnswerPanel query={query} results={results} base={base} aiAnswer={aiAnswer} aiLoading={aiLoading} workspaceId={workspaceId} />
+              <AiAnswerPanel query={query} results={visible} base={base} aiAnswer={aiAnswer} aiLoading={aiLoading} />
             </div>
           )}
         </div>
@@ -232,13 +269,11 @@ function AiAnswerPanel({
   base: string;
   aiAnswer: AiAnswer;
   aiLoading: boolean;
-  workspaceId: string;
 }) {
   return (
     <aside
+      className="search-rail"
       style={{
-        width: 380,
-        flex: "0 0 380px",
         background: "var(--bg-card)",
         border: "1px solid var(--border)",
         borderRadius: 8,
@@ -251,7 +286,7 @@ function AiAnswerPanel({
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ color: "var(--accent)" }}><IconSparkle size={16} /></span>
-        <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>Aqli Answer</span>
+        <span className="rail-label">Aqli answer</span>
         {aiLoading && (
           <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-muted)" }}>Thinking…</span>
         )}
@@ -275,9 +310,7 @@ function AiAnswerPanel({
           </p>
           {aiAnswer.sources.length > 0 && (
             <div>
-              <div style={{ fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 600, marginBottom: 8 }}>
-                Sources
-              </div>
+              <div className="rail-label" style={{ marginBottom: 8 }}>Sources</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {aiAnswer.sources.slice(0, 4).map((s) => (
                   <Link key={s.doc_id} href={`${base}/docs/${s.doc_id}`} className="tag" style={{ background: "var(--accent-light)", borderColor: "rgba(15,110,86,0.18)", color: "var(--accent)", textDecoration: "none" }}>

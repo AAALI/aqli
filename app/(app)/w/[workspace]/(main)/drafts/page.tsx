@@ -4,6 +4,7 @@ import { getOwnerDirectory } from "@/lib/supabase/owners";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import DocList from "@/components/docs/DocList";
 import AppTopBar from "@/components/layout/AppTopBar";
+import { PageHeader, EmptyState, Eyebrow } from "@/components/aqli/page";
 
 export default async function DraftsPage({
   params,
@@ -29,26 +30,35 @@ export default async function DraftsPage({
     <>
       <AppTopBar base={base} crumbs={[{ label: "Drafts" }]} />
       <div className="content" style={{ padding: "28px 40px", overflowY: "auto" }}>
-        <div style={{ maxWidth: 920, margin: "0 auto" }}>
-          <h1 style={{ margin: "0 0 4px", fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 28, letterSpacing: "-0.015em" }}>
-            Drafts
-          </h1>
-          <p style={{ margin: "0 0 24px", fontSize: 13.5, color: "var(--text-secondary)" }}>
-            Your in-flight work — pick up where you left off.
-          </p>
+        <div className="page-col">
+          <PageHeader
+            eyebrow="In flight"
+            title="Drafts"
+            sub="Work that hasn't been through review yet — yours first, then everyone else's."
+          />
 
           {allDrafts.length === 0 ? (
-            <DocList docs={[]} workspaceSlug={workspace.slug} emptyLabel="No drafts yet. New docs start here before review." />
+            <EmptyState title="No drafts in this workspace">
+              Every new doc starts life here and stays until it goes for review.
+            </EmptyState>
           ) : (
             <>
-              <SubHead label={mine.length > 0 ? "Yours" : "No drafts owned by you"} />
-              {mine.length > 0 && (
-                <DocList docs={mine} workspaceSlug={workspace.slug} emptyLabel="" owners={owners} />
+              {mine.length > 0 ? (
+                <>
+                  <div style={{ marginBottom: 12 }}>
+                    <Eyebrow>Yours</Eyebrow>
+                  </div>
+                  <DocList docs={mine} workspaceSlug={workspace.slug} emptyLabel="" owners={owners} />
+                </>
+              ) : (
+                <EmptyState title="Nothing in flight from you">
+                  Drafts you start will collect here. Others&apos; are below.
+                </EmptyState>
               )}
               {others.length > 0 && (
                 <>
-                  <div style={{ marginTop: mine.length > 0 ? 28 : 0 }}>
-                    <SubHead label="Elsewhere in the workspace" />
+                  <div style={{ marginTop: 28, marginBottom: 12 }}>
+                    <Eyebrow>Elsewhere in the workspace</Eyebrow>
                   </div>
                   <DocList docs={others} workspaceSlug={workspace.slug} emptyLabel="" owners={owners} />
                 </>
@@ -58,22 +68,5 @@ export default async function DraftsPage({
         </div>
       </div>
     </>
-  );
-}
-
-function SubHead({ label }: { label: string }) {
-  return (
-    <div
-      style={{
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: "0.12em",
-        textTransform: "uppercase",
-        color: "var(--text-muted)",
-        marginBottom: 12,
-      }}
-    >
-      {label}
-    </div>
   );
 }

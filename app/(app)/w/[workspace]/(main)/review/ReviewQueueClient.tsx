@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TypeBadge, AgentChip } from "@/components/aqli/badges";
+import { PageHeader, EmptyState, Eyebrow } from "@/components/aqli/page";
 import { IconArrowUpRight, IconCheck } from "@/components/aqli/icons";
 import { typeLabel } from "@/lib/doc-display";
 import { formatRelative } from "@/lib/utils";
@@ -103,27 +104,24 @@ export default function ReviewQueueClient({
     }
   }
 
-  if (proposals.length === 0 && docs.length === 0) {
+  const waiting = proposals.length + docs.length;
+
+  if (waiting === 0) {
     return (
       <div className="content" style={{ padding: "28px 40px" }}>
-        <div
-          style={{
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            height: 280, color: "var(--text-muted)", gap: 8,
-          }}
-        >
-          <span
-            style={{
-              width: 44, height: 44, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center",
-              background: "var(--approved-bg, var(--accent-light))", color: "var(--accent)", marginBottom: 4,
-            }}
+        <div className="page-col">
+          <PageHeader
+            eyebrow="Review"
+            title="Review queue"
+            sub="Nothing is published in a reviewed space until someone here approves it."
+          />
+          <EmptyState
+            tone="clear"
+            icon={<IconCheck size={20} sw={2.2} />}
+            title="Review queue is clear"
           >
-            <IconCheck size={20} sw={2.2} />
-          </span>
-          <p style={{ margin: 0, fontSize: 16, fontWeight: 500, color: "var(--text-secondary)" }}>
-            Review queue is clear
-          </p>
-          <p style={{ margin: 0, fontSize: 13 }}>No changes are waiting for review.</p>
+            No changes are waiting for review.
+          </EmptyState>
         </div>
       </div>
     );
@@ -131,17 +129,14 @@ export default function ReviewQueueClient({
 
   return (
     <div className="content" style={{ padding: "28px 40px" }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 500, letterSpacing: "-0.015em" }}>
-          Review Queue
-        </h1>
-        <div style={{ marginTop: 4, fontSize: 13.5, color: "var(--text-secondary)" }}>
-          {proposals.length + docs.length}{" "}
-          {proposals.length + docs.length === 1 ? "item" : "items"} waiting for review
-        </div>
-      </div>
+      <div className="page-col">
+      <PageHeader
+        eyebrow="Review"
+        title="Review queue"
+        sub={`${waiting} ${waiting === 1 ? "item is" : "items are"} waiting on you. Nothing is published until you approve it.`}
+      />
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 960 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {proposals.map((p) => (
           <ProposalCard
             key={p.id}
@@ -155,17 +150,8 @@ export default function ReviewQueueClient({
         ))}
 
         {docs.length > 0 && proposals.length > 0 && (
-          <div
-            style={{
-              fontSize: 11.5,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "var(--text-muted)",
-              fontWeight: 600,
-              marginTop: 10,
-            }}
-          >
-            Documents flagged for review
+          <div style={{ marginTop: 10 }}>
+            <Eyebrow>Documents flagged for review</Eyebrow>
           </div>
         )}
 
@@ -298,6 +284,7 @@ export default function ReviewQueueClient({
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );

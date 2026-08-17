@@ -1,35 +1,24 @@
 import DocCard from "./DocCard";
+import { EmptyState } from "@/components/aqli/page";
 import type { OwnerInfo } from "@/lib/supabase/owners";
 import type { DocWithSpace } from "@/types/doc";
 
 export default function DocList({
   docs,
   workspaceSlug,
-  emptyLabel = "No docs yet.",
+  emptyLabel = "No docs here yet",
   owners,
 }: {
   docs: DocWithSpace[];
   workspaceSlug: string;
+  /** Empty pass `""` to render nothing — used where a caller owns the empty case. */
   emptyLabel?: string;
   /** `user_id → display info`, used to name human authors. */
   owners?: Record<string, OwnerInfo>;
 }) {
   if (docs.length === 0) {
-    return (
-      <div
-        style={{
-          border: "1px dashed var(--border-strong)",
-          borderRadius: 12,
-          padding: "44px 32px",
-          textAlign: "center",
-          fontSize: 13,
-          color: "var(--text-muted)",
-          background: "var(--bg-card)",
-        }}
-      >
-        {emptyLabel}
-      </div>
-    );
+    if (!emptyLabel) return null;
+    return <EmptyState title={emptyLabel} />;
   }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

@@ -7,6 +7,7 @@ import { getOwnerDirectory } from "@/lib/supabase/owners";
 import DocList from "@/components/docs/DocList";
 import AppTopBar from "@/components/layout/AppTopBar";
 import SpaceTabs from "@/components/spaces/SpaceTabs";
+import { PageHeader, EmptyState } from "@/components/aqli/page";
 import ShelvesView, { type Shelf } from "@/components/spaces/ShelvesView";
 import { typeLabel } from "@/lib/doc-display";
 import { IconPlus } from "@/components/aqli/icons";
@@ -124,33 +125,11 @@ function SpaceTitle({ icon, name, count }: { icon: string; name: string; count: 
         {icon}
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            color: "var(--text-muted)",
-            marginBottom: 4,
-          }}
-        >
-          Space
-        </div>
-        <h1
-          style={{
-            margin: 0,
-            fontFamily: "var(--font-serif)",
-            fontSize: 36,
-            fontWeight: 400,
-            letterSpacing: "-0.012em",
-            color: "var(--text-primary)",
-          }}
-        >
-          {name}
-        </h1>
-        <div style={{ marginTop: 8, fontSize: 12.5, color: "var(--text-muted)" }}>
-          {count} doc{count === 1 ? "" : "s"}
-        </div>
+        <PageHeader
+          eyebrow="Space"
+          title={name}
+          sub={`${count} doc${count === 1 ? "" : "s"}`}
+        />
       </div>
     </div>
   );
@@ -158,25 +137,18 @@ function SpaceTitle({ icon, name, count }: { icon: string; name: string; count: 
 
 function EmptySpace({ newHref, spaceName }: { newHref: string; spaceName: string }) {
   return (
-    <div
-      style={{
-        marginTop: 24,
-        border: "1px dashed var(--border-strong)",
-        borderRadius: 12,
-        padding: "56px 32px",
-        textAlign: "center",
-        background: "var(--bg-card)",
-      }}
-    >
-      <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)", marginBottom: 6 }}>
-        {spaceName} is empty
-      </div>
-      <p style={{ margin: "0 auto 22px", maxWidth: 380, fontSize: 13.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>
-        Docs you create here become shared context — searchable by your team and queryable by your agents.
-      </p>
-      <Link href={newHref} className="btn btn-primary" style={{ height: 38, padding: "0 18px" }}>
-        <IconPlus size={14} /> New Doc
-      </Link>
+    <div style={{ marginTop: 24 }}>
+      <EmptyState
+        title={`${spaceName} is empty`}
+        action={
+          <Link href={newHref} className="btn btn-primary" style={{ height: 38, padding: "0 18px" }}>
+            <IconPlus size={14} /> New Doc
+          </Link>
+        }
+      >
+        Docs you create here become shared context — searchable by your team and
+        queryable by your agents.
+      </EmptyState>
     </div>
   );
 }
