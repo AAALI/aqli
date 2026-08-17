@@ -12,6 +12,7 @@ import {
   IconTrash,
 } from "@/components/aqli/icons";
 import { SettingsHeader, StatCell, FormField } from "@/components/settings/primitives";
+import { EmptyState } from "@/components/aqli/page";
 import { DEFAULT_AGENT_SCOPES } from "@/lib/agent-scopes";
 import type { AgentScope } from "@/lib/merge/disposition";
 
@@ -253,9 +254,11 @@ export default function KeysClient({
         </div>
 
         {keys.length === 0 ? (
-          <div style={{ border: "1px dashed var(--border-strong)", borderRadius: 12, padding: "48px 32px", textAlign: "center", color: "var(--text-muted)", fontSize: 13.5, background: "var(--bg-card)" }}>
-            No API keys yet. {canManage ? "Create one to connect Claude Code, Cursor, or any agent." : "Ask a workspace admin to create one."}
-          </div>
+          <EmptyState title="No API keys yet">
+            {canManage
+              ? "Create one to connect Claude Code, Cursor, or any agent to this workspace."
+              : "Ask a workspace admin to create one."}
+          </EmptyState>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {keys.map((k) => (

@@ -21,7 +21,7 @@ import DocBodyClient from "@/components/docs/DocBodyClient";
 import { IconEdit, IconHistory } from "@/components/aqli/icons";
 import { isReviewTrail } from "@/types/comment";
 import { toPlainText } from "@/lib/mentions";
-import { cadenceOf, isStaleFor } from "@/lib/verify-cadence";
+import { cadenceOf, isDocOverdue } from "@/lib/verify-cadence";
 
 type Loaded<T> = { data: T; failed: false } | { data: null; failed: true };
 
@@ -83,9 +83,10 @@ export default async function DocViewPage({
   const canEdit = role === "admin" || role === "editor";
 
   // Freshness is measured against the doc's own cadence, not one global 90-day
-  // rule (see lib/verify-cadence.ts).
+  // rule. `isDocOverdue` is the same predicate the "Needs updating" list uses,
+  // so a doc cannot show a green trust line here and be flagged there.
   const cadence = cadenceOf(doc.frontmatter?.verify_cadence);
-  const stale = isStaleFor(doc.last_reviewed_at, cadence);
+  const stale = isDocOverdue(doc);
 
   // Who last verified it. `last_reviewed_at` records when but not who, so the
   // name comes from the activity log, which does.

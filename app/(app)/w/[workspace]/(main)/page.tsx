@@ -10,6 +10,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { greeting, todayLong, withinHours, dayBucket } from "@/lib/home";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { AgentChip } from "@/components/aqli/badges";
+import { PageHeader, EmptyState } from "@/components/aqli/page";
 import { typeLabel } from "@/lib/doc-display";
 import { formatRelative, avatarColor } from "@/lib/utils";
 import {
@@ -108,44 +109,14 @@ export default async function WorkspaceHome({
         primary={firstSpace ? { label: "New Doc", href: newDocHref } : null}
       />
       <div className="content" style={{ overflowY: "auto", padding: "32px 56px 64px" }}>
-        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
-          {/* Hero */}
+        <div className="page-col-wide">
           <div style={{ marginBottom: 28 }}>
-            <div
-              style={{
-                fontSize: 11.5,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                color: "var(--text-muted)",
-                fontWeight: 600,
-                marginBottom: 8,
-              }}
-            >
-              {todayLong()}
-            </div>
-            <h1
-              style={{
-                margin: 0,
-                fontFamily: "var(--font-serif)",
-                fontSize: 42,
-                fontWeight: 400,
-                letterSpacing: "-0.018em",
-                lineHeight: 1.05,
-              }}
-            >
-              {greeting(firstName)}
-            </h1>
-            <p
-              style={{
-                margin: "8px 0 0",
-                fontSize: 16,
-                lineHeight: 1.55,
-                color: "var(--text-secondary)",
-                maxWidth: 640,
-              }}
-            >
-              {sub}
-            </p>
+            <PageHeader
+              size="hero"
+              eyebrow={todayLong()}
+              title={greeting(firstName)}
+              sub={sub}
+            />
           </div>
 
           {/* Pick up where you left off */}
@@ -178,7 +149,13 @@ export default async function WorkspaceHome({
               }
             />
             {attentionCount === 0 ? (
-              <EmptyCard text="You're all caught up — nothing to review or verify." />
+              <EmptyState
+                tone="clear"
+                icon={<IconCheckCircle size={20} sw={2} />}
+                title="You're all caught up"
+              >
+                Nothing to review, nothing past its verification cadence.
+              </EmptyState>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {proposalCount > 0 && (
@@ -215,7 +192,10 @@ export default async function WorkspaceHome({
           <section>
             <SectionHead eyebrow="What's new" title="In your spaces" />
             {feedGroups.length === 0 ? (
-              <EmptyCard text="No recent activity yet." />
+              <EmptyState title="Nothing has moved in the last few days">
+                Drafts, approvals and agent activity across your spaces show up here as
+                they happen.
+              </EmptyState>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 18, maxWidth: 720 }}>
                 {feedGroups.map((g) => (
@@ -575,6 +555,7 @@ function FeedIcon({
 
 // ── Shared bits ───────────────────────────────────────────────────────
 
+/** A band within the home screen. `PageHeader` at `sub` size, plus a right slot. */
 function SectionHead({
   eyebrow,
   title,
@@ -585,59 +566,8 @@ function SectionHead({
   right?: React.ReactNode;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "space-between",
-        gap: 16,
-        marginBottom: 16,
-      }}
-    >
-      <div>
-        <div
-          style={{
-            fontSize: 10.5,
-            fontWeight: 600,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            color: "var(--text-muted)",
-            marginBottom: 4,
-          }}
-        >
-          {eyebrow}
-        </div>
-        <h2
-          style={{
-            margin: 0,
-            fontFamily: "var(--font-serif)",
-            fontSize: 22,
-            fontWeight: 400,
-            letterSpacing: "-0.01em",
-            color: "var(--text-primary)",
-          }}
-        >
-          {title}
-        </h2>
-      </div>
-      {right}
-    </div>
-  );
-}
-
-function EmptyCard({ text }: { text: string }) {
-  return (
-    <div
-      style={{
-        padding: "20px 18px",
-        background: "var(--bg-card)",
-        border: "1px solid var(--border)",
-        borderRadius: 8,
-        fontSize: 13.5,
-        color: "var(--text-muted)",
-      }}
-    >
-      {text}
+    <div style={{ marginBottom: 16 }}>
+      <PageHeader size="sub" eyebrow={eyebrow} title={title} action={right} />
     </div>
   );
 }
@@ -645,30 +575,23 @@ function EmptyCard({ text }: { text: string }) {
 function EmptyWorkspace({ firstSpaceHref }: { firstSpaceHref: string }) {
   return (
     <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ maxWidth: 520, textAlign: "center" }}>
-        <h1
-          style={{
-            margin: "0 0 10px",
-            fontFamily: "var(--font-serif)",
-            fontWeight: 400,
-            fontSize: 36,
-            letterSpacing: "-0.02em",
-          }}
+      <div style={{ maxWidth: 520 }}>
+        <EmptyState
+          title="A clean slate"
+          action={
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <Link href={`${firstSpaceHref}/new`} className="btn btn-primary" style={{ height: 38, padding: "0 18px" }}>
+                <IconPlus size={14} /> Write your first doc
+              </Link>
+              <Link href={firstSpaceHref} className="btn btn-secondary" style={{ height: 38, padding: "0 16px" }}>
+                Browse a space <IconArrowUpRight size={14} />
+              </Link>
+            </div>
+          }
         >
-          A clean slate.
-        </h1>
-        <p style={{ margin: "0 0 28px", fontSize: 15, lineHeight: 1.6, color: "var(--text-secondary)" }}>
-          This workspace doesn&apos;t have any docs yet. Start with a policy, a how-to, or the
-          thing everyone keeps asking about — your team and your AI will both read it.
-        </p>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-          <Link href={`${firstSpaceHref}/new`} className="btn btn-primary" style={{ height: 38, padding: "0 18px" }}>
-            <IconPlus size={14} /> Write your first doc
-          </Link>
-          <Link href={firstSpaceHref} className="btn btn-secondary" style={{ height: 38, padding: "0 16px" }}>
-            Browse a space <IconArrowUpRight size={14} />
-          </Link>
-        </div>
+          This workspace doesn&apos;t have any docs yet. Start with a policy, a how-to, or
+          the thing everyone keeps asking about — your team and your AI will both read it.
+        </EmptyState>
       </div>
     </div>
   );

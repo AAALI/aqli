@@ -1,16 +1,14 @@
 import type { ReactNode } from "react";
 import { IconChevDown } from "@/components/aqli/icons";
+import { PageHeader } from "@/components/aqli/page";
 
+/**
+ * Settings screens announce themselves the same way every other screen does.
+ * This is `PageHeader` with the eyebrow fixed to "Settings" and the rule under
+ * it always on — the only two things that were ever settings-specific about it.
+ */
 export function SettingsHeader({ title, sub, action }: { title: string; sub?: string; action?: ReactNode }) {
-  return (
-    <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, paddingBottom: 22, borderBottom: "1px solid var(--border)", marginBottom: 28 }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 34, letterSpacing: "-0.015em", lineHeight: 1.1 }}>{title}</h1>
-        {sub && <p style={{ margin: 0, maxWidth: 620, fontSize: 13.5, lineHeight: 1.55, color: "var(--text-secondary)" }}>{sub}</p>}
-      </div>
-      {action}
-    </header>
-  );
+  return <PageHeader eyebrow="Settings" title={title} sub={sub} action={action} divider />;
 }
 
 export function SettingsCard({ title, sub, children, action }: { title: string; sub?: string; children: ReactNode; action?: ReactNode }) {
