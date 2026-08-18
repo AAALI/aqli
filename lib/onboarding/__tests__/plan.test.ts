@@ -1,33 +1,69 @@
 import { describe, expect, it } from "vitest";
 import {
   NUMBERED_STEPS,
+  ONBOARDING_STEPS,
   SUGGESTED_SPACES,
   canAddCustomSpace,
+  isFinalStep,
   nextStep,
   prevStep,
   resolveEntry,
+  resumeNeedsEscape,
   slugAlternatives,
   spacesToCreate,
   stepEyebrow,
   suggestSlug,
   toggleSpace,
   validateSlug,
+  type StepKey,
 } from "../plan";
 
 describe("steps", () => {
   it("walks forwards and backwards without falling off either end", () => {
     expect(nextStep("account")).toBe("workspace");
-    expect(nextStep("assistant")).toBe("done");
-    expect(nextStep("done")).toBe("done");
+    expect(nextStep("spaces")).toBe("assistant");
+    // The last step is the last step — there is no confirmation screen past it.
+    expect(nextStep("assistant")).toBe("assistant");
     expect(prevStep("workspace")).toBe("account");
     expect(prevStep("account")).toBe("account");
   });
 
-  it("numbers every step except the terminal one", () => {
+  it("numbers every step, because none of them is pure ceremony", () => {
     expect(stepEyebrow("account")).toBe("Step 1 of 4");
     expect(stepEyebrow("assistant")).toBe("Step 4 of 4");
-    expect(stepEyebrow("done")).toBeNull();
     expect(NUMBERED_STEPS).toHaveLength(4);
+    expect(NUMBERED_STEPS).toEqual(ONBOARDING_STEPS);
+  });
+
+  it("ends on the assistant step", () => {
+    expect(isFinalStep("assistant")).toBe(true);
+    expect(isFinalStep("spaces")).toBe(false);
+    // Every step is reachable from the first by walking forward.
+    const walked: StepKey[] = ["account"];
+    while (!isFinalStep(walked[walked.length - 1])) {
+      walked.push(nextStep(walked[walked.length - 1]));
+    }
+    expect(walked).toEqual(ONBOARDING_STEPS.map((s) => s.key));
+  });
+});
+
+describe("resumeNeedsEscape", () => {
+  // A resumed run cannot tell "abandoned setup" from "finished, and Company
+  // was all they wanted". Guessing the second wrong traps a finished user in
+  // onboarding forever, so a resume always offers a way into the app.
+  it("offers an escape on a resumed run", () => {
+    expect(
+      resumeNeedsEscape({
+        kind: "resume",
+        step: "spaces",
+        workspace: { id: "w", slug: "acme", name: "ACME" },
+      }),
+    ).toBe(true);
+  });
+
+  it("does not on a fresh run or a redirect", () => {
+    expect(resumeNeedsEscape({ kind: "step", step: "account" })).toBe(false);
+    expect(resumeNeedsEscape({ kind: "redirect", to: "/w/acme" })).toBe(false);
   });
 });
 
