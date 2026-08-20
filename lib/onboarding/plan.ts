@@ -241,12 +241,23 @@ export function spacesToCreate(
 
 /* ───────── Where to start ───────── */
 
+/** Written into `workspaces.settings` the moment onboarding is finished. */
+export const ONBOARDED_AT = "onboarded_at";
+
 export type EntryState = {
   hasUser: boolean;
   /** Workspaces the signed-in user belongs to, oldest first. */
   workspaces: { id: string; slug: string; name: string }[];
   /** Spaces in `workspaces[0]`, when known. */
   spaceCount?: number;
+  /**
+   * `settings.onboarded_at` on `workspaces[0]` — the definitive answer, set
+   * when a run of this wizard finishes.
+   */
+  onboardedAt?: string | null;
+  /** Whether `workspaces[0]` holds any docs. Evidence for workspaces that
+   *  predate `onboarded_at` and so can never carry it. */
+  hasDocs?: boolean;
 };
 
 export type Entry =
@@ -255,17 +266,23 @@ export type Entry =
   | { kind: "redirect"; to: string };
 
 /**
- * Whether a resumed run should offer a way straight into the app.
+ * Has this workspace been through setup?
  *
- * "Workspace holds only its seeded space" cannot tell apart *"they abandoned
- * setup halfway"* from *"they finished, and Company was all they wanted"* —
- * nothing records completion. Guessing wrong in the second direction is the
- * worse failure: it sends a finished user back through setup every time they
- * open /signup, with no way out. So the ambiguity is handled in the open —
- * a resumed run keeps the step, and adds an escape.
+ * "Holds only its seeded Company space" was the old test, and it cannot tell
+ * *"they abandoned setup halfway"* from *"they finished, and Company was all
+ * they wanted"*. Getting that second case wrong sends a finished user back
+ * into onboarding every time they open /signup.
+ *
+ * So finishing is recorded rather than inferred: `finish()` stamps
+ * `settings.onboarded_at`, and that is the answer whenever it exists. The two
+ * fallbacks are only for workspaces created before the stamp existed, which
+ * can never carry it — more than the seeded space, or any doc at all, means
+ * somebody has been using this workspace and does not need setting up.
  */
-export function resumeNeedsEscape(entry: Entry): boolean {
-  return entry.kind === "resume";
+function isOnboarded(state: EntryState): boolean {
+  if (state.onboardedAt) return true;
+  if ((state.spaceCount ?? 0) > 1) return true;
+  return state.hasDocs === true;
 }
 
 /**
@@ -278,10 +295,11 @@ export function resumeNeedsEscape(entry: Entry): boolean {
  * and the flow dead-ended. Progress is therefore re-derived from the server on
  * every mount instead of being remembered.
  *
- * A workspace still holding only its seeded space is treated as unfinished and
- * resumes at the spaces step. Anything more established means onboarding is
- * over and the user is sent to the app — visiting /signup again should never
- * ask an existing customer to create a second workspace.
+ * A workspace that has been through setup sends the user to the app —
+ * visiting /signup again should never ask an existing customer to create a
+ * second workspace, nor walk them back through steps they have finished. One
+ * that has not resumes at the spaces step, which is where a run that was
+ * interrupted after workspace creation left off.
  */
 export function resolveEntry(state: EntryState): Entry {
   if (!state.hasUser) return { kind: "step", step: "account" };
@@ -289,8 +307,7 @@ export function resolveEntry(state: EntryState): Entry {
   const workspace = state.workspaces[0];
   if (!workspace) return { kind: "step", step: "workspace" };
 
-  const untouched = (state.spaceCount ?? 0) <= 1;
-  if (untouched) return { kind: "resume", step: "spaces", workspace };
+  if (isOnboarded(state)) return { kind: "redirect", to: `/w/${workspace.slug}` };
 
-  return { kind: "redirect", to: `/w/${workspace.slug}` };
+  return { kind: "resume", step: "spaces", workspace };
 }

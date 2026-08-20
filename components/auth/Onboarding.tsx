@@ -20,8 +20,8 @@ import {
   SUGGESTED_SPACES,
   canAddCustomSpace,
   normalizeSlug,
+  ONBOARDED_AT,
   resolveEntry,
-  resumeNeedsEscape,
   slugAlternatives,
   spacesToCreate,
   stepEyebrow,
@@ -34,6 +34,44 @@ import {
 import * as analytics from "@/lib/analytics";
 
 type Workspace = { id: string; slug: string; name: string };
+type WorkspaceRow = Workspace & { settings?: Record<string, unknown> | null };
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Create one space, surviving a blip.
+ *
+ * Onboarding fires these in parallel, one request per space, so a single
+ * dropped connection or a cold start used to surface as a dead end on the last
+ * step of setup — with the user's picks half-applied. Most of those failures
+ * fix themselves on a second attempt, so the flow makes it rather than asking
+ * the user to.
+ *
+ * Retried: network errors and 5xx. Not retried: a 4xx, which is a considered
+ * refusal that will be refused identically next time. A 409 is success — the
+ * space already exists, which is the end state this is aiming at.
+ */
+async function createSpace(
+  workspaceId: string,
+  space: { name: string; slug: string; icon: string },
+  attempts = 3,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await fetch("/api/spaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_id: workspaceId, ...space }),
+      });
+      if (res.ok || res.status === 409) return true;
+      if (res.status < 500) return false;
+    } catch {
+      // Network-level failure — worth another go.
+    }
+    if (attempt < attempts - 1) await sleep(300 * 2 ** attempt);
+  }
+  return false;
+}
 
 export default function Onboarding() {
   const router = useRouter();
@@ -76,8 +114,6 @@ export default function Onboarding() {
   // Spaces that failed to create. Kept so the user can move on rather than
   // being held on the step by an error that tells them to move on.
   const [spacesFailed, setSpacesFailed] = useState<string[]>([]);
-  // Set when this run resumed an existing workspace — see `resumeNeedsEscape`.
-  const [resumed, setResumed] = useState(false);
 
   const effectiveSlug = slugTouched ? normalizeSlug(slug) : suggestSlug(workspaceName);
   const slugCheck = validateSlug(effectiveSlug);
@@ -108,24 +144,40 @@ export default function Onboarding() {
         const user = data.user;
         if (user) setEmail(user.email ?? "");
 
-        const workspaces: Workspace[] = user
+        const workspaces: WorkspaceRow[] = user
           ? await fetch("/api/workspaces")
               .then((r) => (r.ok ? r.json() : { workspaces: [] }))
               .then((b) => b.workspaces ?? [])
               .catch(() => [])
           : [];
 
-        // The space count decides whether a workspace is still mid-setup, so it
-        // is only needed when one exists.
+        // Only asked when a workspace exists, and only to answer "has this
+        // been set up already?" — see `resolveEntry`.
         let spaceCount: number | undefined;
+        let hasDocs: boolean | undefined;
         if (workspaces[0]) {
-          const names = await loadSpaces(workspaces[0].id).catch(() => [] as string[]);
+          const [names, docs] = await Promise.all([
+            loadSpaces(workspaces[0].id).catch(() => [] as string[]),
+            // Evidence for workspaces older than the `onboarded_at` stamp.
+            fetch(`/api/docs?workspace_id=${workspaces[0].id}&limit=1`)
+              .then((r) => (r.ok ? r.json() : { docs: [] }))
+              .then((b) => (b.docs ?? []).length > 0)
+              .catch(() => false),
+          ]);
           spaceCount = names.length;
+          hasDocs = docs;
         }
 
         if (cancelled) return;
 
-        const entry = resolveEntry({ hasUser: !!user, workspaces, spaceCount });
+        const onboardedAt = workspaces[0]?.settings?.[ONBOARDED_AT];
+        const entry = resolveEntry({
+          hasUser: !!user,
+          workspaces,
+          spaceCount,
+          hasDocs,
+          onboardedAt: typeof onboardedAt === "string" ? onboardedAt : null,
+        });
 
         if (entry.kind === "redirect") {
           // Already onboarded — never ask for a second workspace.
@@ -138,9 +190,6 @@ export default function Onboarding() {
           setWorkspaceName(entry.workspace.name);
           setSlug(entry.workspace.slug);
           setStep(entry.step);
-          // A workspace holding only its seeded space might be an abandoned
-          // setup or a finished one. Rather than guess, offer the way out.
-          setResumed(resumeNeedsEscape(entry));
         } else {
           // `/signup?step=workspace` is where the root page sends a confirmed
           // user who has no workspace yet.
@@ -301,32 +350,21 @@ export default function Onboarding() {
     try {
       const toCreate = spacesToCreate(picked, existingSpaces, customSpaces);
       const results = await Promise.all(
-        toCreate.map(async (s) => {
-          const res = await fetch("/api/spaces", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              workspace_id: workspace.id,
-              name: s.name,
-              slug: s.slug,
-              icon: s.icon,
-            }),
-          });
-          // A 409 means the space is already there — the desired end state.
-          return { name: s.name, ok: res.ok || res.status === 409 };
-        }),
+        toCreate.map(async (s) => ({
+          name: s.name,
+          ok: await createSpace(workspace.id, s),
+        })),
       );
 
       const failed = results.filter((r) => !r.ok).map((r) => r.name);
       await loadSpaces(workspace.id).catch(() => []);
 
       if (failed.length) {
-        // These failures must be reported — a silent catch-all used to advance
-        // anyway, so a user could finish onboarding believing in spaces that
-        // were never created. But reporting them is not a reason to hold the
-        // user here: the message says "you can add them later", and refusing
-        // to move on contradicts it. The retry stays available, and so does
-        // the way forward.
+        // Reported, not swallowed — a silent catch-all used to advance anyway,
+        // so a user could finish onboarding believing in spaces that were
+        // never created. By this point `createSpace` has already retried, so
+        // this is a real failure rather than a blip, and both a further retry
+        // and a way past it are offered.
         setSpacesFailed(failed);
         setError(
           `Couldn't create ${failed.join(", ")}. Try again, or carry on and add ${failed.length > 1 ? "them" : "it"} from the sidebar later.`,
@@ -390,6 +428,17 @@ export default function Onboarding() {
       if (!workspace) return;
       setLeaving(true);
       analytics.capture("onboarding_completed", { workspace_id: workspace.id, via });
+      // Record that setup is done, so coming back to /signup sends this user
+      // into their workspace instead of walking them through it again. Not
+      // awaited — `keepalive` carries it past the navigation, and a workspace
+      // that ends up unstamped still reads as onboarded once it holds a second
+      // space or a single doc.
+      void fetch(`/api/workspaces/${workspace.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: { [ONBOARDED_AT]: new Date().toISOString() } }),
+        keepalive: true,
+      }).catch(() => {});
       router.push(`/w/${workspace.slug}`);
       router.refresh();
     },
@@ -634,25 +683,14 @@ export default function Onboarding() {
                 {error && <Msg tone="error">{error}</Msg>}
                 <Footer
                   left={
-                    resumed ? (
-                      <button
-                        type="button"
-                        className="btn btn-ghost onb-btn"
-                        onClick={() => finish("resume-escape")}
-                        disabled={leaving}
-                      >
-                        Skip to workspace
-                      </button>
-                    ) : (
-                      <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-                        {newSpaceCount === 0 ? "Company space only" : `${newSpaceCount} to create`}
-                      </span>
-                    )
+                    <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
+                      {newSpaceCount === 0 ? "Company space only" : `${newSpaceCount} to create`}
+                    </span>
                   }
                   right={
                     <div className="onb-actions">
-                      {/* A failure here never holds the user: the message says
-                          they can add these later, so the flow has to let them. */}
+                      {/* Only after the retries below have genuinely been
+                          exhausted — not as a substitute for retrying. */}
                       {spacesFailed.length > 0 && (
                         <button
                           type="button"

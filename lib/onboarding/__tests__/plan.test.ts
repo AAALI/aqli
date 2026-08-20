@@ -8,7 +8,6 @@ import {
   nextStep,
   prevStep,
   resolveEntry,
-  resumeNeedsEscape,
   slugAlternatives,
   spacesToCreate,
   stepEyebrow,
@@ -44,26 +43,6 @@ describe("steps", () => {
       walked.push(nextStep(walked[walked.length - 1]));
     }
     expect(walked).toEqual(ONBOARDING_STEPS.map((s) => s.key));
-  });
-});
-
-describe("resumeNeedsEscape", () => {
-  // A resumed run cannot tell "abandoned setup" from "finished, and Company
-  // was all they wanted". Guessing the second wrong traps a finished user in
-  // onboarding forever, so a resume always offers a way into the app.
-  it("offers an escape on a resumed run", () => {
-    expect(
-      resumeNeedsEscape({
-        kind: "resume",
-        step: "spaces",
-        workspace: { id: "w", slug: "acme", name: "ACME" },
-      }),
-    ).toBe(true);
-  });
-
-  it("does not on a fresh run or a redirect", () => {
-    expect(resumeNeedsEscape({ kind: "step", step: "account" })).toBe(false);
-    expect(resumeNeedsEscape({ kind: "redirect", to: "/w/acme" })).toBe(false);
   });
 });
 
@@ -184,7 +163,7 @@ describe("resolveEntry", () => {
     });
   });
 
-  it("resumes at spaces when the workspace still holds only its seeded space", () => {
+  it("resumes at spaces when setup was genuinely never finished", () => {
     expect(resolveEntry({ hasUser: true, workspaces: [ws], spaceCount: 1 })).toEqual({
       kind: "resume",
       step: "spaces",
@@ -203,6 +182,56 @@ describe("resolveEntry", () => {
     for (const spaceCount of [0, 1, 2, 9]) {
       const entry = resolveEntry({ hasUser: true, workspaces: [ws], spaceCount });
       expect(entry.kind).not.toBe("step");
+    }
+  });
+
+  // The trap this replaced: "holds only the seeded Company space" cannot tell
+  // an abandoned setup from a finished one where Company was all they wanted,
+  // and getting it wrong walked a finished user back through onboarding on
+  // every visit to /signup. Finishing is now recorded, so it is not a guess.
+  it("respects a recorded completion even with only the seeded space", () => {
+    expect(
+      resolveEntry({
+        hasUser: true,
+        workspaces: [ws],
+        spaceCount: 1,
+        onboardedAt: "2026-08-20T10:00:00.000Z",
+      }),
+    ).toEqual({ kind: "redirect", to: "/w/acme" });
+  });
+
+  it("treats a workspace that already holds docs as finished", () => {
+    // Workspaces created before the stamp existed can never carry it, so a
+    // doc is taken as proof somebody has been using this workspace.
+    expect(
+      resolveEntry({ hasUser: true, workspaces: [ws], spaceCount: 1, hasDocs: true }),
+    ).toEqual({ kind: "redirect", to: "/w/acme" });
+  });
+
+  it("still resumes a legacy workspace with one space and nothing in it", () => {
+    expect(
+      resolveEntry({
+        hasUser: true,
+        workspaces: [ws],
+        spaceCount: 1,
+        hasDocs: false,
+        onboardedAt: null,
+      }),
+    ).toMatchObject({ kind: "resume", step: "spaces" });
+  });
+
+  it("never sends a finished user back into setup, however it was finished", () => {
+    const finished = [
+      { spaceCount: 1, onboardedAt: "2026-08-20T10:00:00.000Z" },
+      { spaceCount: 1, hasDocs: true },
+      { spaceCount: 5 },
+      { spaceCount: 5, hasDocs: true, onboardedAt: "2026-08-20T10:00:00.000Z" },
+    ];
+    for (const state of finished) {
+      expect(resolveEntry({ hasUser: true, workspaces: [ws], ...state })).toEqual({
+        kind: "redirect",
+        to: "/w/acme",
+      });
     }
   });
 });
