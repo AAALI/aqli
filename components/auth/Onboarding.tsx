@@ -8,9 +8,7 @@ import { AqliMark } from "@/components/aqli/AqliMark";
 import {
   IconCheck,
   IconCheckCircle,
-  IconFolder,
   IconKey,
-  IconLink,
   IconRobot,
   IconSparkle,
   IconWarn,
@@ -22,6 +20,7 @@ import {
   SUGGESTED_SPACES,
   canAddCustomSpace,
   normalizeSlug,
+  ONBOARDED_AT,
   resolveEntry,
   slugAlternatives,
   spacesToCreate,
@@ -35,6 +34,44 @@ import {
 import * as analytics from "@/lib/analytics";
 
 type Workspace = { id: string; slug: string; name: string };
+type WorkspaceRow = Workspace & { settings?: Record<string, unknown> | null };
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Create one space, surviving a blip.
+ *
+ * Onboarding fires these in parallel, one request per space, so a single
+ * dropped connection or a cold start used to surface as a dead end on the last
+ * step of setup — with the user's picks half-applied. Most of those failures
+ * fix themselves on a second attempt, so the flow makes it rather than asking
+ * the user to.
+ *
+ * Retried: network errors and 5xx. Not retried: a 4xx, which is a considered
+ * refusal that will be refused identically next time. A 409 is success — the
+ * space already exists, which is the end state this is aiming at.
+ */
+async function createSpace(
+  workspaceId: string,
+  space: { name: string; slug: string; icon: string },
+  attempts = 3,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await fetch("/api/spaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_id: workspaceId, ...space }),
+      });
+      if (res.ok || res.status === 409) return true;
+      if (res.status < 500) return false;
+    } catch {
+      // Network-level failure — worth another go.
+    }
+    if (attempt < attempts - 1) await sleep(300 * 2 ** attempt);
+  }
+  return false;
+}
 
 export default function Onboarding() {
   const router = useRouter();
@@ -68,9 +105,15 @@ export default function Onboarding() {
   const [copied, setCopied] = useState(false);
 
   const [busy, setBusy] = useState(false);
+  // The push into the workspace is a navigation, not a fetch — without this the
+  // primary button snaps back to its idle label and looks like it did nothing.
+  const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Spaces that failed to create. Kept so the user can move on rather than
+  // being held on the step by an error that tells them to move on.
+  const [spacesFailed, setSpacesFailed] = useState<string[]>([]);
 
   const effectiveSlug = slugTouched ? normalizeSlug(slug) : suggestSlug(workspaceName);
   const slugCheck = validateSlug(effectiveSlug);
@@ -101,24 +144,40 @@ export default function Onboarding() {
         const user = data.user;
         if (user) setEmail(user.email ?? "");
 
-        const workspaces: Workspace[] = user
+        const workspaces: WorkspaceRow[] = user
           ? await fetch("/api/workspaces")
               .then((r) => (r.ok ? r.json() : { workspaces: [] }))
               .then((b) => b.workspaces ?? [])
               .catch(() => [])
           : [];
 
-        // The space count decides whether a workspace is still mid-setup, so it
-        // is only needed when one exists.
+        // Only asked when a workspace exists, and only to answer "has this
+        // been set up already?" — see `resolveEntry`.
         let spaceCount: number | undefined;
+        let hasDocs: boolean | undefined;
         if (workspaces[0]) {
-          const names = await loadSpaces(workspaces[0].id).catch(() => [] as string[]);
+          const [names, docs] = await Promise.all([
+            loadSpaces(workspaces[0].id).catch(() => [] as string[]),
+            // Evidence for workspaces older than the `onboarded_at` stamp.
+            fetch(`/api/docs?workspace_id=${workspaces[0].id}&limit=1`)
+              .then((r) => (r.ok ? r.json() : { docs: [] }))
+              .then((b) => (b.docs ?? []).length > 0)
+              .catch(() => false),
+          ]);
           spaceCount = names.length;
+          hasDocs = docs;
         }
 
         if (cancelled) return;
 
-        const entry = resolveEntry({ hasUser: !!user, workspaces, spaceCount });
+        const onboardedAt = workspaces[0]?.settings?.[ONBOARDED_AT];
+        const entry = resolveEntry({
+          hasUser: !!user,
+          workspaces,
+          spaceCount,
+          hasDocs,
+          onboardedAt: typeof onboardedAt === "string" ? onboardedAt : null,
+        });
 
         if (entry.kind === "redirect") {
           // Already onboarded — never ask for a second workspace.
@@ -149,6 +208,42 @@ export default function Onboarding() {
     // Runs once: this is the entry decision, not a subscription.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * Pick the session up as soon as it exists, whichever tab confirmed it.
+   *
+   * With email confirmation on, this tab is otherwise inert: the copy promises
+   * the link "brings you straight back here", but opening it in a second tab
+   * left this one sitting on "Check your inbox" with a "Log in" button as the
+   * only way forward — a second password entry to reach a session this browser
+   * already had.
+   *
+   * It polls rather than listening to `onAuthStateChange`. This app builds its
+   * browser client with `@supabase/ssr`, which keeps the session in **cookies**
+   * so the server can read it — not in localStorage. That means no `storage`
+   * event and no cross-tab broadcast to subscribe to. Cookies are shared across
+   * tabs of the same origin, so asking is what works. (Confirming in a
+   * different browser or on a phone still needs a log in; nothing in this tab
+   * can know about that.)
+   */
+  useEffect(() => {
+    if (!awaitingConfirmation) return;
+    let stop = false;
+    const timer = setInterval(async () => {
+      const { data } = await supabase.auth.getUser();
+      if (stop || !data.user) return;
+      clearInterval(timer);
+      setAwaitingConfirmation(false);
+      setEmail(data.user.email ?? "");
+      setNotice(null);
+      setError(null);
+      setStep("workspace");
+    }, 2500);
+    return () => {
+      stop = true;
+      clearInterval(timer);
+    };
+  }, [awaitingConfirmation, supabase]);
 
   async function submitAccount(e: React.FormEvent) {
     e.preventDefault();
@@ -255,37 +350,32 @@ export default function Onboarding() {
     try {
       const toCreate = spacesToCreate(picked, existingSpaces, customSpaces);
       const results = await Promise.all(
-        toCreate.map(async (s) => {
-          const res = await fetch("/api/spaces", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              workspace_id: workspace.id,
-              name: s.name,
-              slug: s.slug,
-              icon: s.icon,
-            }),
-          });
-          // A 409 means the space is already there — the desired end state.
-          return { name: s.name, ok: res.ok || res.status === 409 };
-        }),
+        toCreate.map(async (s) => ({
+          name: s.name,
+          ok: await createSpace(workspace.id, s),
+        })),
       );
 
       const failed = results.filter((r) => !r.ok).map((r) => r.name);
       await loadSpaces(workspace.id).catch(() => []);
 
       if (failed.length) {
-        // Previously these failures were swallowed by an unchecked `fetch` and
-        // a catch-all that advanced anyway, so a user could finish onboarding
-        // believing in spaces that were never created.
+        // Reported, not swallowed — a silent catch-all used to advance anyway,
+        // so a user could finish onboarding believing in spaces that were
+        // never created. By this point `createSpace` has already retried, so
+        // this is a real failure rather than a blip, and both a further retry
+        // and a way past it are offered.
+        setSpacesFailed(failed);
         setError(
-          `Could not create ${failed.join(", ")}. You can add ${failed.length > 1 ? "them" : "it"} later from the sidebar.`,
+          `Couldn't create ${failed.join(", ")}. Try again, or carry on and add ${failed.length > 1 ? "them" : "it"} from the sidebar later.`,
         );
         return;
       }
+      setSpacesFailed([]);
       setStep("assistant");
     } catch {
-      setError("Could not create your spaces. You can add them later from the sidebar.");
+      setSpacesFailed(picked.filter((p) => !existingSpaces.includes(p)));
+      setError("Couldn't reach the server. Try again, or carry on and add your spaces later.");
     } finally {
       setBusy(false);
     }
@@ -327,12 +417,33 @@ export default function Onboarding() {
     }
   }
 
-  function finish() {
-    if (!workspace) return;
-    analytics.capture("onboarding_completed", { workspace_id: workspace.id });
-    router.push(`/w/${workspace.slug}`);
-    router.refresh();
-  }
+  /**
+   * Leave onboarding. Called by every terminal action — skipping the AI step,
+   * continuing after a key is issued, and the escape offered on a resumed run.
+   * There is no confirmation screen in between: the workspace's own empty
+   * state is the welcome, and it comes with the button that writes doc one.
+   */
+  const finish = useCallback(
+    (via: string) => {
+      if (!workspace) return;
+      setLeaving(true);
+      analytics.capture("onboarding_completed", { workspace_id: workspace.id, via });
+      // Record that setup is done, so coming back to /signup sends this user
+      // into their workspace instead of walking them through it again. Not
+      // awaited — `keepalive` carries it past the navigation, and a workspace
+      // that ends up unstamped still reads as onboarded once it holds a second
+      // space or a single doc.
+      void fetch(`/api/workspaces/${workspace.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: { [ONBOARDED_AT]: new Date().toISOString() } }),
+        keepalive: true,
+      }).catch(() => {});
+      router.push(`/w/${workspace.slug}`);
+      router.refresh();
+    },
+    [workspace, router],
+  );
 
   function addCustomSpace() {
     const name = customDraft.trim();
@@ -577,9 +688,23 @@ export default function Onboarding() {
                     </span>
                   }
                   right={
-                    <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={submitSpaces} disabled={busy}>
-                      {busy ? "Creating…" : "Continue"}
-                    </button>
+                    <div className="onb-actions">
+                      {/* Only after the retries below have genuinely been
+                          exhausted — not as a substitute for retrying. */}
+                      {spacesFailed.length > 0 && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost onb-btn"
+                          onClick={() => setStep("assistant")}
+                          disabled={busy}
+                        >
+                          Carry on
+                        </button>
+                      )}
+                      <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={submitSpaces} disabled={busy}>
+                        {busy ? "Creating…" : spacesFailed.length > 0 ? "Try again" : "Continue"}
+                      </button>
+                    </div>
                   }
                 />
               </Stage>
@@ -637,17 +762,29 @@ export default function Onboarding() {
                     <div className="onb-actions">
                       {!issuedKey && (
                         <>
-                          <button type="button" className="btn btn-ghost onb-btn" onClick={() => setStep("done")}>
-                            Skip for now
+                          {/* Straight into the workspace — there is no summary
+                              screen between here and writing something. */}
+                          <button
+                            type="button"
+                            className="btn btn-ghost onb-btn"
+                            onClick={() => finish("skipped-key")}
+                            disabled={leaving}
+                          >
+                            {leaving ? "Opening…" : "Skip for now"}
                           </button>
-                          <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={createKey} disabled={busy}>
+                          <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={createKey} disabled={busy || leaving}>
                             {busy ? "Creating…" : "Create key"}
                           </button>
                         </>
                       )}
                       {issuedKey && (
-                        <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={() => setStep("done")}>
-                          Continue
+                        <button
+                          type="button"
+                          className="btn btn-primary onb-btn onb-btn-primary"
+                          onClick={() => finish("created-key")}
+                          disabled={leaving}
+                        >
+                          {leaving ? "Opening…" : "Open workspace"}
                         </button>
                       )}
                     </div>
@@ -656,42 +793,6 @@ export default function Onboarding() {
               </Stage>
             )}
 
-            {step === "done" && (
-              <Stage
-                eyebrow="All set"
-                title="Welcome to Aqli."
-                sub="Your workspace is live. The next move is yours — write the first doc, or point your assistant at it."
-              >
-                <div className="onb-summary">
-                  <SummaryRow
-                    icon={<IconLink size={15} />}
-                    label="Workspace"
-                    value={`aqli.app/w/${workspace?.slug ?? ""}`}
-                    meta="Live"
-                  />
-                  <SummaryRow
-                    icon={<IconFolder size={15} />}
-                    label="Spaces"
-                    value={existingSpaces.join(" · ") || "Company"}
-                  />
-                  <SummaryRow
-                    icon={<IconRobot size={15} />}
-                    label="AI access"
-                    value={issuedKey ? `${agentName} — key issued` : "Not connected yet"}
-                    meta={issuedKey ? undefined : "Settings → API keys"}
-                    done={!!issuedKey}
-                  />
-                </div>
-                <Footer
-                  left={<span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>You can change any of this later.</span>}
-                  right={
-                    <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={finish} disabled={!workspace}>
-                      Open workspace
-                    </button>
-                  }
-                />
-              </Stage>
-            )}
           </div>
         </div>
       </div>
@@ -728,25 +829,21 @@ function StepRail({ current }: { current: StepKey }) {
       {/* No workspace name here — the top bar already carries it, and on narrow
           screens the two sit within a few pixels of each other. */}
       <div className="onb-progress-label">
-        {current === "done" ? "Setup complete" : `Step ${currentIdx + 1} of ${NUMBERED_STEPS.length}`}
+        {`Step ${currentIdx + 1} of ${NUMBERED_STEPS.length}`}
       </div>
 
       <div className="onb-rail-head">
         <div className="onb-rail-eyebrow">Set up</div>
-        <div className="onb-rail-time">About 3 minutes</div>
+        <div className="onb-rail-time">About 2 minutes</div>
       </div>
 
       <ol className="onb-steps">
         {ONBOARDING_STEPS.map((s, i) => {
           const done = i < currentIdx;
           const now = i === currentIdx;
-          // The terminal step is deliberately unnumbered — it asks nothing of
-          // the user, and numbering it would contradict the "step n of 4"
-          // eyebrow on every screen.
-          const terminal = s.key === "done";
           return (
             <li key={s.key} className={`onb-step${now ? " is-now" : ""}${done ? " is-done" : ""}`} aria-current={now ? "step" : undefined}>
-              <span className="onb-step-dot">{done || terminal ? <IconCheck size={12} /> : i + 1}</span>
+              <span className="onb-step-dot">{done ? <IconCheck size={12} /> : i + 1}</span>
               <span className="onb-step-copy">
                 <span className="onb-step-label">{s.label}</span>
                 <span className="onb-step-hint">{s.hint}</span>
@@ -908,32 +1005,3 @@ function Msg({ tone, children }: { tone: "error" | "ok"; children: React.ReactNo
   return <p className={`onb-msg is-${tone}`}>{children}</p>;
 }
 
-function SummaryRow({
-  icon,
-  label,
-  value,
-  meta,
-  done = true,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  meta?: string;
-  done?: boolean;
-}) {
-  return (
-    <div className="onb-summary-row">
-      <span className="onb-summary-icon">{icon}</span>
-      <span className="onb-summary-copy">
-        <span className="onb-summary-label">{label}</span>
-        <span className="onb-summary-value">{value}</span>
-      </span>
-      {meta && <span className="onb-summary-meta">{meta}</span>}
-      {done && (
-        <span className="onb-summary-tick">
-          <IconCheck size={15} />
-        </span>
-      )}
-    </div>
-  );
-}

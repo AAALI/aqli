@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   NUMBERED_STEPS,
+  ONBOARDING_STEPS,
   SUGGESTED_SPACES,
   canAddCustomSpace,
+  isFinalStep,
   nextStep,
   prevStep,
   resolveEntry,
@@ -12,22 +14,35 @@ import {
   suggestSlug,
   toggleSpace,
   validateSlug,
+  type StepKey,
 } from "../plan";
 
 describe("steps", () => {
   it("walks forwards and backwards without falling off either end", () => {
     expect(nextStep("account")).toBe("workspace");
-    expect(nextStep("assistant")).toBe("done");
-    expect(nextStep("done")).toBe("done");
+    expect(nextStep("spaces")).toBe("assistant");
+    // The last step is the last step — there is no confirmation screen past it.
+    expect(nextStep("assistant")).toBe("assistant");
     expect(prevStep("workspace")).toBe("account");
     expect(prevStep("account")).toBe("account");
   });
 
-  it("numbers every step except the terminal one", () => {
+  it("numbers every step, because none of them is pure ceremony", () => {
     expect(stepEyebrow("account")).toBe("Step 1 of 4");
     expect(stepEyebrow("assistant")).toBe("Step 4 of 4");
-    expect(stepEyebrow("done")).toBeNull();
     expect(NUMBERED_STEPS).toHaveLength(4);
+    expect(NUMBERED_STEPS).toEqual(ONBOARDING_STEPS);
+  });
+
+  it("ends on the assistant step", () => {
+    expect(isFinalStep("assistant")).toBe(true);
+    expect(isFinalStep("spaces")).toBe(false);
+    // Every step is reachable from the first by walking forward.
+    const walked: StepKey[] = ["account"];
+    while (!isFinalStep(walked[walked.length - 1])) {
+      walked.push(nextStep(walked[walked.length - 1]));
+    }
+    expect(walked).toEqual(ONBOARDING_STEPS.map((s) => s.key));
   });
 });
 
@@ -148,7 +163,7 @@ describe("resolveEntry", () => {
     });
   });
 
-  it("resumes at spaces when the workspace still holds only its seeded space", () => {
+  it("resumes at spaces when setup was genuinely never finished", () => {
     expect(resolveEntry({ hasUser: true, workspaces: [ws], spaceCount: 1 })).toEqual({
       kind: "resume",
       step: "spaces",
@@ -167,6 +182,56 @@ describe("resolveEntry", () => {
     for (const spaceCount of [0, 1, 2, 9]) {
       const entry = resolveEntry({ hasUser: true, workspaces: [ws], spaceCount });
       expect(entry.kind).not.toBe("step");
+    }
+  });
+
+  // The trap this replaced: "holds only the seeded Company space" cannot tell
+  // an abandoned setup from a finished one where Company was all they wanted,
+  // and getting it wrong walked a finished user back through onboarding on
+  // every visit to /signup. Finishing is now recorded, so it is not a guess.
+  it("respects a recorded completion even with only the seeded space", () => {
+    expect(
+      resolveEntry({
+        hasUser: true,
+        workspaces: [ws],
+        spaceCount: 1,
+        onboardedAt: "2026-08-20T10:00:00.000Z",
+      }),
+    ).toEqual({ kind: "redirect", to: "/w/acme" });
+  });
+
+  it("treats a workspace that already holds docs as finished", () => {
+    // Workspaces created before the stamp existed can never carry it, so a
+    // doc is taken as proof somebody has been using this workspace.
+    expect(
+      resolveEntry({ hasUser: true, workspaces: [ws], spaceCount: 1, hasDocs: true }),
+    ).toEqual({ kind: "redirect", to: "/w/acme" });
+  });
+
+  it("still resumes a legacy workspace with one space and nothing in it", () => {
+    expect(
+      resolveEntry({
+        hasUser: true,
+        workspaces: [ws],
+        spaceCount: 1,
+        hasDocs: false,
+        onboardedAt: null,
+      }),
+    ).toMatchObject({ kind: "resume", step: "spaces" });
+  });
+
+  it("never sends a finished user back into setup, however it was finished", () => {
+    const finished = [
+      { spaceCount: 1, onboardedAt: "2026-08-20T10:00:00.000Z" },
+      { spaceCount: 1, hasDocs: true },
+      { spaceCount: 5 },
+      { spaceCount: 5, hasDocs: true, onboardedAt: "2026-08-20T10:00:00.000Z" },
+    ];
+    for (const state of finished) {
+      expect(resolveEntry({ hasUser: true, workspaces: [ws], ...state })).toEqual({
+        kind: "redirect",
+        to: "/w/acme",
+      });
     }
   });
 });

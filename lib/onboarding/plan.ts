@@ -10,7 +10,7 @@ import { slugify } from "@/lib/utils";
 
 /* ───────── Steps ───────── */
 
-export type StepKey = "account" | "workspace" | "spaces" | "assistant" | "done";
+export type StepKey = "account" | "workspace" | "spaces" | "assistant";
 
 export type OnboardingStep = {
   key: StepKey;
@@ -19,21 +19,26 @@ export type OnboardingStep = {
 };
 
 /**
- * Four numbered steps plus a terminal confirmation. The old wizard advertised
- * "step 4 of 5" for a screen that collected an assistant name and threw it
- * away; the assistant step now mints a real key, and "done" is not numbered
- * because it asks nothing of the user.
+ * Four steps, and the last one is the last thing that happens.
+ *
+ * There used to be a fifth, terminal "done" screen: a full-page receipt
+ * listing the workspace URL, the spaces and the key — all of which the user
+ * had just watched themselves create — behind one "Open workspace" button. It
+ * asked nothing and told them nothing new, so finishing setup cost two clicks
+ * across two screens instead of one. The arrival moment it was reaching for
+ * already exists and is better: a brand-new workspace opens on its own
+ * "A clean slate" welcome, in the app, next to the button that writes the
+ * first doc.
  */
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   { key: "account", label: "Account", hint: "Email and password" },
   { key: "workspace", label: "Workspace", hint: "Your company or team" },
   { key: "spaces", label: "Spaces", hint: "How docs are organised" },
   { key: "assistant", label: "AI access", hint: "Optional" },
-  { key: "done", label: "Open workspace", hint: "You're set" },
 ];
 
-/** Steps that carry a number in the UI — everything before the terminal step. */
-export const NUMBERED_STEPS = ONBOARDING_STEPS.filter((s) => s.key !== "done");
+/** Every step is numbered now that none of them is pure ceremony. */
+export const NUMBERED_STEPS = ONBOARDING_STEPS;
 
 export function stepIndex(key: StepKey): number {
   return ONBOARDING_STEPS.findIndex((s) => s.key === key);
@@ -49,10 +54,15 @@ export function prevStep(key: StepKey): StepKey {
   return ONBOARDING_STEPS[Math.max(i - 1, 0)].key;
 }
 
-/** "Step 2 of 4" — or null on the terminal step, which is not numbered. */
+/** "Step 2 of 4". */
 export function stepEyebrow(key: StepKey): string | null {
   const i = NUMBERED_STEPS.findIndex((s) => s.key === key);
   return i === -1 ? null : `Step ${i + 1} of ${NUMBERED_STEPS.length}`;
+}
+
+/** The last step — the one whose primary action leaves onboarding entirely. */
+export function isFinalStep(key: StepKey): boolean {
+  return key === ONBOARDING_STEPS[ONBOARDING_STEPS.length - 1].key;
 }
 
 /* ───────── Workspace slug ───────── */
@@ -231,18 +241,49 @@ export function spacesToCreate(
 
 /* ───────── Where to start ───────── */
 
+/** Written into `workspaces.settings` the moment onboarding is finished. */
+export const ONBOARDED_AT = "onboarded_at";
+
 export type EntryState = {
   hasUser: boolean;
   /** Workspaces the signed-in user belongs to, oldest first. */
   workspaces: { id: string; slug: string; name: string }[];
   /** Spaces in `workspaces[0]`, when known. */
   spaceCount?: number;
+  /**
+   * `settings.onboarded_at` on `workspaces[0]` — the definitive answer, set
+   * when a run of this wizard finishes.
+   */
+  onboardedAt?: string | null;
+  /** Whether `workspaces[0]` holds any docs. Evidence for workspaces that
+   *  predate `onboarded_at` and so can never carry it. */
+  hasDocs?: boolean;
 };
 
 export type Entry =
   | { kind: "step"; step: StepKey }
   | { kind: "resume"; step: StepKey; workspace: { id: string; slug: string; name: string } }
   | { kind: "redirect"; to: string };
+
+/**
+ * Has this workspace been through setup?
+ *
+ * "Holds only its seeded Company space" was the old test, and it cannot tell
+ * *"they abandoned setup halfway"* from *"they finished, and Company was all
+ * they wanted"*. Getting that second case wrong sends a finished user back
+ * into onboarding every time they open /signup.
+ *
+ * So finishing is recorded rather than inferred: `finish()` stamps
+ * `settings.onboarded_at`, and that is the answer whenever it exists. The two
+ * fallbacks are only for workspaces created before the stamp existed, which
+ * can never carry it — more than the seeded space, or any doc at all, means
+ * somebody has been using this workspace and does not need setting up.
+ */
+function isOnboarded(state: EntryState): boolean {
+  if (state.onboardedAt) return true;
+  if ((state.spaceCount ?? 0) > 1) return true;
+  return state.hasDocs === true;
+}
 
 /**
  * Decides where an arriving user belongs.
@@ -254,10 +295,11 @@ export type Entry =
  * and the flow dead-ended. Progress is therefore re-derived from the server on
  * every mount instead of being remembered.
  *
- * A workspace still holding only its seeded space is treated as unfinished and
- * resumes at the spaces step. Anything more established means onboarding is
- * over and the user is sent to the app — visiting /signup again should never
- * ask an existing customer to create a second workspace.
+ * A workspace that has been through setup sends the user to the app —
+ * visiting /signup again should never ask an existing customer to create a
+ * second workspace, nor walk them back through steps they have finished. One
+ * that has not resumes at the spaces step, which is where a run that was
+ * interrupted after workspace creation left off.
  */
 export function resolveEntry(state: EntryState): Entry {
   if (!state.hasUser) return { kind: "step", step: "account" };
@@ -265,8 +307,7 @@ export function resolveEntry(state: EntryState): Entry {
   const workspace = state.workspaces[0];
   if (!workspace) return { kind: "step", step: "workspace" };
 
-  const untouched = (state.spaceCount ?? 0) <= 1;
-  if (untouched) return { kind: "resume", step: "spaces", workspace };
+  if (isOnboarded(state)) return { kind: "redirect", to: `/w/${workspace.slug}` };
 
-  return { kind: "redirect", to: `/w/${workspace.slug}` };
+  return { kind: "resume", step: "spaces", workspace };
 }
