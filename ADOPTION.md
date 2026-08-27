@@ -8,9 +8,9 @@
 >
 > **What this is not.** `ROADMAP.md` is the product direction and the ordering
 > argument. This file is narrower: for each adoption blocker, what "done" means.
-> And it is not a migration playbook: `docs/moving-from-confluence.md`, which
-> ships with the MCP work, is that — written for the person running a move
-> rather than the person building.
+> And it is not a migration playbook — `docs/moving-from-confluence.md`, which
+> ships alongside the MCP server, is that: written for the person running a
+> move rather than the person building.
 
 Each item below splits into **Build** (product work, in this repo) and **Run**
 (what an adopting team does with it). The split matters: the same requirement
@@ -174,7 +174,7 @@ connected over MCP doing the sweep.
 
 ## F-2 — Connect any assistant (MCP)
 
-**Status: server built and in review; the connection experience is not.**
+**Status: the server is done. The way a customer connects to it is not.**
 
 **Why every customer needs it:** this is the reason to choose Aqli rather than a
 cheaper Confluence. It has to work for whatever assistant the customer already
@@ -215,11 +215,14 @@ bearer token is.
 - **No `@modelcontextprotocol/sdk` in the worker graph.** The surface needed —
   initialize, tools/list, tools/call, ping — is small enough to hand-roll, and
   C4 leaves no room for an SDK.
-- **A connection page in Settings** — the part that generalizes worst if we skip
-  it. It shows the endpoint URL, creates a key scoped `read, propose` in one
-  click, and gives copy-paste snippets per client (`claude mcp add --transport
-  http …` and the JSON config form). Without this, every customer's rollout
-  needs an engineer, which is the same as saying only engineering adopts.
+- **The endpoint has to be discoverable from Settings.** Everything above is
+  reachable today only by reading the README, which means every customer's
+  rollout needs an engineer — the same as saying only engineering adopts. The
+  remaining work is small, because Settings → API keys already creates keys,
+  already toggles `read`/`propose`, and already shows a snippet when a key is
+  revealed: that snippet names `/api/agent` only. It should name `/api/mcp`
+  too, with the `claude mcp add --transport http …` line and the JSON config
+  form beside it. A few lines in `KeysClient`, not a new page.
 - **One retrieval story, documented.** Aqli's `search_docs` is authoritative for
   Aqli docs. A customer who already runs an index over their file storage or
   intranet keeps it for those sources; we do not ask anyone to double-index the
@@ -234,6 +237,7 @@ question your handbook answers, and ask it to draft something.
 ### Acceptance
 
 - [x] Six tools defined, scope-gated, with tests covering dispatch, scope refusal and error mapping.
+- [x] Scope refusal lives above the database: a `read`-only key is refused the propose tools by name, since the merge engine queues but never rejects.
 - [ ] `claude mcp add --transport http aqli https://<domain>/api/mcp` works with a bearer key; all six tools callable against a deployed instance.
 - [ ] "What's our policy on X?" retrieves an approved doc and links it.
 - [ ] "Draft a doc about Y in Marketing" appears in the review queue, attributed, and is **not retrievable before approval**.
@@ -413,7 +417,7 @@ product should ask them at the right moment rather than leave to discovery.
 
 ```
 F-0 (1d, operator-gated) ──► F-3 (2–3d) ──► F-1 (3–5d) ──► F-5 pilot (2wks) ──► F-4 (2–3d) ──► rollout
-                         └──► F-2 (server done; connection UI ~1d, parallel)
+                         └──► F-2 (server done; Settings snippet, an afternoon)
                          └──► F-6 (1–2d, any time before cutover)
 ```
 

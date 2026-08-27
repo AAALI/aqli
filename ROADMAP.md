@@ -143,11 +143,11 @@ What makes Aqli the *reason to switch*, not just a cheaper Confluence:
    review) as MCP tools so Claude, ChatGPT, Cursor — anyone's AI — connects in
    minutes. "Open source Confluence with MCP" is an ownable position, and it
    makes the AI story real for non-technical users whose "agent" is Claude in a
-   browser, not a CI pipeline. The server is the easy half: scope enforcement at
-   the MCP layer (the DB queues, it never rejects), `on_behalf_of` attribution,
-   and a connection page in Settings that hands over the URL, a `read, propose`
-   key and per-client snippets. Without that page every rollout needs an
-   engineer, which means only engineering adopts (`ADOPTION.md` F-2).
+   browser, not a CI pipeline. What is left after the server is discovery:
+   Settings → API keys reveals a snippet naming `/api/agent` and should name
+   `/api/mcp` beside it. Until it does, connecting an assistant means reading
+   the README, and a rollout that needs an engineer per assistant is one only
+   engineering completes (`ADOPTION.md` F-2).
 2. **Notification reach, then Slack.** Mentions and review requests reach people
    through the in-app bell only, and a team that lives in chat will miss them.
    The cheap, chat-agnostic fix first: an outbound webhook per workspace on
