@@ -20,12 +20,32 @@ declare
   at_risk   bigint;
 begin
   select * into gate from app.migration_gates where name = 'body_md_backfill';
+
+  -- A fresh installation has no documents, so there is no old converter output
+  -- to lose and nothing for the backfill to do. Requiring the gate anyway made
+  -- the last migration in the folder fail on every new install, with a message
+  -- telling the operator to run a script that would have processed zero rows —
+  -- the interlock firing at the one moment it protects nothing. So record it
+  -- here instead, saying plainly who recorded it and why.
   if not found then
-    raise exception using
-      errcode = 'P0001',
-      message = 'step 6 blocked: the body_md backfill has not run',
-      detail  = 'Every body_md in this database was written by the old converter, which drops text that only survives in body_json. Flipping now makes that loss permanent.',
-      hint    = 'Run `pnpm backfill:markdown` (dry run), read reports/markdown-backfill.md, then `pnpm backfill:markdown -- --apply`. It records the gate on a clean run.';
+    if not exists (select 1 from docs) then
+      insert into app.migration_gates (name, detail)
+      values (
+        'body_md_backfill',
+        jsonb_build_object(
+          'recorded_by', '20260805040000_body_md_canonical.sql',
+          'reason', 'fresh install: no documents existed, so there was nothing to back-fill'
+        )
+      )
+      on conflict (name) do nothing;
+      select * into gate from app.migration_gates where name = 'body_md_backfill';
+    else
+      raise exception using
+        errcode = 'P0001',
+        message = 'step 6 blocked: the body_md backfill has not run',
+        detail  = 'Every body_md in this database was written by the old converter, which drops text that only survives in body_json. Flipping now makes that loss permanent.',
+        hint    = 'Run `pnpm backfill:markdown` (dry run), read reports/markdown-backfill.md, then `pnpm backfill:markdown -- --apply`. It records the gate on a clean run.';
+    end if;
   end if;
 
   -- Independent of the gate: a document whose markdown is empty while its JSON

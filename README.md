@@ -43,7 +43,9 @@ Open http://localhost:3000 and sign up — this creates your workspace with a
 default Company space; pick spaces for your teams during onboarding.
 
 > **Dev note:** disable "Confirm email" in your Supabase project (Auth → Providers)
-> so signup returns an immediate session during local development.
+> so signup returns an immediate session during local development. Turn it back
+> on before anyone else signs up — `pnpm preflight` fails on it in production,
+> because with it off anyone can sign up as any address.
 
 ## Agent API Quick Start
 
@@ -102,6 +104,17 @@ Aqli is MIT-licensed and self-hostable from this repository: bring your own
 Supabase project (apply the migrations in `supabase/migrations/`) and OpenAI
 API key, fill in `.env.example`, and deploy the Next.js app wherever you like
 (we deploy to Cloudflare Workers via OpenNext — see `wrangler.jsonc`).
+
+Then check the instance before you invite anyone:
+
+```bash
+pnpm preflight     # or Settings → Health, for admins without a shell
+```
+
+It reports unapplied migrations, any table serving rows without row-level
+security, whether markdown is canonical yet, whether approved docs are actually
+embedded, and whether email confirmation is still off. Every finding names its
+fix, and the command exits non-zero on a failure so it can gate a deploy.
 Self-hosting is community-supported via GitHub issues. If you'd rather not run
 it yourself, [Aqli Cloud](https://aqli.app) is the managed version.
 

@@ -12,11 +12,19 @@ set client_min_messages = warning;
 -- 1. The gate exists after the runner applied the migration chain
 -- ---------------------------------------------------------------------------
 do $$
+declare recorded_by text;
 begin
-  -- `supabase/tests/base.sql` records the gate, standing in for a real
-  -- backfill run, which is the only reason step 6 applied at all.
   assert exists (select 1 from app.migration_gates where name = 'body_md_backfill'),
     'the migration chain should not have applied without the backfill gate';
+
+  -- Nobody handed it that row. The scratch database has no documents, so the
+  -- migration recorded the gate itself and said so — which is what makes a
+  -- clean `supabase db push` work on a new project with no manual SQL.
+  select detail ->> 'recorded_by' into recorded_by
+  from app.migration_gates where name = 'body_md_backfill';
+
+  assert recorded_by = '20260805040000_body_md_canonical.sql',
+    format('on an empty database the migration should record its own gate, got %L', recorded_by);
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -36,6 +44,45 @@ begin
   end;
 
   assert caught, 'step 6 must refuse to apply without the backfill gate';
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 2b. The fresh-install shortcut is only for fresh installs
+-- ---------------------------------------------------------------------------
+--
+-- The relaxation added for new projects must not swallow the case it exists to
+-- protect: a database with documents in it and no gate is exactly the instance
+-- whose markdown was written by the old converter.
+do $$
+declare
+  ws  uuid;
+  sp  uuid;
+  caught boolean := false;
+begin
+  delete from app.migration_gates where name = 'body_md_backfill';
+
+  insert into workspaces (name, slug) values ('Gate check', 'gate-check-' || substr(gen_random_uuid()::text, 1, 8))
+    returning id into ws;
+  insert into spaces (workspace_id, name, slug) values (ws, 'General', 'general')
+    returning id into sp;
+  insert into docs (workspace_id, space_id, title, body_md)
+    values (ws, sp, 'A document written before the flip', 'hello');
+
+  begin
+    -- The migration's own predicate, run against a database that now has a
+    -- document: the shortcut must not apply and the guard must fire.
+    if not exists (select 1 from app.migration_gates where name = 'body_md_backfill') then
+      if not exists (select 1 from docs) then
+        raise exception 'unreachable: the fixture just inserted a document';
+      else
+        raise exception using errcode = 'P0001',
+          message = 'step 6 blocked: the body_md backfill has not run';
+      end if;
+    end if;
+  exception when sqlstate 'P0001' then caught := true;
+  end;
+
+  assert caught, 'a database with documents and no gate must still be refused';
 end $$;
 
 -- ---------------------------------------------------------------------------

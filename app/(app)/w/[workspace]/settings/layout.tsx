@@ -31,7 +31,13 @@ export default async function SettingsLayout({
 
   return (
     <>
-      <SettingsSidebar base={base} workspaceName={workspace.name} userName={userName} roleLabel={roleLabel} />
+      <SettingsSidebar
+        base={base}
+        workspaceName={workspace.name}
+        userName={userName}
+        roleLabel={roleLabel}
+        isAdmin={role === "admin"}
+      />
       <div className="main">{children}</div>
     </>
   );

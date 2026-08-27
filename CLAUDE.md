@@ -33,6 +33,7 @@ pnpm lint       # eslint
 ```bash
 pnpm test       # vitest
 pnpm test:sql   # boots a throwaway Postgres, replays every migration, runs supabase/tests/
+pnpm preflight  # is this installation in the state the code expects? (needs SUPABASE_SERVICE_KEY)
 ```
 
 ## Architecture decisions worth knowing

@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { setMobileNav, useMobileNav } from "./mobile-nav";
 import {
   IconGear,
+  IconPulse,
   IconKey,
   IconLink,
   IconChevLeft,
@@ -20,9 +21,10 @@ type Props = {
   workspaceName: string;
   userName?: string;
   roleLabel?: string;
+  isAdmin?: boolean;
 };
 
-export default function SettingsSidebar({ base, workspaceName, userName = "You", roleLabel = "Member" }: Props) {
+export default function SettingsSidebar({ base, workspaceName, userName = "You", roleLabel = "Member", isAdmin = false }: Props) {
   const pathname = usePathname();
   const settingsBase = `${base}/settings`;
   const workspaceSlug = base.split("/").filter(Boolean).at(1) ?? "";
@@ -35,6 +37,11 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You",
     { id: "keys", href: `${settingsBase}/keys`, icon: <IconKey />, label: "API keys" },
     { id: "members", href: `${settingsBase}/members`, icon: <IconUsers />, label: "Members" },
     { id: "integrations", href: `${settingsBase}/integrations`, icon: <IconLink />, label: "Integrations" },
+    // Admins only: the page reports migrations, RLS state and row counts for
+    // the whole installation, and the RPC behind it refuses anyone else.
+    ...(isAdmin
+      ? [{ id: "health", href: `${settingsBase}/health`, icon: <IconPulse />, label: "Health" }]
+      : []),
     // Same destination and same name as the workspace sidebar's entry, so the
     // two navigations do not disagree about what the screen is called.
     { id: "agents", href: agentLogHref, icon: <IconRobot />, label: "AI activity" },
