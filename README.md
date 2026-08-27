@@ -92,6 +92,10 @@ table-stakes editor and organisation features (images, tables, comments,
 import, sub-pages, space permissions); Phase 3 presses the AI-native advantage
 (MCP server, Slack Q&A, review workflows, public sharing).
 
+Moving a whole company onto Aqli? [ADOPTION.md](ADOPTION.md) lists what has to
+be true first — import, page tree, space permissions, assistant connections,
+export — with acceptance criteria for each.
+
 ## Self-hosting
 
 Aqli is MIT-licensed and self-hostable from this repository: bring your own
