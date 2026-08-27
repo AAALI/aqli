@@ -8,6 +8,11 @@
 > Aqli's review loop, freshness verification, and AI-readable approved context
 > attack that directly. We don't chase Confluence feature parity; we clear the
 > usability baseline, then press the AI-native advantage.
+>
+> **Companion docs:** `ADOPTION.md` says what has to be true before a company
+> can turn its old wiki off, with acceptance criteria per feature — it is where
+> the items below get their detail. `docs/moving-from-confluence.md` is the
+> playbook for the person running a move.
 
 ## Competitive reference points
 
@@ -92,13 +97,38 @@ The adoption gates a non-eng team hits in week one. In priority order:
    kind. Inline anchors are still not built.
 4. **Import.** Markdown/zip first (cheap, also serves eng), then Notion export,
    then Confluence space export (XML). Nobody re-types their handbook.
-5. **Sub-pages.** `parent_doc_id` on docs; tree rendering in space sidebar with
-   drag to reorder. Confluence users think in trees (Benefits → Leave →
-   Parental leave).
+   One pipeline behind a source-adapter contract, because the hard parts are
+   the same for every source: attachments into the images bucket as
+   authenticated links, internal links resolved to imported doc ids, authors
+   mapped to members (unmapped ones become plain text, never mention nodes),
+   docs landing **approved** with the staleness clock starting at import, and
+   idempotency keyed on the source page id. Two ingest surfaces — a CLI for
+   self-hosters and an admin upload UI, since a hosted customer has no shell.
+   Detail and acceptance in `ADOPTION.md` F-1.
+5. **Sub-pages.** `parent_doc_id` + `position` on docs; tree rendering in the
+   space sidebar with drag to reorder and re-parent. Confluence users think in
+   trees (Benefits → Leave → Parental leave). Cycle guard and depth cap belong
+   in the DB, not the UI; deleting a parent re-parents its children rather than
+   orphaning or cascading. A tree-shaped import needs this first, which is why
+   `ADOPTION.md` F-3 puts it ahead of import.
 6. **Space-level permissions.** `space_members` table + RLS; private spaces for
-   People/Finance/Legal. Blocks real HR adoption until it exists.
+   People/Finance/Legal. Blocks real HR adoption until it exists. The boundary
+   has to hold in every read path — docs list, doc view, search, RAG,
+   notifications, review queue, backlinks, activity, REST and every MCP tool —
+   with the agent path inheriting the key owner's visibility. That last rule is
+   what keeps assistant answers leak-free (`ADOPTION.md` F-4).
+7. **Workspace export.** Markdown + images as a zip, from Settings and the CLI,
+   re-importable through the markdown adapter. Markdown is already canonical,
+   so the export is lossless by construction — what is missing is the button,
+   and the button is what makes the claim checkable during an evaluation
+   (`ADOPTION.md` F-6).
+8. **Install preflight.** One command and one admin view reporting unapplied
+   migrations, any table with RLS off, recorded migration gates, and merge-engine
+   state. Self-hosters currently learn this from `reports/HANDOVER.md` or not at
+   all, and the failure mode is silent (`ADOPTION.md` F-0).
 
-Ship 1–2 as one release ("the editor holds real content now"), 3–4 next, 5–6 after.
+Ship 1–2 as one release ("the editor holds real content now"), 3–4 next, 5–6
+after; 7–8 are small and can ride along with whichever release is moving.
 
 Item 4 is cheaper than it looks: `lib/confluence/storage-to-md.ts` and
 `scripts/confluence-fidelity.ts` already exist, so what is missing from
@@ -113,10 +143,19 @@ What makes Aqli the *reason to switch*, not just a cheaper Confluence:
    review) as MCP tools so Claude, ChatGPT, Cursor — anyone's AI — connects in
    minutes. "Open source Confluence with MCP" is an ownable position, and it
    makes the AI story real for non-technical users whose "agent" is Claude in a
-   browser, not a CI pipeline.
-2. **Slack integration.** Ask-the-handbook Q&A bot (RAG over approved docs) +
-   "save this thread as a draft doc". This is the non-eng equivalent of the PR
-   pipeline: knowledge capture where the work already happens.
+   browser, not a CI pipeline. The server is the easy half: scope enforcement at
+   the MCP layer (the DB queues, it never rejects), `on_behalf_of` attribution,
+   and a connection page in Settings that hands over the URL, a `read, propose`
+   key and per-client snippets. Without that page every rollout needs an
+   engineer, which means only engineering adopts (`ADOPTION.md` F-2).
+2. **Notification reach, then Slack.** Mentions and review requests reach people
+   through the in-app bell only, and a team that lives in chat will miss them.
+   The cheap, chat-agnostic fix first: an outbound webhook per workspace on
+   mentions and review-queue events, which serves Slack, Teams and Discord
+   equally. Then the richer Slack integration — ask-the-handbook Q&A bot (RAG
+   over approved docs) + "save this thread as a draft doc". That is the non-eng
+   equivalent of the PR pipeline: knowledge capture where the work already
+   happens.
 3. **Human review workflows.** Assigned reviewers, per-space approval rules
    (Legal approves Policy docs), scheduled re-verification cadences per doc type.
    *Partly here already: Settings → Spaces turns on `review_all`, so a space
