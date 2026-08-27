@@ -1,7 +1,7 @@
 # Can markdown be Aqli's source of truth?
 
 Report on steps 1–3 of the markdown-canonical migration.
-Branch `claude/document-review-supabase-lr6o0n`. Production project `bxhagsiaenvcksckhize`.
+Branch `claude/document-review-supabase-lr6o0n`. Measured against a live production project.
 
 ---
 
@@ -18,8 +18,7 @@ keep the gate, and the gate has to be adversarial or it is worthless".
 ### Caveat 1 — the corpus run is not the real one
 
 The brief's highest-priority deliverable is the fidelity report over the 1,361-page Confluence
-export. **`Tabadulat Platform Confluence Export.zip` is not present in this environment**, and
-I could not obtain it. The harness is built, committed and proven, and the committed report
+export. **That export is not present in this environment**, and I could not obtain it. The harness is built, committed and proven, and the committed report
 covers a synthetic corpus generated to the same page count and macro mix from the spec §8
 census.
 

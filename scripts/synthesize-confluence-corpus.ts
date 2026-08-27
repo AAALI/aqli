@@ -1,9 +1,9 @@
 /**
  * Synthetic stand-in for `bodycontent.csv`.
  *
- * The real corpus — `Tabadulat Platform Confluence Export.zip`, 1,361 pages —
- * is not present in this environment, and it is the input the fidelity gate is
- * meant to run against. This generator builds a corpus with the same shape so
+ * The real corpus — a 1,361-page Confluence space export — is not present in
+ * this environment, and it is the input the fidelity gate is meant to run
+ * against. This generator builds a corpus with the same shape so
  * the converter and the gate are exercised end to end and the harness is proven
  * before the export arrives: page count, macro mix and element frequencies all
  * follow the census in spec §8.
