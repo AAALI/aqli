@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
 import { validateApiKey } from "@/lib/api-keys";
+import type { AgentScope } from "@/lib/merge/disposition";
 
 export type AgentContext = {
   workspaceId: string;
   keyId: string;
+  /** What this key may do. Read is always present (`normalizeScopes`). */
+  scopes: AgentScope[];
 };
 
 /**
@@ -17,8 +20,8 @@ export async function authenticateAgent(req: NextRequest): Promise<AgentContext 
   const rawKey = authHeader.slice(7).trim();
   if (!rawKey.startsWith("aqli_")) return null;
 
-  const { valid, workspaceId, keyId } = await validateApiKey(rawKey);
+  const { valid, workspaceId, keyId, scopes } = await validateApiKey(rawKey);
   if (!valid || !workspaceId || !keyId) return null;
 
-  return { workspaceId, keyId };
+  return { workspaceId, keyId, scopes };
 }

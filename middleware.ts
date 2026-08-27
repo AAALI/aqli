@@ -75,9 +75,9 @@ export const config = {
      * Match all request paths except static assets and image files, so the
      * session is refreshed before any page or API route reads it. Machine
      * endpoints that authenticate with API keys or webhook signatures
-     * (agent API, Composio webhook) are excluded — running a cookie-session
+     * (agent API, MCP server, Composio webhook) are excluded — running a cookie-session
      * refresh there is pure latency.
      */
-    "/((?!_next/static|_next/image|ingest|favicon.ico|api/agent|api/integrations/composio/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|ingest|favicon.ico|api/agent|api/mcp|api/integrations/composio/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
