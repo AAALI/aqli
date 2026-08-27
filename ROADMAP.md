@@ -109,9 +109,15 @@ has still never run against the real export — see `reports/HANDOVER.md` §2.
 
 What makes Aqli the *reason to switch*, not just a cheaper Confluence:
 
-1. **MCP server.** Expose the agent API (query context, draft doc, request
+1. - [x] **MCP server.** Expose the agent API (query context, draft doc, request
    review) as MCP tools so Claude, ChatGPT, Cursor — anyone's AI — connects in
-   minutes. "Open source Confluence with MCP" is an ownable position, and it
+   minutes. *Shipped: `POST /api/mcp`, stateless JSON-RPC, six tools, bearer
+   auth on the existing API keys. Hand-rolled rather than built on
+   `@modelcontextprotocol/sdk` — the worker has a hard size limit and the
+   protocol surface a stateless server needs is four methods (+11.7 KiB
+   gzipped). Scope enforcement had to move up a layer: the merge engine decides
+   merge-vs-queue but never refuses, so a `read`-only key could queue
+   proposals.* "Open source Confluence with MCP" is an ownable position, and it
    makes the AI story real for non-technical users whose "agent" is Claude in a
    browser, not a CI pipeline.
 2. **Slack integration.** Ask-the-handbook Q&A bot (RAG over approved docs) +

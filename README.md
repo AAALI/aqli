@@ -11,6 +11,7 @@ and approve. Nothing becomes ground truth without a person signing off.
 - ✅ Clean browser editor — templates for every team: policies, how-tos, meeting notes, briefs, PRDs, ADRs, runbooks
 - ✅ Diagrams — Mermaid flowcharts and sequence diagrams via `/diagram`, and agents can write them in plain markdown
 - ✅ Agent REST API — query context, create docs, request review
+- ✅ MCP server — the same surface as six tools for any MCP client
 - ✅ Built-in RAG — every approved doc embedded and searchable by agents
 - ✅ Human-agent review loop — agent docs flagged for human approval
 - ✅ AI doc summary — one-click summary of any document
@@ -58,6 +59,30 @@ curl -X POST https://your-aqli.app/api/agent/docs \
   -H "Content-Type: application/json" \
   -d '{"title":"Fix: timeout","type":"fix_note","body_md":"..."}'
 ```
+
+## MCP Quick Start
+
+Any MCP client — Claude, Cursor, an in-house assistant — connects to a
+workspace with an API key. The endpoint is stateless JSON-RPC over HTTP, so it
+works on Cloudflare Workers without session affinity.
+
+```bash
+claude mcp add --transport http aqli https://your-aqli.app/api/mcp \
+  --header "Authorization: Bearer aqli_your_key"
+```
+
+Six tools: `search_docs`, `list_docs`, `read_doc`, `propose_doc`,
+`propose_update`, `request_review`. Reads see approved documents by default;
+writes are proposals subject to the space's review policy and the key's scopes,
+so an assistant cannot publish unreviewed content. A key without the `propose`
+scope is refused the write tools outright.
+
+## Migrating from Confluence
+
+[docs/moving-from-confluence.md](docs/moving-from-confluence.md) is the
+playbook: the order to do things in, how to use the fidelity gate before you
+trust a conversion, and an honest list of what Aqli does not do yet (page tree,
+per-space permissions, one-click import, email notifications).
 
 ## Roadmap
 

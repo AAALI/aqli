@@ -56,7 +56,18 @@ export async function updateApiKeyScopes(
 
 export async function validateApiKey(
   rawKey: string,
-): Promise<{ valid: boolean; workspaceId: string | null; keyId: string | null }> {
+): Promise<{
+  valid: boolean;
+  workspaceId: string | null;
+  keyId: string | null;
+  /**
+   * The key's scopes, so a caller can refuse an action before attempting it.
+   * The merge engine reads them too, but it only decides merge-vs-queue and
+   * never refuses — so a `read`-only key would otherwise be able to queue
+   * proposals, which is not what `DEFAULT_AGENT_SCOPES` promises.
+   */
+  scopes: AgentScope[];
+}> {
   const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
   // Unscoped by necessity: the bearer token is the only thing the request
   // carries, and this query is how its workspace is established. Everything
@@ -67,12 +78,12 @@ export async function validateApiKey(
 
   const { data } = await supabase
     .from("api_keys")
-    .select("id, workspace_id, revoked_at, last_used_at")
+    .select("id, workspace_id, revoked_at, last_used_at, scopes")
     .eq("key_hash", keyHash)
     .single();
 
   if (!data || data.revoked_at) {
-    return { valid: false, workspaceId: null, keyId: null };
+    return { valid: false, workspaceId: null, keyId: null, scopes: [] };
   }
 
   // Best-effort last-used timestamp. It's a UI freshness signal, so skip the
@@ -86,7 +97,14 @@ export async function validateApiKey(
       .eq("id", data.id);
   }
 
-  return { valid: true, workspaceId: data.workspace_id, keyId: data.id };
+  return {
+    valid: true,
+    workspaceId: data.workspace_id,
+    keyId: data.id,
+    // A key predating the scopes column reads as null; treat it as the
+    // documented default rather than as a key that can do nothing.
+    scopes: (data.scopes as AgentScope[] | null) ?? DEFAULT_AGENT_SCOPES,
+  };
 }
 
 export async function listApiKeys(workspaceId: string): Promise<ApiKey[]> {
