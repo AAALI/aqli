@@ -13,16 +13,16 @@ the migration refuses to apply without it.
 reachable from the sandbox; the Supabase connector available here exposes only
 publishable keys.
 
-Every `body_md` in production was written by the old hand-rolled converter,
-which drops text. Measured against the production copy: **87 words across 27
-documents**, mostly identifiers out of code spans, table cells and nested list
-items (`20260610010000`, `snake_case`, `supabase_realtime`). Those words exist
+Every `body_md` written before this migration came from the old hand-rolled
+converter, which drops text. Measured against one production copy: **87 words
+across 27 documents**, mostly identifiers out of code spans, table cells and
+nested list items (`20260610010000`, `snake_case`, `supabase_realtime`). Those words exist
 only in `body_json`. Step 6 makes `body_md` canonical, so flipping first makes
 the loss permanent.
 
 ```bash
-export SUPABASE_URL=https://bxhagsiaenvcksckhize.supabase.co
-export SUPABASE_SERVICE_KEY=...        # from Cloudflare
+export SUPABASE_URL=https://<your-project>.supabase.co
+export SUPABASE_SERVICE_KEY=...        # wherever you keep it; never commit it
 
 pnpm backfill:markdown                 # dry run — writes nothing
 pnpm backfill:markdown -- --apply      # writes, after you have read the dry run
@@ -65,12 +65,11 @@ would blank it.
 
 ## 2. Run the fidelity gate against the real Confluence export
 
-**Blocked on:** `Tabadulat Platform Confluence Export.zip` is not present in
-this environment. Unchanged from the previous handover, and independent of
-steps 4–6.
+**Blocked on:** the Confluence space export is not present in this
+environment. Unchanged from the previous handover, and independent of steps 4–6.
 
 ```bash
-unzip "Tabadulat Platform Confluence Export.zip" -d /tmp/confluence
+unzip "<your-confluence-export>.zip" -d /tmp/confluence
 pnpm confluence:fidelity --csv /tmp/confluence/entities/bodycontent.csv \
                          --out reports/confluence-fidelity.md
 ```
