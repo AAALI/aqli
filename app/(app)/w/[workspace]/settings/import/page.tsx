@@ -26,11 +26,15 @@ export default async function SettingsImportPage({
 
   return (
     <>
-      <AppTopBar base={base} crumbs={[{ label: "Settings", href: `${base}/settings` }, { label: "Import" }]} />
+      <AppTopBar
+        base={base}
+        crumbs={[{ label: "Settings", href: `${base}/settings` }, { label: "Import & export" }]}
+      />
       <div className="content" style={{ padding: "32px 44px" }}>
         <div style={{ maxWidth: 760, margin: "0 auto" }}>
           <ImportClient
             workspaceId={workspace.id}
+            workspaceSlug={workspace.slug}
             base={base}
             spaces={spaces.map((s) => ({ id: s.id, name: s.name }))}
           />

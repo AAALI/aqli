@@ -124,11 +124,12 @@ The adoption gates a non-eng team hits in week one. In priority order:
    notifications, review queue, backlinks, activity, REST and every MCP tool —
    with the agent path inheriting the key owner's visibility. That last rule is
    what keeps assistant answers leak-free (`ADOPTION.md` F-4).
-7. **Workspace export.** Markdown + images as a zip, from Settings and the CLI,
-   re-importable through the markdown adapter. Markdown is already canonical,
-   so the export is lossless by construction — what is missing is the button,
-   and the button is what makes the claim checkable during an evaluation
-   (`ADOPTION.md` F-6).
+7. - [x] **Workspace export.** Markdown + images as a zip, from Settings and the
+   CLI, re-importable through the markdown adapter. *Shipped: `pnpm export` and
+   Settings → Import & export, deterministic (stored entries, fixed timestamps,
+   sorted order) so two exports can be diffed, and streamed so a large workspace
+   is never one value in memory. The round trip is a test, which is what makes
+   "you can leave" checkable rather than rhetorical (`ADOPTION.md` F-6).*
 8. **Install preflight.** One command and one admin view reporting unapplied
    migrations, any table with RLS off, recorded migration gates, and merge-engine
    state. Self-hosters currently learn this from `reports/HANDOVER.md` or not at

@@ -22,10 +22,12 @@ type Summary = {
  */
 export default function ImportClient({
   workspaceId,
+  workspaceSlug,
   base,
   spaces,
 }: {
   workspaceId: string;
+  workspaceSlug: string;
   base: string;
   spaces: { id: string; name: string }[];
 }) {
@@ -74,7 +76,7 @@ export default function ImportClient({
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 6 }}>Import</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 6 }}>Import &amp; export</h1>
       <p style={{ color: "var(--text-secondary)", fontSize: 13.5, lineHeight: 1.6, marginBottom: 20 }}>
         A zip of markdown files. Folders become the page tree — <code>leave.md</code> beside a{" "}
         <code>leave/</code> folder becomes the parent of what is inside it — and images referenced
@@ -209,6 +211,23 @@ export default function ImportClient({
           )}
         </div>
       )}
+      <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "32px 0 24px" }} />
+
+      <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 6 }}>Export</h2>
+      <p style={{ color: "var(--text-secondary)", fontSize: 13.5, lineHeight: 1.6, marginBottom: 14 }}>
+        Every document as markdown, with its images, laid out as folders. It opens in any editor,
+        and it imports back through the box above — which is what makes leaving a fact rather than a
+        promise. Two exports of unchanged content are byte-identical, so you can diff one against
+        the next.
+      </p>
+      <a
+        className="btn btn-ghost"
+        href={`/api/exports?workspace=${encodeURIComponent(workspaceSlug)}`}
+        style={{ display: "inline-flex" }}
+      >
+        Download workspace
+      </a>
+
     </div>
   );
 }

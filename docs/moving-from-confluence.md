@@ -27,6 +27,7 @@ treats as reviewed.
 | **Per-space permissions** | **Not built.** Anyone in the workspace can read any space. |
 | **Email notifications** | **Not built.** Mentions and review requests reach people through the in-app bell only. |
 | Instance health | `pnpm preflight`, or Settings → Health, reports what an installation is missing. |
+| Getting out again | `pnpm export`, or Settings → Import & export: markdown + images, and it imports back. |
 
 The remaining gaps are the ones that decide whether you can move a whole
 company or only a team. Read them before you promise anyone a date.
@@ -175,9 +176,10 @@ Two friction points to expect, since neither has a fix in the product yet:
   a "start here" convention still has to be a title or a pinned link.
 
 Then cut over: make Confluence **read-only** rather than deleting it, keep it
-that way for about a month, and export your Aqli workspace to markdown once
-before you cancel anything — proving the exit door works while you still have
-both.
+that way for about a month, and run `pnpm export` once before you cancel
+anything — proving the exit door works while you still have both. Keep that
+archive: it is a complete copy of the workspace, readable without Aqli, and it
+imports into a fresh instance.
 
 ## What to check before you call it done
 
@@ -186,5 +188,5 @@ both.
 - [ ] A non-technical teammate can find, edit, illustrate and comment on a page unassisted.
 - [ ] Editing a doc produces a revision that a person can view and revert from.
 - [ ] An assistant can answer from approved docs, and cannot publish without review.
-- [ ] A full markdown + images export has been produced and stored.
+- [ ] A full markdown + images export has been produced and stored (`pnpm export`).
 - [ ] Nothing confidential was migrated ahead of per-space permissions.

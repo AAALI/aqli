@@ -12,6 +12,7 @@ and approve. Nothing becomes ground truth without a person signing off.
 - ✅ Diagrams — Mermaid flowcharts and sequence diagrams via `/diagram`, and agents can write them in plain markdown
 - ✅ Page tree — sub-pages with drag to re-parent, breadcrumbs, and `parent_id` across the agent API and MCP
 - ✅ Import — markdown/zip and Confluence space exports, with attachments, cross-links and the page tree preserved
+- ✅ Export — the whole workspace as markdown + images, deterministic and re-importable: the exit door stays open
 - ✅ Agent REST API — query context, create docs, request review
 - ✅ MCP server — the same surface as six tools for any MCP client
 - ✅ Built-in RAG — every approved doc embedded and searchable by agents
@@ -100,6 +101,19 @@ Confluence space exports go through the same pipeline:
 ```bash
 pnpm import --workspace acme --dir ./confluence-export --space-map HR=handbook
 ```
+
+## Leaving
+
+```bash
+pnpm export --workspace acme            # or Settings → Import & export
+```
+
+Every document as markdown with its images, laid out as folders, readable in
+any editor. It imports back through `pnpm import --zip`, and that round trip is
+a test in this repository — which is the difference between "markdown is
+canonical, so an export is lossless" and a claim you have to take on trust. Two
+exports of unchanged content are byte-identical, so `sha256sum` tells you
+whether anything moved.
 
 ## Migrating from Confluence
 

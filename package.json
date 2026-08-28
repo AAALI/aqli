@@ -18,7 +18,8 @@
     "backfill:markdown": "tsx scripts/backfill-markdown.ts",
     "test:sql": "./supabase/tests/run.sh",
     "preflight": "tsx scripts/preflight.ts",
-    "import": "tsx scripts/import.ts"
+    "import": "tsx scripts/import.ts",
+    "export": "tsx scripts/export.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.11",

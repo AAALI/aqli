@@ -42,7 +42,7 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You",
     // the whole installation, and the RPC behind it refuses anyone else.
     ...(isAdmin
       ? [
-          { id: "import", href: `${settingsBase}/import`, icon: <IconDownload />, label: "Import" },
+          { id: "import", href: `${settingsBase}/import`, icon: <IconDownload />, label: "Import & export" },
           { id: "health", href: `${settingsBase}/health`, icon: <IconPulse />, label: "Health" },
         ]
       : []),
