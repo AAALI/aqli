@@ -59,7 +59,8 @@ Adoption work does not get to bend these. They are what the product is.
 
 ## F-0 — Install integrity
 
-**Status: partly shipped; the checking is missing.** ~1 day.
+**Status: shipped, except the one-way-door sequence for instances that predate
+it.**
 
 **Why every customer needs it:** an instance can be running, serving pages, and
 still be missing the migration that puts RLS on comments or the flip that makes
@@ -75,6 +76,14 @@ they get a silent data-exposure bug.
   disabled; `app.migration_gates` rows; merge-engine state; storage bucket and
   its policies; whether email confirmation is on; embedding key present. Green
   or a named fix — never a number the reader has to interpret.
+  *Shipped: `pnpm preflight` and Settings → Health. The checks live in
+  `app.preflight` (a database function, so the CLI and the page cannot drift
+  apart) and are rendered by `lib/preflight`. Two things a database cannot see
+  about itself are added by the caller: the deployment's environment variables,
+  and GoTrue's `mailer_autoconfirm` — the setting the README tells you to
+  disable for local development and which nobody remembers to reverse. The
+  report also counts approved documents with no embeddings, because an instance
+  that answers nothing looks perfectly healthy from the outside.*
 - **One-way doors gate themselves in code.** Any migration that depends on a
   script having run refuses to apply without its `app.migration_gates` row, as
   `20260805040000_body_md_canonical.sql` already does. Runbook prose is not a
@@ -82,6 +91,13 @@ they get a silent data-exposure bug.
 - **Fresh installs land in the end state.** A new instance should never walk the
   flag sequence — canonical markdown and the merge engine are simply on. The
   sequence exists only for instances that predate them.
+  *Half shipped. The trap was worse than "walk the sequence": the canonical
+  migration refused to apply without the backfill gate, so the last file in the
+  folder failed on **every** new install, telling the operator to run a script
+  that would have processed zero rows. It now records the gate itself when
+  there are no documents to back-fill, saying who recorded it and why, and the
+  SQL suite proves the chain replays with no manual SQL. What is still ahead is
+  the merge-engine flag sequence for instances that predate it.*
 - **The `body_md` backfill is a supported operation,** not a migration artefact:
   documented, dry-run-first, gated per document, and reporting to
   `reports/markdown-backfill.md`. Any instance whose markdown was written by the
@@ -97,11 +113,12 @@ the flag.
 
 ### Acceptance
 
-- [ ] Fresh clone → apply migrations → preflight all green, with no manual SQL.
-- [ ] An instance missing `doc_comments` RLS fails preflight and is told exactly which migration closes it.
+- [x] Fresh clone → apply every migration with no manual SQL. `supabase/tests/run.sh` replays the whole folder against an empty database and no longer hands the canonical migration its gate.
+- [x] An instance missing `doc_comments` RLS fails preflight and is told exactly which migration closes it — by filename, resolved from the checked-in migration list.
+- [x] The canonical migration refuses to apply without its gate row when documents exist (`supabase/tests/canonical_flip.sql`, sections 2 and 2b).
+- [x] A backfill that skips any document does **not** record its gate (`scripts/backfill-markdown.ts` records only on a clean apply).
+- [ ] Preflight green against a real Supabase project — needs a service key, so it is an operator step.
 - [ ] Editing a doc writes a `revisions` row; History shows it and can revert from it.
-- [ ] The canonical migration refuses to apply without its gate row (test).
-- [ ] A backfill that skips any document does **not** record its gate.
 
 ---
 

@@ -41,6 +41,13 @@ That row is what unlocks step 6. A run with any skipped or errored document
 does *not* record it — a partial backfill leaves exactly the markdown that must
 not become the only copy.
 
+**One exception, added in `20260810000000`'s companion change:** on a database
+with no documents at all, step 6 records the gate itself and proceeds. The
+interlock exists to stop old converter output becoming the only copy, and a
+fresh install has no such output — while requiring the gate there made the last
+migration in the folder fail on every new project. This database is not a fresh
+install, so nothing above changes.
+
 **Why `updated_at` is written back explicitly.** The `docs_maintain_derived`
 trigger sets it to `now()` on every write and the document list is ordered by
 it, so a backfill that let the trigger fire would reshuffle every list in the
@@ -86,6 +93,11 @@ the export has 7,613 of them. That is the weakest point in the allowlist.
 
 The steps are independent up to 6, which is the one-way door.
 
+0. **Run `pnpm preflight` first.** It reports which of these steps this
+   database still needs — unapplied migrations, tables without RLS, whether
+   `body_md` is canonical yet, whether the gate is recorded — so the order
+   below is a plan rather than a guess. Admins without a shell get the same
+   report at Settings → Health.
 1. **Apply migrations up to `20260805035000_migration_gates.sql`.** Safe on
    `main`: additive, and nothing reads the new functions until the flag is on.
 2. **Deploy the application with `AQLI_MERGE_ENGINE=0`.** Behaviour is

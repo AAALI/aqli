@@ -26,6 +26,7 @@ treats as reviewed.
 | **Sub-pages (page tree)** | **Not built.** Documents are flat within a space. |
 | **Per-space permissions** | **Not built.** Anyone in the workspace can read any space. |
 | **Email notifications** | **Not built.** Mentions and review requests reach people through the in-app bell only. |
+| Instance health | `pnpm preflight`, or Settings → Health, reports what an installation is missing. |
 
 The last four are the ones that decide whether you can move a whole company or
 only a team. Read them before you promise anyone a date.
@@ -41,16 +42,23 @@ Cloudflare Workers via OpenNext).
 **Apply every migration, including the most recent, before you invite anyone.**
 Some of them close gaps rather than add features — `20260808000000_doc_comments.sql`
 puts row-level security on the comments table, and a database where it has not
-run does not isolate comments between workspaces. If you have an instance that
-has been running for a while, check that it is not behind:
+run does not isolate comments between workspaces.
 
-```sql
-select tablename, rowsecurity from pg_tables
-where schemaname = 'public' and tablename in ('docs', 'doc_comments', 'proposals');
+Then ask the instance about itself, rather than checking by hand:
+
+```bash
+pnpm preflight
 ```
 
+It names any unapplied migration, any table serving rows without row-level
+security, whether markdown is canonical yet, whether your approved docs are
+embedded (an instance that answers nothing looks healthy from the outside), and
+whether email confirmation is still off — with the fix for each. Admins without
+a shell get the same report at Settings → Health. Fix everything it fails on
+before the first invitation goes out.
+
 Turn email confirmation **on** in Supabase → Auth → Providers. The README's note
-about disabling it is for local development only.
+about disabling it is for local development only, and preflight fails on it.
 
 ## 2. Decide your spaces and review policy
 

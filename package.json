@@ -16,7 +16,8 @@
     "confluence:synthesize": "tsx scripts/synthesize-confluence-corpus.ts",
     "confluence:fidelity": "tsx scripts/confluence-fidelity.ts",
     "backfill:markdown": "tsx scripts/backfill-markdown.ts",
-    "test:sql": "./supabase/tests/run.sh"
+    "test:sql": "./supabase/tests/run.sh",
+    "preflight": "tsx scripts/preflight.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.11",
