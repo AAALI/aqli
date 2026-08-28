@@ -265,7 +265,7 @@ question your handbook answers, and ask it to draft something.
 
 ## F-3 — Sub-pages
 
-**Status: not started.** ~2–3 days. **Required before any tree-shaped import.**
+**Status: shipped.**
 
 **Why every customer needs it:** every wiki people are leaving is a tree
 (Benefits → Leave → Parental leave). Flattening it on the way in makes the
@@ -279,6 +279,11 @@ tree lands content nobody can navigate.
 - `parent_doc_id uuid null` + `position` on `docs` (same table, tenancy
   unchanged), with a **DB-level** cycle guard — no doc may become its own
   ancestor — and a depth cap (real corpora rarely exceed ~5; enforce ~8).
+  *Shipped in `20260811000000_doc_tree.sql`. The guards are triggers rather
+  than application code because the REST API, the agent API, MCP and an
+  importer all reach the same table; a cycle created through any of them is
+  the same cycle. A subtree is confined to one space, which is what keeps F-4's
+  privacy boundary from having a hole in it before it is built.*
 - Space sidebar renders the tree with expand/collapse; drag to reorder and
   re-parent within a space. Moving a parent moves its subtree. Deleting a parent
   re-parents children to the grandparent — never orphans, never cascade-deletes.
@@ -286,15 +291,22 @@ tree lands content nobody can navigate.
   results.
 - Agent surface: `list_docs` gains `parent_id`; `read_doc` returns `parent_id`
   and child count; `propose_doc` accepts `parent_id`. MCP tool docs updated with
-  them.
+  them. *Shipped, on the REST agent API too. `read_doc` returns a child **count**
+  rather than the children: inlining a subtree would put an unbounded amount of
+  text in front of a model that asked for one document. Placement rides on the
+  `doc_parent_id` frontmatter control key, the same channel `doc_type` and
+  `doc_status` already use, so every creation path — proposal, importer — places
+  a page the same way and the database validates it once.*
 - Editor and read view untouched: the tree is metadata, not markdown (C1).
 
 ### Acceptance
 
-- [ ] The importer places docs under their source parents; a 3-level chain navigates correctly.
-- [ ] A cycle attempt is rejected at the DB layer (test), not only in the UI.
-- [ ] A non-technical user drags a page to a new parent and it survives reload.
-- [ ] A move writes activity, not a content revision.
+- [x] A cycle attempt is rejected at the DB layer (`supabase/tests/doc_tree.sql`), not only in the UI — along with self-parenting, a cross-space parent, and nesting past the cap.
+- [x] A move writes activity, not a content revision — and does not restamp `updated_at`, so reorganising a space does not float every page it touched to the top of every list.
+- [x] Deleting a parent re-parents its children to the grandparent; it never orphans and never cascades (test).
+- [x] A 3-level chain navigates correctly: breadcrumbs on the doc view, parent shown in search results.
+- [ ] The importer places docs under their source parents — F-1, which this unblocks.
+- [ ] A non-technical user drags a page to a new parent and it survives reload — needs a person and a deployed instance.
 
 ---
 

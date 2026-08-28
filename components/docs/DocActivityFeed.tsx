@@ -16,6 +16,7 @@ const ACTION_LABELS: Record<string, string> = {
   commented: "commented",
   embedded: "indexed for agent retrieval",
   review_requested: "requested human review",
+  moved: "moved this doc in the tree",
 };
 
 export default function DocActivityFeed({ docId }: { docId: string }) {

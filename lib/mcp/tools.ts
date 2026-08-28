@@ -43,7 +43,13 @@ export type ToolDeps = {
   >;
   listAgentDocs: (
     workspaceId: string,
-    opts: { type?: DocType; status?: DocStatus; limit: number; offset: number },
+    opts: {
+      type?: DocType;
+      status?: DocStatus;
+      limit: number;
+      offset: number;
+      parentId?: string | "root";
+    },
   ) => Promise<{
     docs: {
       id: string;
@@ -51,6 +57,7 @@ export type ToolDeps = {
       type: string;
       status: string;
       updated_at: string;
+      parent_doc_id?: string | null;
       space: { slug: string; name: string } | null;
       frontmatter?: { tags?: string[] } | null;
     }[];
@@ -70,9 +77,12 @@ export type ToolDeps = {
     current_revision_id: string | null;
     last_reviewed_at: string | null;
     updated_at: string;
+    parent_doc_id?: string | null;
     frontmatter: { tags?: string[] } | null;
     space: { slug: string; name: string } | null;
   } | null>;
+  /** How many sub-pages hang off a document. A count, not the pages: read_doc must stay one document. */
+  countChildDocs: (workspaceId: string, docId: string) => Promise<number>;
   proposeAgentDoc: (input: {
     workspaceId: string;
     agentKeyId?: string | null;
@@ -84,6 +94,7 @@ export type ToolDeps = {
     type?: DocType;
     status?: DocStatus;
     agentId?: string;
+    parentId?: string | null;
     frontmatter?: { tags: string[] };
     rationale?: string | null;
     idempotencyKey?: string | null;
@@ -182,13 +193,19 @@ export const TOOLS: ToolDefinition[] = [
     name: "list_docs",
     description:
       "List documents newest-first, to see what exists rather than to answer a question. " +
-      "Use search_docs to answer questions.",
+      "Use search_docs to answer questions. Pass parent_id to walk the page tree one level " +
+      "at a time, or parent_id='root' for the top level of every space.",
     requires: "read",
     inputSchema: {
       type: "object",
       properties: {
         type: { type: "string", enum: DOC_TYPES },
         status: { type: "string", enum: DOC_STATUSES },
+        parent_id: {
+          type: "string",
+          description:
+            "A document id to list the sub-pages of, or 'root' for documents with no parent.",
+        },
         limit: { type: "integer", minimum: 1, maximum: 100, description: "Default 20." },
         offset: { type: "integer", minimum: 0 },
       },
@@ -198,7 +215,8 @@ export const TOOLS: ToolDefinition[] = [
     name: "read_doc",
     description:
       "Read one document in full as markdown, by id. Use after search_docs when the passages " +
-      "are not enough, or before propose_update so the edit is based on current content.",
+      "are not enough, or before propose_update so the edit is based on current content. " +
+      "Returns parent_id and child_count; call list_docs with parent_id to read the sub-pages.",
     requires: "read",
     inputSchema: {
       type: "object",
@@ -223,6 +241,12 @@ export const TOOLS: ToolDefinition[] = [
             "Do not repeat the title as a top-level heading.",
         },
         space: { type: "string", description: "Space slug. Ask the user rather than guessing." },
+        parent_id: {
+          type: "string",
+          description:
+            "Create this as a sub-page of that document. It inherits the parent's space, so " +
+            "the space argument is unnecessary when this is set.",
+        },
         type: { type: "string", enum: DOC_TYPES, description: "Default 'general'." },
         tags: { type: "array", items: { type: "string" } },
         note: { type: "string", description: "Why this document is being created — shown to the reviewer." },
@@ -425,6 +449,7 @@ export async function dispatchTool(
           deps.listAgentDocs(ctx.workspaceId, {
             type: optEnum(a, "type", DOC_TYPES),
             status: optEnum(a, "status", DOC_STATUSES),
+            parentId: optString(a, "parent_id"),
             limit,
             offset,
           }),
@@ -437,6 +462,7 @@ export async function dispatchTool(
             type: d.type,
             status: d.status,
             space: d.space?.slug ?? null,
+            parent_id: d.parent_doc_id ?? null,
             tags: d.frontmatter?.tags ?? [],
             updated_at: d.updated_at,
             url: workspace.docUrl(d.id),
@@ -453,12 +479,15 @@ export async function dispatchTool(
           deps.getWorkspaceMeta(ctx.workspaceId),
         ]);
         if (!doc) return failure(`No document with id "${id}" in this workspace.`);
+        const childCount = await deps.countChildDocs(ctx.workspaceId, doc.id);
         return text({
           id: doc.id,
           title: doc.title,
           type: doc.type,
           status: doc.status,
           space: doc.space?.slug ?? null,
+          parent_id: doc.parent_doc_id ?? null,
+          child_count: childCount,
           tags: doc.frontmatter?.tags ?? [],
           body_md: doc.body_md ?? "",
           // Pass this back to propose_update to get conflict detection.
@@ -493,6 +522,10 @@ export async function dispatchTool(
           workspaceId: ctx.workspaceId,
           agentKeyId: ctx.keyId,
           spaceId,
+          // Placement is validated by the database: a parent in another
+          // workspace, one that would close a loop, or one already eight levels
+          // deep is refused there rather than trusted from here.
+          parentId: optString(a, "parent_id") ?? null,
           title,
           bodyMd,
           type: optEnum(a, "type", DOC_TYPES) ?? "general",

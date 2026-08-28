@@ -28,6 +28,7 @@ import {
 } from "@/lib/mcp/protocol";
 import { TOOLS, dispatchTool, type ToolDeps } from "@/lib/mcp/tools";
 import {
+  countChildDocs,
   getAgentDoc,
   getServiceSpaceBySlug,
   listAgentDocs,
@@ -48,6 +49,7 @@ const deps: ToolDeps = {
   queryContext,
   listAgentDocs,
   getAgentDoc,
+  countChildDocs,
   proposeAgentDoc,
   setAgentDocStatus,
   getSpaceBySlug: getServiceSpaceBySlug,

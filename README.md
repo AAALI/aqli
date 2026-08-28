@@ -10,6 +10,7 @@ and approve. Nothing becomes ground truth without a person signing off.
 
 - ✅ Clean browser editor — templates for every team: policies, how-tos, meeting notes, briefs, PRDs, ADRs, runbooks
 - ✅ Diagrams — Mermaid flowcharts and sequence diagrams via `/diagram`, and agents can write them in plain markdown
+- ✅ Page tree — sub-pages with drag to re-parent, breadcrumbs, and `parent_id` across the agent API and MCP
 - ✅ Agent REST API — query context, create docs, request review
 - ✅ MCP server — the same surface as six tools for any MCP client
 - ✅ Built-in RAG — every approved doc embedded and searchable by agents
@@ -83,8 +84,8 @@ scope is refused the write tools outright.
 
 [docs/moving-from-confluence.md](docs/moving-from-confluence.md) is the
 playbook: the order to do things in, how to use the fidelity gate before you
-trust a conversion, and an honest list of what Aqli does not do yet (page tree,
-per-space permissions, one-click import, email notifications).
+trust a conversion, and an honest list of what Aqli does not do yet (per-space
+permissions, one-click import, email notifications).
 
 ## Roadmap
 
@@ -95,8 +96,8 @@ import, sub-pages, space permissions); Phase 3 presses the AI-native advantage
 (MCP server, Slack Q&A, review workflows, public sharing).
 
 Moving a whole company onto Aqli? [ADOPTION.md](ADOPTION.md) lists what has to
-be true first — import, page tree, space permissions, assistant connections,
-export — with acceptance criteria for each.
+be true first — import, space permissions, assistant connections, export —
+with acceptance criteria for each.
 
 ## Self-hosting
 

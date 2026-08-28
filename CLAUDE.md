@@ -83,7 +83,9 @@ pnpm preflight  # is this installation in the state the code expects? (needs SUP
 ## Data model (Supabase)
 
 `workspaces` → `spaces` → `docs` (+ `revisions`, `proposals`, `doc_comments`), `members`
-(workspace↔user role).
+(workspace↔user role). `docs.parent_doc_id` + `position` make the page tree: the cycle
+guard, the depth cap, one-space-per-subtree and re-parenting on delete are all triggers,
+because four write paths reach that table.
 `api_keys` carry an accountable `owner_user_id` and `scopes`. Schema lives in
 `supabase/migrations/`; helper functions live in the `app` schema, with thin `public` shims
 because PostgREST cannot reach `app`. Types mirror the DB in `types/`.

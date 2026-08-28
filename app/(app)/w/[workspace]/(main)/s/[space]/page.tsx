@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getSpaceBySlug } from "@/lib/supabase/spaces";
-import { getDocs } from "@/lib/supabase/docs";
+import { getDocs, getSpaceTree } from "@/lib/supabase/docs";
 import { getOwnerDirectory } from "@/lib/supabase/owners";
 import DocList from "@/components/docs/DocList";
+import DocTree from "@/components/docs/DocTree";
 import AppTopBar from "@/components/layout/AppTopBar";
 import SpaceTabs from "@/components/spaces/SpaceTabs";
 import { PageHeader, EmptyState } from "@/components/aqli/page";
@@ -23,10 +24,15 @@ export default async function SpacePage({
   const space = await getSpaceBySlug(workspace.id, spaceSlug).catch(() => null);
   if (!space) notFound();
 
-  const [docs, owners] = await Promise.all([
+  const [docs, owners, tree] = await Promise.all([
     getDocs(workspace.id, { spaceId: space.id, limit: 200 }),
     getOwnerDirectory(workspace.id),
+    getSpaceTree(workspace.id, space.id),
   ]);
+  // A space nobody has nested anything in still opens on Shelves: the tree is
+  // there when it has something to show, rather than replacing a view people
+  // already use with a flat list under a new name.
+  const hasTree = tree.some((d) => d.parent_doc_id !== null);
   const base = `/w/${workspace.slug}`;
   const newHref = `${base}/s/${space.slug}/new`;
 
@@ -48,6 +54,8 @@ export default async function SpacePage({
           </div>
           <SpaceTabs
             docCount={docs.length}
+            defaultTab={hasTree ? "pages" : "shelves"}
+            pages={<DocTree docs={tree} base={base} spaceSlug={space.slug} />}
             shelves={
               <ShelvesView
                 base={base}

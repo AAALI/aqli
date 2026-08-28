@@ -23,13 +23,13 @@ treats as reviewed.
 | Tables, Mermaid diagrams | Yes. |
 | Agent access | REST API and an MCP server (`/api/mcp`). |
 | **Confluence importer** | **Not built.** The converter exists (`lib/confluence/storage-to-md.ts`) and a fidelity gate exists; the ingest surface and attachment/link resolution do not. See below. |
-| **Sub-pages (page tree)** | **Not built.** Documents are flat within a space. |
+| Sub-pages (page tree) | Yes — parent pages, drag to re-parent or reorder, breadcrumbs, and `parent_id` on the agent API. |
 | **Per-space permissions** | **Not built.** Anyone in the workspace can read any space. |
 | **Email notifications** | **Not built.** Mentions and review requests reach people through the in-app bell only. |
 | Instance health | `pnpm preflight`, or Settings → Health, reports what an installation is missing. |
 
-The last four are the ones that decide whether you can move a whole company or
-only a team. Read them before you promise anyone a date.
+The remaining gaps are the ones that decide whether you can move a whole
+company or only a team. Read them before you promise anyone a date.
 
 ---
 
@@ -62,15 +62,16 @@ about disabling it is for local development only, and preflight fails on it.
 
 ## 2. Decide your spaces and review policy
 
-Spaces are the top-level division and, for now, the only one — no page tree, no
-per-space privacy. Two consequences worth planning around:
+Spaces are the top-level division; inside one, pages nest up to eight levels.
+Two consequences worth planning around:
 
 - **Do not migrate anything confidential yet.** Every workspace member can read
   every space. HR, finance and legal content should wait for per-space
   permissions.
-- **Prefer more spaces to deep hierarchies**, since hierarchy does not exist
-  yet. A Confluence tree flattens into one space; if a section is big enough to
-  have its own tree, give it its own space.
+- **Map Confluence spaces to Aqli spaces one to one**, and let the page tree
+  carry the hierarchy inside each. A subtree lives wholly inside one space —
+  the database enforces it — so splitting a Confluence tree across two Aqli
+  spaces means breaking it apart deliberately.
 
 Then set each space's review policy:
 
@@ -152,8 +153,8 @@ Two friction points to expect, since neither has a fix in the product yet:
 - **Notifications are in-app only.** If your team lives in chat and does not
   visit the app daily, mentions and review requests will be missed. A webhook
   from your own side is the usual stopgap.
-- **No page tree.** Teams that thought in nested pages will need the space and
-  a clear title convention to compensate.
+- **Nothing pins a page to the top of a space.** The tree orders siblings, but
+  a "start here" convention still has to be a title or a pinned link.
 
 Then cut over: make Confluence **read-only** rather than deleting it, keep it
 that way for about a month, and export your Aqli workspace to markdown once

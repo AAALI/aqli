@@ -105,12 +105,16 @@ The adoption gates a non-eng team hits in week one. In priority order:
    idempotency keyed on the source page id. Two ingest surfaces — a CLI for
    self-hosters and an admin upload UI, since a hosted customer has no shell.
    Detail and acceptance in `ADOPTION.md` F-1.
-5. **Sub-pages.** `parent_doc_id` + `position` on docs; tree rendering in the
-   space sidebar with drag to reorder and re-parent. Confluence users think in
-   trees (Benefits → Leave → Parental leave). Cycle guard and depth cap belong
-   in the DB, not the UI; deleting a parent re-parents its children rather than
-   orphaning or cascading. A tree-shaped import needs this first, which is why
-   `ADOPTION.md` F-3 puts it ahead of import.
+5. - [x] **Sub-pages.** `parent_doc_id` + `position` on docs; tree rendering in the
+   space sidebar with drag to reorder and re-parent. *Shipped: a Pages tab on
+   the space view (the default once a space has a tree), drag to re-parent or
+   reorder with the browser's own drag API rather than a dependency,
+   breadcrumbs on the doc view, the parent in search results, and `parent_id`
+   across the agent API and MCP.* Confluence users think in trees (Benefits →
+   Leave → Parental leave). The cycle guard and depth cap are in the database,
+   not the UI, because four write paths reach the same table; deleting a parent
+   re-parents its children rather than orphaning or cascading. Import needed
+   this first, which is why `ADOPTION.md` F-3 sits ahead of it.
 6. **Space-level permissions.** `space_members` table + RLS; private spaces for
    People/Finance/Legal. Blocks real HR adoption until it exists. The boundary
    has to hold in every read path — docs list, doc view, search, RAG,

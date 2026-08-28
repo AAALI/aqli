@@ -25,6 +25,9 @@ export async function GET(req: NextRequest) {
     listAgentDocs(agent.workspaceId, {
       type: (searchParams.get("type") as DocType) ?? undefined,
       status: (searchParams.get("status") as DocStatus) ?? undefined,
+      // `parent_id=root` lists the top level; a uuid lists that page's
+      // sub-pages. Absent, the listing is flat, as it was before sub-pages.
+      parentId: (searchParams.get("parent_id") as string | "root") ?? undefined,
       limit,
       offset,
     }),
@@ -38,6 +41,7 @@ export async function GET(req: NextRequest) {
       type: d.type,
       status: d.status,
       space: d.space?.slug ?? null,
+      parent_id: d.parent_doc_id ?? null,
       tags: d.frontmatter?.tags ?? [],
       author_type: d.author_type,
       updated_at: d.updated_at,
@@ -53,7 +57,7 @@ export async function POST(req: NextRequest) {
   if (!agent) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { title, type, space, tags, body_md, agent_id } = body;
+  const { title, type, space, tags, body_md, agent_id, parent_id } = body;
   if (!title) {
     return NextResponse.json({ error: "title is required" }, { status: 400 });
   }
@@ -82,6 +86,9 @@ export async function POST(req: NextRequest) {
       workspaceId: agent.workspaceId,
       agentKeyId: agent.keyId,
       spaceId,
+      // The database validates the parent and inherits its space, so an
+      // importer replaying a tree does not have to resolve both.
+      parentId: typeof parent_id === "string" ? parent_id : null,
       title,
       bodyMd: body_md ?? "",
       type: type ?? "general",
