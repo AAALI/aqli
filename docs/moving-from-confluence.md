@@ -24,7 +24,7 @@ treats as reviewed.
 | Agent access | REST API and an MCP server (`/api/mcp`). |
 | Confluence importer | Yes — `pnpm import`, or Settings → Import for a markdown zip. Attachments, cross-links and the page tree are carried across; a per-page report says what conversion could not represent. Unverified against a real export: see below. |
 | Sub-pages (page tree) | Yes — parent pages, drag to re-parent or reorder, breadcrumbs, and `parent_id` on the agent API. |
-| **Per-space permissions** | **Not built.** Anyone in the workspace can read any space. |
+| Per-space permissions | Yes — a space can be members-only, and the boundary holds in search, RAG and every assistant. |
 | **Email notifications** | **Not built.** Mentions and review requests reach people through the in-app bell only. |
 | Instance health | `pnpm preflight`, or Settings → Health, reports what an installation is missing. |
 | Getting out again | `pnpm export`, or Settings → Import & export: markdown + images, and it imports back. |
@@ -66,9 +66,12 @@ about disabling it is for local development only, and preflight fails on it.
 Spaces are the top-level division; inside one, pages nest up to eight levels.
 Two consequences worth planning around:
 
-- **Do not migrate anything confidential yet.** Every workspace member can read
-  every space. HR, finance and legal content should wait for per-space
-  permissions.
+- **Confidential content can move now.** Set a space to *Members only* in
+  Settings → Spaces before you import into it, and only its members can read it
+  — in the app, in search, and through any assistant, whose reads inherit the
+  space membership of whoever owns its key. Being a workspace admin is not
+  membership. The one deliberate exception is a workspace export, which is
+  complete by design: the exit door cannot have rooms missing from it.
 - **Map Confluence spaces to Aqli spaces one to one**, and let the page tree
   carry the hierarchy inside each. A subtree lives wholly inside one space —
   the database enforces it — so splitting a Confluence tree across two Aqli
@@ -189,4 +192,4 @@ imports into a fresh instance.
 - [ ] Editing a doc produces a revision that a person can view and revert from.
 - [ ] An assistant can answer from approved docs, and cannot publish without review.
 - [ ] A full markdown + images export has been produced and stored (`pnpm export`).
-- [ ] Nothing confidential was migrated ahead of per-space permissions.
+- [ ] Anything confidential landed in a space set to *Members only*, with its roster filled in before the import ran.

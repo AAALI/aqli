@@ -20,6 +20,12 @@ export type ToolContext = {
   workspaceId: string;
   keyId: string;
   scopes: AgentScope[];
+  /**
+   * The member this key acts for. Every read below passes it, because that is
+   * the rule that keeps an assistant's answers leak-free: a private space its
+   * owner is not in is not in its results (ADOPTION.md F-4).
+   */
+  ownerUserId: string | null;
 };
 
 /** Injected at the route. Types are structural so tests can pass fakes. */
@@ -27,7 +33,13 @@ export type ToolDeps = {
   queryContext: (
     workspaceId: string,
     query: string,
-    options?: { limit?: number; spaceSlug?: string; docType?: string; status?: string },
+    options?: {
+      limit?: number;
+      spaceSlug?: string;
+      docType?: string;
+      status?: string;
+      viewerId?: string | null;
+    },
   ) => Promise<
     {
       doc_id: string;
@@ -49,6 +61,7 @@ export type ToolDeps = {
       limit: number;
       offset: number;
       parentId?: string | "root";
+      viewerId?: string | null;
     },
   ) => Promise<{
     docs: {
@@ -66,6 +79,7 @@ export type ToolDeps = {
   getAgentDoc: (
     workspaceId: string,
     id: string,
+    viewerId?: string | null,
   ) => Promise<{
     id: string;
     workspace_id: string;
@@ -82,7 +96,7 @@ export type ToolDeps = {
     space: { slug: string; name: string } | null;
   } | null>;
   /** How many sub-pages hang off a document. A count, not the pages: read_doc must stay one document. */
-  countChildDocs: (workspaceId: string, docId: string) => Promise<number>;
+  countChildDocs: (workspaceId: string, docId: string, viewerId?: string | null) => Promise<number>;
   proposeAgentDoc: (input: {
     workspaceId: string;
     agentKeyId?: string | null;
@@ -418,6 +432,7 @@ export async function dispatchTool(
     switch (name) {
       case "search_docs": {
         const results = await deps.queryContext(ctx.workspaceId, requireString(a, "query"), {
+          viewerId: ctx.ownerUserId,
           limit: optInt(a, "limit", 5, 1, 20),
           spaceSlug: optString(a, "space"),
           docType: optEnum(a, "type", DOC_TYPES),
@@ -450,6 +465,7 @@ export async function dispatchTool(
             type: optEnum(a, "type", DOC_TYPES),
             status: optEnum(a, "status", DOC_STATUSES),
             parentId: optString(a, "parent_id"),
+            viewerId: ctx.ownerUserId,
             limit,
             offset,
           }),
@@ -475,11 +491,13 @@ export async function dispatchTool(
       case "read_doc": {
         const id = requireString(a, "id");
         const [doc, workspace] = await Promise.all([
-          deps.getAgentDoc(ctx.workspaceId, id),
+          deps.getAgentDoc(ctx.workspaceId, id, ctx.ownerUserId),
           deps.getWorkspaceMeta(ctx.workspaceId),
         ]);
+        // A document in a space this key's owner cannot read reports as absent,
+        // not as forbidden: "you may not see this" confirms it exists.
         if (!doc) return failure(`No document with id "${id}" in this workspace.`);
-        const childCount = await deps.countChildDocs(ctx.workspaceId, doc.id);
+        const childCount = await deps.countChildDocs(ctx.workspaceId, doc.id, ctx.ownerUserId);
         return text({
           id: doc.id,
           title: doc.title,
@@ -587,7 +605,7 @@ export async function dispatchTool(
       case "propose_update": {
         const id = requireString(a, "id");
         const bodyMd = requireString(a, "body_md");
-        const existing = await deps.getAgentDoc(ctx.workspaceId, id);
+        const existing = await deps.getAgentDoc(ctx.workspaceId, id, ctx.ownerUserId);
         if (!existing) return failure(`No document with id "${id}" in this workspace.`);
 
         const workspace = await deps.getWorkspaceMeta(ctx.workspaceId);

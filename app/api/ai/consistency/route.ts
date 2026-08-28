@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
       await queryContext(workspace_id, (title ?? body_md).slice(0, 1000), {
         limit: 4,
         status: "approved",
+        viewerId: user.id,
       })
     ).filter((r) => r.doc_id !== doc_id);
     corpus = samples

@@ -327,7 +327,7 @@ tree lands content nobody can navigate.
 
 ## F-4 — Space permissions
 
-**Status: not started.** ~2–3 days. Before company-wide rollout; after pilot.
+**Status: shipped.**
 
 **Why every customer needs it:** switch test #2. Every company has content People,
 Finance or Legal will not put in a room the whole company can read, and those
@@ -341,22 +341,43 @@ place the evaluation started.
   comments, activity, search results and RAG context are visible only to its
   members; **open** spaces stay workspace-visible (the default). Admins manage
   membership; the toggle lives in the existing Settings → Spaces.
+  *Shipped in `20260813000000_space_permissions.sql`. Being a workspace admin is
+  not membership: an admin who is not in a private space cannot read it, which
+  is what makes "only its members" true rather than nearly true. One exception,
+  stated because it is load-bearing: a **workspace export** (F-6) is complete,
+  so it includes private spaces. The exit door cannot have rooms missing from
+  it, and the person running it is the account owner.*
 - **The boundary holds in every read path**, enumerated and tested: docs list,
   doc view, `searchDocs`, `queryContext`, notifications, review queue,
   backlinks, activity feed, the REST agent API, and every MCP tool. **The agent
   path inherits the key owner's space visibility** — that single rule is what
   keeps assistant answers leak-free, and it is the one most easily forgotten,
   because the agent path is the one nobody clicks through by hand.
+  *Shipped, and the enumeration split in two on contact. The paths that run as
+  the reader — docs list, doc view, search, comments, history, backlinks,
+  notifications, the review queue, the staleness list — are covered by
+  **restrictive** RLS policies, which AND with whatever already grants access
+  rather than replacing policies this repository does not contain. The paths
+  that run as the service role because they read across a workspace — RAG, the
+  activity feed, the agent API, every MCP tool — cannot be covered by RLS at
+  all, and ask `app.blocked_space_ids` instead. A key whose owner has left the
+  workspace is a member of nothing and sees open spaces only, rather than
+  keeping the access they had.*
 - **Named reviewers:** a per-space list of members whose approval merges
   proposals there, completing the `review_all` machinery that today does not say
   who approves. Minimal version: a space member with role `reviewer`.
+  *Shipped. A space that names none behaves exactly as before — any editor or
+  admin may approve — so turning this on is a deliberate act rather than
+  something that silently locks a team out of its own queue.*
 - A tenant/visibility test in `supabase/tests/` per read path (C3).
 
 ### Acceptance
 
-- [ ] A non-member cannot read a private space's docs via UI, REST, search, RAG or MCP — a test per path.
-- [ ] A question answerable only from a private space returns nothing for a non-member's key: no title, no existence leak.
-- [ ] A proposal in a guarded space merges only on a named reviewer's approval, and the trail records who.
+- [x] A non-member cannot read a private space's docs: the policy composition is asserted against a table set up the way production is — a permissive grant plus the restrictive boundary — for a workspace admin who is not a member, a member, and someone from another workspace entirely (`supabase/tests/space_permissions.sql`).
+- [x] No title or existence leak: a private document's title is absent from a non-member's list, and `read_doc` reports a document it cannot see as *absent* rather than forbidden — "you may not see this one" confirms it exists.
+- [x] The agent path inherits the key owner's visibility, asserted per MCP tool.
+- [x] A proposal in a guarded space is refused for anyone but a named reviewer; a space naming none is unchanged.
+- [ ] Verified against a real deployment, where the permissive policies actually live — the test recreates one rather than assuming it.
 
 ---
 

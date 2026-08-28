@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
     spaceSlug: searchParams.get("space") ?? undefined,
     docType: searchParams.get("type") ?? undefined,
     status: searchParams.get("status") ?? "approved",
+    // The agent inherits the visibility of whoever owns the key.
+    viewerId: agent.ownerUserId,
   });
 
   return NextResponse.json({ query, results, total: results.length });

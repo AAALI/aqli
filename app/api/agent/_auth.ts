@@ -7,6 +7,11 @@ export type AgentContext = {
   keyId: string;
   /** What this key may do. Read is always present (`normalizeScopes`). */
   scopes: AgentScope[];
+  /**
+   * The member this key acts for. Reads inherit their space visibility, so an
+   * assistant cannot answer from a private space its owner cannot open.
+   */
+  ownerUserId: string | null;
 };
 
 /**
@@ -20,8 +25,8 @@ export async function authenticateAgent(req: NextRequest): Promise<AgentContext 
   const rawKey = authHeader.slice(7).trim();
   if (!rawKey.startsWith("aqli_")) return null;
 
-  const { valid, workspaceId, keyId, scopes } = await validateApiKey(rawKey);
+  const { valid, workspaceId, keyId, scopes, ownerUserId } = await validateApiKey(rawKey);
   if (!valid || !workspaceId || !keyId) return null;
 
-  return { workspaceId, keyId, scopes };
+  return { workspaceId, keyId, scopes, ownerUserId };
 }

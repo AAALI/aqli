@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "./server";
 import { scoped } from "@/lib/db";
+import { blockedSpaceIds, isSpaceVisible } from "@/lib/spaces/visibility";
 import type {
   ActivityAction,
   ActorType,
@@ -147,11 +148,18 @@ export type FeedActivity = DocActivity & {
 export async function getWorkspaceActivity(
   workspaceId: string,
   limit = 25,
+  /**
+   * Who is reading. This query runs on the service role so it can see across a
+   * workspace, which means RLS is not filtering it — a private space's activity
+   * would otherwise appear in a non-member's feed, titles and all.
+   */
+  viewerId?: string | null,
 ): Promise<FeedActivity[]> {
+  const blocked = await blockedSpaceIds(workspaceId, viewerId ?? null);
   const { data, error } = await scoped(workspaceId)
     .from("doc_activity")
     .select(
-      "*, doc:docs(id, title, type, status, frontmatter, space:spaces(name, slug))",
+      "*, doc:docs(id, title, type, status, frontmatter, space_id, space:spaces(name, slug))",
     )
     .in("action", [
       "created",
@@ -163,7 +171,16 @@ export async function getWorkspaceActivity(
       "rejected",
     ])
     .order("created_at", { ascending: false })
-    .limit(limit);
+    // Over-fetch when something is hidden, so a private space's activity being
+    // filtered out does not leave a member of it with a shorter feed than
+    // everyone else.
+    .limit(blocked.length > 0 ? limit * 3 : limit);
   if (error) throw error;
-  return (data ?? []) as unknown as FeedActivity[];
+
+  const rows = (data ?? []) as unknown as (FeedActivity & { doc?: { space_id?: string | null } })[];
+  if (blocked.length === 0) return rows.slice(0, limit) as FeedActivity[];
+
+  return rows
+    .filter((row) => isSpaceVisible(row.doc?.space_id ?? null, blocked))
+    .slice(0, limit) as FeedActivity[];
 }

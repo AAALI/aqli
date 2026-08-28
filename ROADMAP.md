@@ -118,8 +118,13 @@ The adoption gates a non-eng team hits in week one. In priority order:
    not the UI, because four write paths reach the same table; deleting a parent
    re-parents its children rather than orphaning or cascading. Import needed
    this first, which is why `ADOPTION.md` F-3 sits ahead of it.
-6. **Space-level permissions.** `space_members` table + RLS; private spaces for
-   People/Finance/Legal. Blocks real HR adoption until it exists. The boundary
+6. - [x] **Space-level permissions.** `space_members` table + RLS; private spaces
+   for People/Finance/Legal. *Shipped: a visibility toggle and a roster in
+   Settings → Spaces, restrictive policies for the paths that run as the reader,
+   and an explicit blocked-space filter for the ones that run as the service
+   role because they read across a workspace — RAG, the activity feed, the agent
+   API and every MCP tool. Named reviewers complete `review_all`, which could
+   say everything waits for approval but never said whose.* The boundary
    has to hold in every read path — docs list, doc view, search, RAG,
    notifications, review queue, backlinks, activity, REST and every MCP tool —
    with the agent path inheriting the key owner's visibility. That last rule is

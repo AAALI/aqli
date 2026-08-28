@@ -9,7 +9,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!agent) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const doc = await getAgentDoc(agent.workspaceId, id);
+  const doc = await getAgentDoc(agent.workspaceId, id, agent.ownerUserId);
   if (!doc) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

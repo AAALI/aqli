@@ -6,6 +6,7 @@ import type { ReviewPolicy } from "@/lib/merge/disposition";
 type Params = { params: Promise<{ id: string }> };
 
 const REVIEW_POLICIES: ReviewPolicy[] = ["open", "review_agents", "review_all"];
+const VISIBILITIES = ["open", "private"] as const;
 
 export async function PUT(req: NextRequest, { params }: Params) {
   const supabase = await createServerSupabaseClient();
@@ -21,6 +22,30 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const patch: Record<string, unknown> = {};
   if (typeof updates.name === "string") patch.name = updates.name;
   if (typeof updates.icon === "string") patch.icon = updates.icon;
+
+  // Who may *read* a space, like who must approve a change, is a governance
+  // decision rather than housekeeping: admins only, checked against the space's
+  // own workspace.
+  if (updates.visibility !== undefined) {
+    if (!VISIBILITIES.includes(updates.visibility)) {
+      return NextResponse.json(
+        { error: `visibility must be one of ${VISIBILITIES.join(", ")}` },
+        { status: 400 },
+      );
+    }
+
+    const { data: space } = await supabase
+      .from("spaces")
+      .select("workspace_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (!space) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    if ((await getMyRole(space.workspace_id)) !== "admin")
+      return NextResponse.json({ error: "Admins only" }, { status: 403 });
+
+    patch.visibility = updates.visibility;
+  }
 
   if (updates.review_policy !== undefined) {
     if (!REVIEW_POLICIES.includes(updates.review_policy)) {

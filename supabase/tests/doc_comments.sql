@@ -90,9 +90,28 @@ begin
   assert (select relrowsecurity from pg_class where oid = 'public.doc_comments'::regclass),
     'RLS is not enabled on doc_comments';
 
-  assert (select count(*) from pg_policies
-          where schemaname = 'public' and tablename = 'doc_comments') = 3,
-    'expected exactly three policies (read, insert, delete)';
+  -- Named rather than counted: the point of the assertion is that nothing
+  -- unexpected grants access, and a count breaks every time a later migration
+  -- adds a deliberate one — as 20260813000000 did with the space boundary.
+  assert (
+    select array_agg(policyname::text order by policyname) from pg_policies
+    where schemaname = 'public' and tablename = 'doc_comments'
+  ) = array[
+    'doc_comments_delete',
+    'doc_comments_insert',
+    'doc_comments_read',
+    'doc_comments_space_visibility'
+  ], format('unexpected policy set on doc_comments: %s', (
+    select array_agg(policyname::text order by policyname) from pg_policies
+    where schemaname = 'public' and tablename = 'doc_comments'
+  ));
+
+  -- The space boundary is restrictive: it must narrow what the read policy
+  -- grants, never widen it.
+  assert (select permissive from pg_policies
+          where schemaname = 'public' and tablename = 'doc_comments'
+            and policyname = 'doc_comments_space_visibility') = 'RESTRICTIVE',
+    'the space-visibility policy must be restrictive or it grants access instead of removing it';
 
   -- No update policy: editing is not in this release, and the absence is the
   -- enforcement.

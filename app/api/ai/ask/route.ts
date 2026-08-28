@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
   const contextResults = await queryContext(workspace_id, question, {
     limit: 5,
     status: "approved",
+    // Ask answers from what this person can read. A private space they are not
+    // in is not in the answer, and not in the sources under it.
+    viewerId: user.id,
   });
 
   if (contextResults.length === 0) {

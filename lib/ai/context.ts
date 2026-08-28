@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { scoped } from "@/lib/db";
+import { blockedSpaceIds } from "@/lib/spaces/visibility";
 import type { ContextResult } from "@/types/chunk";
 
 const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -25,10 +26,21 @@ export async function queryContext(
     docType?: string;
     // Defaults to 'approved' — agents should not act on unreviewed content.
     status?: string;
+    /**
+     * Who is asking. Retrieval runs on the service role, so RLS does not apply
+     * — this is what keeps a private space out of an answer (ADOPTION.md F-4).
+     * Null means a member of nothing: open spaces only.
+     */
+    viewerId?: string | null;
   },
 ): Promise<ContextResult[]> {
   const limit = options?.limit ?? 5;
   const status = options?.status ?? "approved";
+
+  const blocked = await blockedSpaceIds(workspaceId, options?.viewerId ?? null);
+  // Over-fetch when something is hidden, so filtering a passage out does not
+  // silently shorten the answer for everyone who has a private space.
+  const matchCount = blocked.length > 0 ? Math.min(limit * 4, 40) : limit;
 
   // Embed the query.
   const openai = getOpenAI();
@@ -44,7 +56,7 @@ export async function queryContext(
       query_embedding: queryEmbedding,
       workspace_id_param: workspaceId,
       status_param: status,
-      match_count: limit,
+      match_count: matchCount,
       space_slug_param: options?.spaceSlug ?? null,
       doc_type_param: options?.docType ?? null,
     }),
@@ -58,7 +70,24 @@ export async function queryContext(
   const docBase = workspace?.slug
     ? `${appUrl}/w/${workspace.slug}/docs`
     : `${appUrl}/docs`;
-  return ((data ?? []) as SearchRow[]).map((row): ContextResult => ({
+  let rows = (data ?? []) as SearchRow[];
+
+  if (blocked.length > 0) {
+    // The search function returns a space *name*, which is not an id and not
+    // reliably unique. Resolve the documents it matched and drop the ones in a
+    // space this viewer cannot open — before anything is quoted back to them.
+    const ids = [...new Set(rows.map((row) => row.doc_id))];
+    const { data: docs } = await supabase.from("docs").select("id, space_id").in("id", ids);
+    const spaceById = new Map(
+      ((docs ?? []) as { id: string; space_id: string | null }[]).map((d) => [d.id, d.space_id]),
+    );
+    rows = rows.filter((row) => {
+      const spaceId = spaceById.get(row.doc_id) ?? null;
+      return !spaceId || !blocked.includes(spaceId);
+    });
+  }
+
+  return rows.slice(0, limit).map((row): ContextResult => ({
     doc_id: row.doc_id,
     doc_title: row.doc_title,
     doc_type: row.doc_type,

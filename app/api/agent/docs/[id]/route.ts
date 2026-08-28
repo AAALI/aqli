@@ -12,7 +12,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   // Scoped to the key's workspace, so a document from another workspace comes
   // back as null rather than as a row this route has to remember to reject.
-  const doc = await getAgentDoc(agent.workspaceId, id);
+  const doc = await getAgentDoc(agent.workspaceId, id, agent.ownerUserId);
   if (!doc) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -58,7 +58,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!agent) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const existing = await getAgentDoc(agent.workspaceId, id);
+  const existing = await getAgentDoc(agent.workspaceId, id, agent.ownerUserId);
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("id, workspace_id, document_id, state")
+    .select("id, workspace_id, document_id, state, space_id")
     .eq("id", id)
     .maybeSingle();
   if (!proposal) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -37,6 +37,30 @@ export async function POST(req: NextRequest, { params }: Params) {
   const role = await getMyRole(workspaceId);
   if (role !== "admin" && role !== "editor")
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // Named reviewers (ADOPTION.md F-4). A space that names none behaves as it
+  // always has — any editor or admin may act — so turning this on is a
+  // deliberate act rather than something that silently locks a team out of its
+  // own queue. A space that names some is answered only by them.
+  const spaceId = (proposal.space_id as string | null) ?? null;
+  if (spaceId) {
+    const { data: named } = await supabase.rpc("space_names_reviewers", { p_space_id: spaceId });
+    if (named === true) {
+      const { data: isReviewer } = await supabase.rpc("is_space_reviewer", {
+        p_space_id: spaceId,
+        p_user_id: user.id,
+      });
+      if (isReviewer !== true) {
+        return NextResponse.json(
+          {
+            error: "not_a_reviewer",
+            message: "This space names its own reviewers, and you are not one of them.",
+          },
+          { status: 403 },
+        );
+      }
+    }
+  }
 
   if (proposal.state !== "open") {
     return NextResponse.json(
