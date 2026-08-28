@@ -15,6 +15,7 @@ function makeDeps(overrides: Partial<ToolDeps> = {}): ToolDeps {
     queryContext: vi.fn().mockResolvedValue([]),
     listAgentDocs: vi.fn().mockResolvedValue({ docs: [], total: 0 }),
     getAgentDoc: vi.fn().mockResolvedValue(null),
+    countChildDocs: vi.fn().mockResolvedValue(0),
     proposeAgentDoc: vi.fn().mockResolvedValue({ proposalId: "p1", state: "queued", doc: null }),
     setAgentDocStatus: vi.fn().mockResolvedValue({}),
     getSpaceBySlug: vi.fn().mockResolvedValue(null),
@@ -205,6 +206,89 @@ describe("read_doc", () => {
     const result = await dispatchTool("read_doc", { id: "nope" }, ctx(["read"]), makeDeps());
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("No document with id");
+  });
+});
+
+describe("the page tree", () => {
+  it("list_docs passes parent_id through, so an agent can walk one level at a time", async () => {
+    const listAgentDocs = vi.fn().mockResolvedValue({ docs: [], total: 0 });
+    await dispatchTool("list_docs", { parent_id: "doc-1" }, ctx(["read"]), makeDeps({ listAgentDocs }));
+    expect(listAgentDocs).toHaveBeenCalledWith("ws1", expect.objectContaining({ parentId: "doc-1" }));
+
+    await dispatchTool("list_docs", { parent_id: "root" }, ctx(["read"]), makeDeps({ listAgentDocs }));
+    expect(listAgentDocs).toHaveBeenLastCalledWith("ws1", expect.objectContaining({ parentId: "root" }));
+  });
+
+  it("list_docs reports each document's parent", async () => {
+    const listAgentDocs = vi.fn().mockResolvedValue({
+      docs: [
+        { id: "d1", title: "Leave", type: "policy", status: "approved", updated_at: "2026-08-01", parent_doc_id: "d0", space: null },
+      ],
+      total: 1,
+    });
+    const result = await dispatchTool("list_docs", {}, ctx(["read"]), makeDeps({ listAgentDocs }));
+    expect(payload(result).docs[0].parent_id).toBe("d0");
+  });
+
+  it("read_doc returns the parent and how many sub-pages there are, not the sub-pages", async () => {
+    // A read_doc that inlined children would put an unbounded amount of text
+    // in front of a model that asked for one document.
+    const deps = makeDeps({
+      getAgentDoc: vi.fn().mockResolvedValue({
+        id: "d1",
+        workspace_id: "ws1",
+        title: "Benefits",
+        type: "policy",
+        status: "approved",
+        body_md: "# Benefits",
+        agent_id: null,
+        current_revision_id: "r1",
+        last_reviewed_at: null,
+        updated_at: "2026-08-01",
+        parent_doc_id: null,
+        frontmatter: { tags: [] },
+        space: { slug: "handbook", name: "Handbook" },
+      }),
+      countChildDocs: vi.fn().mockResolvedValue(6),
+    });
+    const result = await dispatchTool("read_doc", { id: "d1" }, ctx(["read"]), deps);
+    const body = payload(result);
+    expect(body.parent_id).toBeNull();
+    expect(body.child_count).toBe(6);
+    expect(body).not.toHaveProperty("children");
+  });
+
+  it("propose_doc places a new document under a parent", async () => {
+    const proposeAgentDoc = vi
+      .fn()
+      .mockResolvedValue({ proposalId: "p1", state: "queued", doc: null });
+    await dispatchTool(
+      "propose_doc",
+      { title: "Parental leave", body_md: "text", parent_id: "d1" },
+      ctx(["read", "propose"]),
+      makeDeps({ proposeAgentDoc }),
+    );
+    expect(proposeAgentDoc).toHaveBeenCalledWith(expect.objectContaining({ parentId: "d1" }));
+  });
+
+  it("propose_doc without a parent asks for none, rather than guessing at one", async () => {
+    const proposeAgentDoc = vi
+      .fn()
+      .mockResolvedValue({ proposalId: "p1", state: "queued", doc: null });
+    await dispatchTool(
+      "propose_doc",
+      { title: "Standalone", body_md: "text" },
+      ctx(["read", "propose"]),
+      makeDeps({ proposeAgentDoc }),
+    );
+    expect(proposeAgentDoc).toHaveBeenCalledWith(expect.objectContaining({ parentId: null }));
+  });
+
+  it("advertises the tree arguments in the schemas a client reads", () => {
+    const list = TOOLS.find((t) => t.name === "list_docs");
+    const propose = TOOLS.find((t) => t.name === "propose_doc");
+    expect(list?.inputSchema.properties).toHaveProperty("parent_id");
+    expect(propose?.inputSchema.properties).toHaveProperty("parent_id");
   });
 });
 

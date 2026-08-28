@@ -29,7 +29,14 @@ export async function getServiceSpaceBySlug(workspaceId: string, slug: string) {
 
 export async function listAgentDocs(
   workspaceId: string,
-  opts: { type?: DocType; status?: DocStatus; limit: number; offset: number },
+  opts: {
+    type?: DocType;
+    status?: DocStatus;
+    limit: number;
+    offset: number;
+    /** A document id to list the children of, or "root" for top-level documents. */
+    parentId?: string | "root";
+  },
 ) {
   let q = scoped(workspaceId)
     .from("docs")
@@ -38,6 +45,8 @@ export async function listAgentDocs(
     .range(opts.offset, opts.offset + opts.limit - 1);
   if (opts.type) q = q.eq("type", opts.type);
   if (opts.status) q = q.eq("status", opts.status);
+  if (opts.parentId === "root") q = q.is("parent_doc_id", null);
+  else if (opts.parentId) q = q.eq("parent_doc_id", opts.parentId);
   const { data, error, count } = await q;
   if (error) throw error;
   return {
@@ -49,6 +58,23 @@ export async function listAgentDocs(
 }
 
 export type AgentDoc = Doc & { space: { slug: string; name: string } | null };
+
+/**
+ * How many sub-pages a document has.
+ *
+ * A count rather than the children themselves: `read_doc` returning a nested
+ * tree would put an unbounded amount of text in front of a model that asked
+ * for one document. Knowing there are six is enough to decide whether to call
+ * `list_docs` for them.
+ */
+export async function countChildDocs(workspaceId: string, docId: string): Promise<number> {
+  const { count, error } = await scoped(workspaceId)
+    .from("docs")
+    .select("id", { count: "exact", head: true })
+    .eq("parent_doc_id", docId);
+  if (error) throw error;
+  return count ?? 0;
+}
 
 export async function getAgentDoc(
   workspaceId: string,
@@ -86,6 +112,8 @@ export type AgentWrite = {
   bodyMd: string;
   type?: DocType;
   status?: DocStatus;
+  /** Place a new document under this one. Ignored when revising: a move is not an edit. */
+  parentId?: string | null;
   agentId?: string;
   frontmatter?: DocFrontmatter;
   rationale?: string | null;
@@ -138,6 +166,11 @@ export async function proposeAgentDoc(input: AgentWrite): Promise<AgentWriteResu
             doc_type: input.type ?? "general",
             doc_status: input.status ?? "draft",
             agent_id: input.agentId ?? "unknown",
+            // Placement travels with creation, like type and status. The
+            // database reads this key, validates the parent, and inherits its
+            // space (20260811000000). Absent when revising: re-parenting an
+            // existing document is a move, and a move is not a proposal.
+            ...(input.parentId ? { doc_parent_id: input.parentId } : {}),
           }),
     },
     rationale: input.rationale ?? null,

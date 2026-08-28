@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDoc, getDocVersions, getBacklinks } from "@/lib/supabase/docs";
+import { getDoc, getDocVersions, getBacklinks, getDocPath } from "@/lib/supabase/docs";
 import { getOwnerDirectory, ownerInfo } from "@/lib/supabase/owners";
 import { getDocCommentThread } from "@/lib/supabase/comments";
 import { listWorkspaceMembers, getMyRole } from "@/lib/supabase/members";
@@ -103,6 +103,13 @@ export default async function DocViewPage({
     ? { label: doc.space.name, href: `${base}/s/${doc.space.slug}` }
     : { label: "Home", href: base };
 
+  // Sub-pages: the crumb trail is space › parent › … › this document, so a
+  // reader who arrived from search knows which section they are standing in.
+  // An ancestor RLS hides is simply absent from the path rather than a gap.
+  const ancestors = doc.parent_doc_id
+    ? await getDocPath(doc.id).catch(() => [])
+    : [];
+
   const changes =
     versions.length > 1
       ? versions.slice(0, 3).map((v) => ({
@@ -133,7 +140,11 @@ export default async function DocViewPage({
           full-width strip beneath it; they now sit inline with the document. */}
       <AppTopBar
         base={base}
-        crumbs={[spaceCrumb, { label: doc.title }]}
+        crumbs={[
+          spaceCrumb,
+          ...ancestors.map((a) => ({ label: a.title, href: `${base}/docs/${a.id}` })),
+          { label: doc.title },
+        ]}
         share
         actions={
           <>

@@ -14,6 +14,7 @@ const dispatchTool = vi.fn();
 vi.mock("../../agent/_auth", () => ({ authenticateAgent }));
 vi.mock("../../agent/_workspace", () => ({ getAgentWorkspaceMeta: vi.fn() }));
 vi.mock("@/lib/supabase/agent-docs", () => ({
+  countChildDocs: vi.fn(),
   getAgentDoc: vi.fn(),
   getServiceSpaceBySlug: vi.fn(),
   listAgentDocs: vi.fn(),

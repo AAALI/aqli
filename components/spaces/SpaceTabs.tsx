@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { IconBook, IconFile } from "@/components/aqli/icons";
+import { IconBook, IconFile, IconFolder } from "@/components/aqli/icons";
 
-type TabId = "shelves" | "list";
+type TabId = "pages" | "shelves" | "list";
 
 /**
  * Space view switcher. Default is the curated "Shelves" library view; the
@@ -11,17 +11,23 @@ type TabId = "shelves" | "list";
  * keeps). Both panels are server-rendered and passed in as slots.
  */
 export default function SpaceTabs({
+  pages,
   shelves,
   list,
   docCount,
+  defaultTab = "shelves",
 }: {
+  /** The page tree. Rendered as the first tab, and the default once a space actually has one. */
+  pages?: React.ReactNode;
   shelves: React.ReactNode;
   list: React.ReactNode;
   docCount: number;
+  defaultTab?: TabId;
 }) {
-  const [tab, setTab] = useState<TabId>("shelves");
+  const [tab, setTab] = useState<TabId>(defaultTab);
 
   const tabs: { id: TabId; label: string; icon: React.ReactNode; count?: number }[] = [
+    ...(pages ? [{ id: "pages" as const, label: "Pages", icon: <IconFolder size={13} /> }] : []),
     { id: "shelves", label: "Shelves", icon: <IconBook size={13} /> },
     { id: "list", label: "All docs", icon: <IconFile size={13} />, count: docCount },
   ];
@@ -71,7 +77,9 @@ export default function SpaceTabs({
         })}
       </div>
 
-      <div style={{ padding: "32px 56px 56px" }}>{tab === "shelves" ? shelves : list}</div>
+      <div style={{ padding: "32px 56px 56px" }}>
+        {tab === "pages" ? pages : tab === "shelves" ? shelves : list}
+      </div>
     </>
   );
 }

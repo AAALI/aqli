@@ -31,6 +31,7 @@ export const EXPECTED_MIGRATIONS: ExpectedMigration[] = [
   { version: "20260808000000", name: "doc_comments" },
   { version: "20260809000000", name: "github_direct_tokens" },
   { version: "20260810000000", name: "preflight" },
+  { version: "20260811000000", name: "doc_tree" },
 ];
 
 /** Just the versions, which is what the database ledger stores. */

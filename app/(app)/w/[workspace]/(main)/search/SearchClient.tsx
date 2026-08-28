@@ -6,7 +6,7 @@ import Link from "next/link";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { StatusBadge, TypeBadge } from "@/components/aqli/badges";
 import { PageHeader, EmptyState } from "@/components/aqli/page";
-import { IconSearch, IconSparkle, IconArrowUpRight, IconRobot } from "@/components/aqli/icons";
+import { IconSearch, IconSparkle, IconArrowUpRight, IconRobot, IconChevRight } from "@/components/aqli/icons";
 import { typeLabel, statusLabel } from "@/lib/doc-display";
 import type { DocStatus, DocType } from "@/types/doc";
 
@@ -16,6 +16,8 @@ type Result = {
   type: DocType;
   status: DocStatus;
   space_id: string | null;
+  /** Immediate parent, when the doc is a sub-page — the result's place in the tree. */
+  parent?: { id: string; title: string } | null;
   author_type?: "human" | "agent";
   updated_at: string;
   body_text: string | null;
@@ -223,6 +225,23 @@ export default function SearchClient({
                         <h4 style={{ margin: 0, fontSize: 15, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.005em" }}>{r.title}</h4>
                         <span style={{ color: "var(--text-muted)" }}><IconArrowUpRight size={13} /></span>
                       </div>
+                      {/* Where this sits. A page called "Parental leave" means
+                          one thing under Benefits and another under Policies,
+                          and search is where a reader meets it with no
+                          surroundings at all. */}
+                      {(spaces.find((sp) => sp.id === r.space_id) || r.parent) && (
+                        <div style={{ fontSize: 11.5, color: "var(--text-muted)", display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                          {spaces.find((sp) => sp.id === r.space_id)?.name && (
+                            <span>{spaces.find((sp) => sp.id === r.space_id)?.name}</span>
+                          )}
+                          {r.parent && (
+                            <>
+                              <IconChevRight size={10} />
+                              <span>{r.parent.title}</span>
+                            </>
+                          )}
+                        </div>
+                      )}
                       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5 }}>
                         <TypeBadge type={typeLabel(r.type)} />
                         <span style={{ color: "var(--text-muted)" }}>·</span>

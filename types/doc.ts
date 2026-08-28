@@ -58,6 +58,11 @@ export type Doc = {
   // Added by the markdown-canonical migration (spec §2.2). `body_text` and
   // `headings` are search inputs derived from `body_md` by a database trigger
   // and are never rendered.
+  // Sub-pages (ADOPTION.md F-3). The tree is metadata: `parent_doc_id` never
+  // appears in `body_md`, and a move writes activity rather than a revision.
+  parent_doc_id: string | null;
+  position: number;
+
   doc_class: DocClass;
   origin: DocOrigin;
   source_ref: Record<string, unknown> | null;

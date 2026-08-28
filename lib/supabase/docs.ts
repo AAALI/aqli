@@ -46,6 +46,69 @@ export async function getDocs(
   return (data ?? []) as DocWithSpace[];
 }
 
+/**
+ * Every document in a space, shaped for the page tree.
+ *
+ * A deliberately narrow select: the tree renders a title, a status dot and an
+ * indent, and a space with a few hundred documents should not ship their
+ * markdown to the browser to draw a sidebar.
+ */
+export type TreeDoc = {
+  id: string;
+  title: string;
+  type: DocType;
+  status: DocStatus;
+  parent_doc_id: string | null;
+  position: number;
+  updated_at: string;
+};
+
+export async function getSpaceTree(workspaceId: string, spaceId: string) {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("docs")
+    .select("id, title, type, status, parent_doc_id, position, updated_at")
+    .eq("workspace_id", workspaceId)
+    .eq("space_id", spaceId)
+    .order("position", { ascending: true })
+    .order("title", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as TreeDoc[];
+}
+
+/**
+ * A document's ancestors, root first — the breadcrumb.
+ *
+ * Recursive, so it is a database function rather than a walk of one round trip
+ * per level. It runs as the caller, so an ancestor they cannot read is simply
+ * absent from the path.
+ */
+export type DocPathEntry = { id: string; title: string };
+
+export async function getDocPath(docId: string): Promise<DocPathEntry[]> {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase.rpc("doc_path", { p_doc_id: docId });
+  if (error) throw error;
+  return (data ?? []) as DocPathEntry[];
+}
+
+/**
+ * Re-parent and reorder a document.
+ *
+ * The invariants — no cycles, one space per subtree, the depth cap — live in
+ * triggers, so this is a thin call: what comes back from a refused move is the
+ * database's own message, which is the one that stays true.
+ */
+export async function moveDoc(docId: string, parentId: string | null, position?: number | null) {
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.rpc("move_doc", {
+    p_doc_id: docId,
+    p_parent_id: parentId,
+    p_position: position ?? null,
+  });
+  if (error) throw error;
+}
+
 export async function getDoc(id: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
@@ -411,7 +474,12 @@ export async function searchDocs(workspaceId: string, query: string) {
     // markdown source leaks `##`, `**` and table pipes into it. The
     // `docs_maintain_derived` trigger keeps `body_text` in step with the
     // markdown, so this is the same content with the syntax stripped.
-    .select("id, title, type, status, space_id, updated_at, body_text")
+    // The parent comes along so a result can say where it sits: a page called
+    // "Parental leave" means something different under Benefits than under
+    // Policies, and search is where people meet a page with no surroundings.
+    .select(
+      "id, title, type, status, space_id, updated_at, body_text, parent_doc_id, parent:docs!docs_parent_doc_id_fkey(id, title)",
+    )
     .eq("workspace_id", workspaceId)
     .textSearch("search_vector", query, { type: "websearch" })
     .limit(20);

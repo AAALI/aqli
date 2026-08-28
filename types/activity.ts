@@ -10,7 +10,8 @@ export type ActivityAction =
   | "changes_requested"
   | "commented"
   | "embedded"
-  | "review_requested";
+  | "review_requested"
+  | "moved";
 
 export type DocActivity = {
   id: string;
