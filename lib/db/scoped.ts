@@ -121,6 +121,18 @@ export class ScopedClient {
     return this.raw.rpc.bind(this.raw);
   }
 
+  /** Read a Storage object, refusing any path outside this workspace. */
+  async download(bucket: string, path: string): Promise<Uint8Array> {
+    if (!path.startsWith(`${this.workspaceId}/`)) {
+      throw new Error(
+        `ScopedClient: object path "${path}" is outside workspace ${this.workspaceId}`,
+      );
+    }
+    const { data, error } = await this.raw.storage.from(bucket).download(path);
+    if (error) throw error;
+    return new Uint8Array(await data.arrayBuffer());
+  }
+
   /**
    * Upload a Storage object, refusing any path outside this workspace.
    *
