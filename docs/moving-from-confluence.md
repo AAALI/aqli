@@ -22,7 +22,7 @@ treats as reviewed.
 | Images | Yes — paste and drag-drop, stored per workspace behind an authenticated route. |
 | Tables, Mermaid diagrams | Yes. |
 | Agent access | REST API and an MCP server (`/api/mcp`). |
-| **Confluence importer** | **Not built.** The converter exists (`lib/confluence/storage-to-md.ts`) and a fidelity gate exists; the ingest surface and attachment/link resolution do not. See below. |
+| Confluence importer | Yes — `pnpm import`, or Settings → Import for a markdown zip. Attachments, cross-links and the page tree are carried across; a per-page report says what conversion could not represent. Unverified against a real export: see below. |
 | Sub-pages (page tree) | Yes — parent pages, drag to re-parent or reorder, breadcrumbs, and `parent_id` on the agent API. |
 | **Per-space permissions** | **Not built.** Anyone in the workspace can read any space. |
 | **Email notifications** | **Not built.** Mentions and review requests reach people through the in-app bell only. |
@@ -83,19 +83,7 @@ Then set each space's review policy:
 
 ## 3. Get the content across
 
-There is no one-click import. Two routes, and it is worth running both once on
-a sample and comparing:
-
-**Export via the Atlassian REST API.** Tools such as
-[`confluence-markdown-exporter`](https://github.com/Spenhouet/confluence-markdown-exporter)
-walk a whole space, download attachments and re-link them, and handle common
-macros. If your Confluence is still live, this usually beats parsing an export
-archive, whose storage format is undocumented and drifts.
-
-**Or convert the space export with the in-repo converter.** `lib/confluence/storage-to-md.ts`
-handles the macros and elements a real corpus actually contains, and
-`scripts/confluence-fidelity.ts` reports what a conversion would lose before you
-commit to it:
+Run the fidelity gate first, on your own export, before you let anything write:
 
 ```bash
 pnpm confluence:fidelity --csv path/to/bodycontent.csv --out fidelity.md
@@ -104,25 +92,55 @@ pnpm confluence:fidelity --csv path/to/bodycontent.csv --out fidelity.md
 It exits non-zero when more than 2% of pages fail the round-trip gate. Read
 *Macros with no handler*, *Elements with no handler*, and the worst pages by
 retention. **Tables are the known weak point:** colspan, rowspan and cell
-alignment cannot be represented in GFM, so table-heavy pages degrade and should
-go on a manual list rather than blocking the run.
+alignment cannot be represented in GFM, so table-heavy pages degrade and belong
+on a manual list rather than blocking the run.
 
-Either way you are writing the ingest yourself today. Two things to get right:
+Then import. A dry run is the default — it writes nothing and produces the same
+report an apply would:
 
-- **Images must not arrive as expiring links.** Upload them to the doc-images
-  bucket and reference the authenticated `/api/images/<path>` form, so canonical
-  markdown stays valid forever.
-- **Import as `approved`, not `draft`.** These pages were your team's working
-  truth. Land them approved and let the staleness detector surface them for
-  re-verification over time — that turns "review 400 pages" into a queue rather
-  than a wall.
+```bash
+unzip "Your Space Export.zip" -d ./confluence-export
+pnpm import --workspace <slug> --dir ./confluence-export \
+            --space-map HR=handbook,ENG=engineering \
+            --authors ./confluence-export/entities/user_mapping.csv
+pnpm import --workspace <slug> --dir ./confluence-export --space-map … --apply
+```
 
-Make the importer idempotent (key on the Confluence page id) so a re-run fixes
-rather than duplicates.
+A zip of markdown — a Notion export, a docs repo, another wiki's output — goes
+through the same pipeline, and is small enough to do from the browser at
+Settings → Import.
+
+What the import does for you, so you do not have to check it by hand:
+
+- **Images are uploaded and re-linked** to the authenticated `/api/images/<path>`
+  form, so canonical markdown never holds a link that expires.
+- **Cross-references are resolved** to the documents those pages became. A link
+  to a page that was not in the export keeps its words and is listed in the
+  report rather than left dead.
+- **The page tree is preserved**, parents and all.
+- **Pages arrive approved**, with the staleness clock starting at import — which
+  turns "review 400 pages" into a queue rather than a wall.
+- **Re-running is safe.** Import keys on the source page id, and the database
+  has a unique index on it: a second run updates, it cannot duplicate.
+- **Nothing disappears quietly.** Unhandled macros, attachments that are not
+  images (the bucket takes PNG, JPEG, GIF and WebP), unresolved links and
+  unmatched authors are all named against their page in the report, which lands
+  as a document in the workspace.
+
+Two things to know before you trust a large run:
+
+- **The Confluence adapter has not been run against a real space export.** It
+  detects its column names rather than assuming one Confluence version's layout,
+  and reports which it found — if your tree comes out flat, that list is the
+  first thing to read. Do a dry run on the real export before promising anyone
+  a date.
+- **An author who is not in `user_mapping.csv` loses their attribution**, and
+  nothing is written into the document body: a mention is not a doc-body node
+  here, and an import must not invent one.
 
 Finish with a cleanup pass over the imported tree — normalise headings, fix
-macro residue, verify images render. This is a good job for an assistant
-connected over MCP.
+macro residue, verify images render. The report is your checklist, and this is a
+good job for an assistant connected over MCP.
 
 ## 4. Connect your assistants
 

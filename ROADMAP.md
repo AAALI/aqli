@@ -95,8 +95,11 @@ The adoption gates a non-eng team hits in week one. In priority order:
    **No email.** The repo has no mail transport, and adding one is its own
    piece of work. Delivery is the notification bell, which grew a `mention`
    kind. Inline anchors are still not built.
-4. **Import.** Markdown/zip first (cheap, also serves eng), then Notion export,
+4. - [x] **Import.** Markdown/zip first (cheap, also serves eng), then Notion export,
    then Confluence space export (XML). Nobody re-types their handbook.
+   *Shipped for markdown/zip and Confluence: one pipeline behind a source
+   adapter, `pnpm import` (dry run by default) and Settings → Import. Notion is
+   a third adapter against the same contract, not a second pipeline.*
    One pipeline behind a source-adapter contract, because the hard parts are
    the same for every source: attachments into the images bucket as
    authenticated links, internal links resolved to imported doc ids, authors
@@ -134,10 +137,12 @@ The adoption gates a non-eng team hits in week one. In priority order:
 Ship 1–2 as one release ("the editor holds real content now"), 3–4 next, 5–6
 after; 7–8 are small and can ride along with whichever release is moving.
 
-Item 4 is cheaper than it looks: `lib/confluence/storage-to-md.ts` and
-`scripts/confluence-fidelity.ts` already exist, so what is missing from
-Confluence import is the ingest surface, not the converter. The fidelity gate
-has still never run against the real export — see `reports/HANDOVER.md` §2.
+Item 4 turned out as cheap as it looked: the converter and the fidelity gate
+already existed, so what shipped around them was the pipeline every source
+needs — attachments, link resolution, author mapping, placement, idempotency,
+and a per-page report. The fidelity gate has still never run against a real
+Confluence export, and the Confluence adapter's column detection is unverified
+against one; both are named in `ADOPTION.md` F-1 as operator steps.
 
 ## Phase 3 — Press the AI-native advantage
 

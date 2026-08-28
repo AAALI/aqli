@@ -34,6 +34,7 @@ pnpm lint       # eslint
 pnpm test       # vitest
 pnpm test:sql   # boots a throwaway Postgres, replays every migration, runs supabase/tests/
 pnpm preflight  # is this installation in the state the code expects? (needs SUPABASE_SERVICE_KEY)
+pnpm import     # bring in a markdown/zip or Confluence export (dry run unless --apply)
 ```
 
 ## Architecture decisions worth knowing

@@ -124,8 +124,8 @@ the flag.
 
 ## F-1 — Import
 
-**Status: converter exists, pipeline does not.** ~3–5 days plus a review pass.
-**Depends on F-3.**
+**Status: shipped for markdown/zip and Confluence. Notion is a third adapter,
+not a second pipeline.**
 
 **Why every customer needs it:** nobody re-types their handbook. This is the
 single largest reason an evaluation ends without a switch, and it is the same
@@ -139,6 +139,11 @@ work for every source — only the parser at the front changes.
   engineering exports), then Confluence space export, then Notion. The
   converter (`lib/confluence/storage-to-md.ts`) and the fidelity gate
   (`scripts/confluence-fidelity.ts`) already exist behind that contract.
+  *Shipped: `lib/import/types.ts` is the contract, with `sources/markdown-zip.ts`
+  and `sources/confluence.ts` behind it. The Confluence adapter detects its
+  column names rather than assuming one version's CSV layout, and says which it
+  found — "why is my tree flat?" is answerable without reading the code. Notion
+  is a third adapter against the same contract.*
 - **One pipeline behind it,** identical for every source: convert → fidelity
   report → attachments → link rewriting → author mapping → placement → status
   stamp → idempotency → per-page report.
@@ -156,7 +161,10 @@ work for every source — only the parser at the front changes.
     truth — but stamped so the staleness clock starts at import. That turns
     "review 400 pages" into a queue instead of a wall.
   - **Idempotency.** Re-running keys on the source page id: a second run fixes,
-    it never duplicates.
+    it never duplicates. *Enforced by a unique index on `docs.source_ref`, not
+    only by the importer's own lookup — an import of 1,361 pages that dies at
+    900 is exactly when someone re-runs it, and exactly when a bug in that
+    lookup would produce 900 duplicates nobody wants to delete by hand.*
 - **A fidelity gate anyone can run before committing,** exiting non-zero past a
   2% page failure rate, and naming unhandled macros, unhandled elements and the
   worst pages by retention. Tables are the known weak point — colspan, rowspan
@@ -166,9 +174,15 @@ work for every source — only the parser at the front changes.
 - **Two ingest surfaces.** A CLI covers self-hosters. An admin upload UI is
   required, not optional: a hosted customer has no shell, and "email us your
   zip" is not a migration path. Same pipeline behind both.
+  *Shipped: `pnpm import` (dry run by default) and Settings → Import, which
+  takes a zip up to 20 MB and says to use the CLI above that. One pipeline, two
+  ways in.*
 - **Reports land in the workspace,** as a doc: every `ConversionNote` — dropped
   content, unsupported macro, orphaned attachment — on a per-page checklist the
-  team can work through and tick off in Aqli itself.
+  team can work through and tick off in Aqli itself. *Shipped. The report
+  distinguishes a macro the converter knows it cannot represent from one it has
+  never seen, which is what tells a reviewer whether to expect a handler to
+  exist.*
 
 ### Run
 
@@ -180,12 +194,13 @@ connected over MCP doing the sweep.
 
 ### Acceptance
 
-- [ ] Fidelity report produced before import; failure rate ≤2% or waived per page by the operator.
-- [ ] Ten spot-check pages (≥2 image-heavy, ≥2 table-heavy) correct: content, images, cross-links, parent.
-- [ ] Import report lists every dropped or unhandled item; zero silent losses.
-- [ ] Re-running the importer produces 0 duplicates.
-- [ ] The same zip imports through both the CLI and the admin UI, with identical results.
-- [ ] Markdown exported by F-6 re-imports through the markdown adapter unchanged — the round trip is the proof.
+- [x] Import report lists every dropped or unhandled item; zero silent losses — including attachments the image bucket cannot take and links to pages outside the export.
+- [x] Re-running the importer produces 0 duplicates: asserted end to end against a fake workspace, and enforced by a unique index (`supabase/tests/import_source_ref.sql`).
+- [x] The same zip imports through both the CLI and the admin UI, with identical results — both call `runImport`; there is one importer.
+- [x] Tree, images and cross-links survive a realistic archive (`lib/import/__tests__/end-to-end.test.ts`).
+- [ ] Fidelity report produced against a real export; failure rate ≤2% or waived per page by the operator — needs the export.
+- [ ] Ten spot-check pages (≥2 image-heavy, ≥2 table-heavy) correct in a real workspace — needs a deployed instance.
+- [ ] Markdown exported by F-6 re-imports through the markdown adapter unchanged — waiting on F-6.
 
 ---
 
