@@ -15,10 +15,10 @@
  * layout differs between Confluence versions, so the body and id columns are
  * detected from the header rather than assumed.
  */
-import { createReadStream } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { confluenceStorageToMarkdown, type ConversionNote } from "@/lib/confluence/storage-to-md";
+import { readCsvRows } from "@/lib/confluence/csv";
 import { normalize } from "@/lib/markdown";
 
 type PageResult = {
@@ -33,66 +33,6 @@ type PageResult = {
 // ---------------------------------------------------------------------------
 // CSV
 // ---------------------------------------------------------------------------
-
-/**
- * Streaming RFC-4180 reader.
- *
- * Confluence bodies are XHTML containing commas, quotes and newlines, so the
- * quoting rules have to be honoured properly — a line-based split corrupts the
- * corpus before the converter ever sees it. 58 MB also rules out reading the
- * file into memory as one string.
- */
-async function* readCsvRows(path: string): AsyncGenerator<string[]> {
-  const stream = createReadStream(path, { encoding: "utf8", highWaterMark: 1 << 20 });
-
-  let field = "";
-  let row: string[] = [];
-  let inQuotes = false;
-  let quoteJustClosed = false;
-
-  for await (const chunk of stream) {
-    for (const char of chunk as string) {
-      if (inQuotes) {
-        if (char === '"') {
-          inQuotes = false;
-          quoteJustClosed = true;
-        } else {
-          field += char;
-        }
-        continue;
-      }
-
-      if (quoteJustClosed) {
-        quoteJustClosed = false;
-        // A doubled quote inside a quoted field is one literal quote.
-        if (char === '"') {
-          field += '"';
-          inQuotes = true;
-          continue;
-        }
-      }
-
-      if (char === '"') {
-        inQuotes = true;
-      } else if (char === ",") {
-        row.push(field);
-        field = "";
-      } else if (char === "\n") {
-        row.push(field);
-        field = "";
-        if (row.length > 1 || row[0] !== "") yield row;
-        row = [];
-      } else if (char !== "\r") {
-        field += char;
-      }
-    }
-  }
-
-  if (field !== "" || row.length > 0) {
-    row.push(field);
-    yield row;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Scoring

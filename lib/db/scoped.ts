@@ -120,6 +120,33 @@ export class ScopedClient {
   get rpc(): SupabaseClient["rpc"] {
     return this.raw.rpc.bind(this.raw);
   }
+
+  /**
+   * Upload a Storage object, refusing any path outside this workspace.
+   *
+   * Storage has no `workspace_id` column to filter on: for doc images the first
+   * path segment *is* the tenancy boundary, and it is what the Storage policies
+   * read. So the same rule this class applies to rows applies here — the
+   * caller cannot write outside its workspace even by building the path wrong,
+   * because a path that does not start with the workspace id is refused rather
+   * than uploaded somewhere else's.
+   */
+  async upload(
+    bucket: string,
+    path: string,
+    body: ArrayBuffer | Uint8Array | Blob,
+    options: { contentType: string; upsert?: boolean },
+  ): Promise<void> {
+    if (!path.startsWith(`${this.workspaceId}/`)) {
+      throw new Error(
+        `ScopedClient: object path "${path}" is outside workspace ${this.workspaceId}`,
+      );
+    }
+    const { error } = await this.raw.storage
+      .from(bucket)
+      .upload(path, body as ArrayBuffer, { contentType: options.contentType, upsert: options.upsert ?? false });
+    if (error) throw error;
+  }
 }
 
 /** A client pinned to one workspace. */

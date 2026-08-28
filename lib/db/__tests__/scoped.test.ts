@@ -64,6 +64,16 @@ function stubClient() {
       calls.push({ method: "rpc", args: [name, params] });
       return chain;
     },
+    storage: {
+      from(bucket: string) {
+        return {
+          async upload(path: string, body: unknown, options: unknown) {
+            calls.push({ method: "upload", args: [bucket, path, body, options] });
+            return { error: null };
+          },
+        };
+      },
+    },
   } as unknown as SupabaseClient;
 
   return { raw, calls, filters };
@@ -172,5 +182,42 @@ describe("ScopedClient", () => {
       method: "rpc",
       args: ["submit_proposal", { p_workspace_id: WS }],
     });
+  });
+});
+
+describe("ScopedClient.upload", () => {
+  const bytes = new Uint8Array([1, 2, 3]);
+
+  it("uploads an object inside the workspace's own prefix", async () => {
+    const { raw, calls } = stubClient();
+    await new ScopedClient(raw, WS).upload(
+      "doc-images",
+      `${WS}/doc-1/desk.png`,
+      bytes,
+      { contentType: "image/png", upsert: true },
+    );
+    expect(calls).toContainEqual({
+      method: "upload",
+      args: ["doc-images", `${WS}/doc-1/desk.png`, bytes, { contentType: "image/png", upsert: true }],
+    });
+  });
+
+  it("refuses a path belonging to another workspace", async () => {
+    // Storage has no workspace_id to filter on: for doc images the first path
+    // segment is the tenancy boundary, so the same rule applies to it.
+    const { raw, calls } = stubClient();
+    await expect(
+      new ScopedClient(raw, WS).upload("doc-images", `${OTHER}/doc-1/desk.png`, bytes, {
+        contentType: "image/png",
+      }),
+    ).rejects.toThrow(/outside workspace/);
+    expect(calls.some((c) => c.method === "upload")).toBe(false);
+  });
+
+  it("refuses a path with no workspace segment at all", async () => {
+    const { raw } = stubClient();
+    await expect(
+      new ScopedClient(raw, WS).upload("doc-images", "desk.png", bytes, { contentType: "image/png" }),
+    ).rejects.toThrow(/outside workspace/);
   });
 });

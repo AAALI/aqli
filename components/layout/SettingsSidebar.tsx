@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { setMobileNav, useMobileNav } from "./mobile-nav";
 import {
+  IconDownload,
   IconGear,
   IconPulse,
   IconKey,
@@ -40,7 +41,10 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You",
     // Admins only: the page reports migrations, RLS state and row counts for
     // the whole installation, and the RPC behind it refuses anyone else.
     ...(isAdmin
-      ? [{ id: "health", href: `${settingsBase}/health`, icon: <IconPulse />, label: "Health" }]
+      ? [
+          { id: "import", href: `${settingsBase}/import`, icon: <IconDownload />, label: "Import" },
+          { id: "health", href: `${settingsBase}/health`, icon: <IconPulse />, label: "Health" },
+        ]
       : []),
     // Same destination and same name as the workspace sidebar's entry, so the
     // two navigations do not disagree about what the screen is called.

@@ -114,6 +114,12 @@ export type AgentWrite = {
   status?: DocStatus;
   /** Place a new document under this one. Ignored when revising: a move is not an edit. */
   parentId?: string | null;
+  /**
+   * Where an imported document came from — `{ source, id }`. Unique per
+   * workspace (20260812000000), which is what makes a re-run of an import
+   * update rather than duplicate.
+   */
+  sourceRef?: { source: string; id: string } | null;
   agentId?: string;
   frontmatter?: DocFrontmatter;
   rationale?: string | null;
@@ -171,6 +177,7 @@ export async function proposeAgentDoc(input: AgentWrite): Promise<AgentWriteResu
             // space (20260811000000). Absent when revising: re-parenting an
             // existing document is a move, and a move is not a proposal.
             ...(input.parentId ? { doc_parent_id: input.parentId } : {}),
+            ...(input.sourceRef ? { doc_source_ref: input.sourceRef } : {}),
           }),
     },
     rationale: input.rationale ?? null,

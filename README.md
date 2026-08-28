@@ -11,6 +11,7 @@ and approve. Nothing becomes ground truth without a person signing off.
 - ✅ Clean browser editor — templates for every team: policies, how-tos, meeting notes, briefs, PRDs, ADRs, runbooks
 - ✅ Diagrams — Mermaid flowcharts and sequence diagrams via `/diagram`, and agents can write them in plain markdown
 - ✅ Page tree — sub-pages with drag to re-parent, breadcrumbs, and `parent_id` across the agent API and MCP
+- ✅ Import — markdown/zip and Confluence space exports, with attachments, cross-links and the page tree preserved
 - ✅ Agent REST API — query context, create docs, request review
 - ✅ MCP server — the same surface as six tools for any MCP client
 - ✅ Built-in RAG — every approved doc embedded and searchable by agents
@@ -79,6 +80,26 @@ Six tools: `search_docs`, `list_docs`, `read_doc`, `propose_doc`,
 writes are proposals subject to the space's review policy and the key's scopes,
 so an assistant cannot publish unreviewed content. A key without the `propose`
 scope is refused the write tools outright.
+
+## Importing an existing wiki
+
+```bash
+pnpm import --workspace acme --zip handbook.zip            # dry run, writes nothing
+pnpm import --workspace acme --zip handbook.zip --apply
+```
+
+Or Settings → Import, for a zip small enough to upload. Folders become the page
+tree, images are uploaded and re-linked, cross-references are resolved to the
+documents they became, and pages arrive approved with the staleness clock
+starting at import. Re-running the same archive updates those pages rather than
+duplicating them. Every dropped macro, unplaceable attachment and dead link
+lands in a per-page report.
+
+Confluence space exports go through the same pipeline:
+
+```bash
+pnpm import --workspace acme --dir ./confluence-export --space-map HR=handbook
+```
 
 ## Migrating from Confluence
 
