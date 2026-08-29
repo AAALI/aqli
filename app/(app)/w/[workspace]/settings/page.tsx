@@ -2,6 +2,7 @@ import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getMyRole } from "@/lib/supabase/members";
 import AppTopBar from "@/components/layout/AppTopBar";
 import SettingsGeneralClient from "./SettingsGeneralClient";
+import WebhooksClient from "./WebhooksClient";
 
 export default async function SettingsGeneralPage({
   params,
@@ -19,6 +20,7 @@ export default async function SettingsGeneralPage({
       <div className="content" style={{ padding: "32px 44px" }}>
         <div style={{ maxWidth: 760, margin: "0 auto" }}>
           <SettingsGeneralClient workspace={workspace} isAdmin={role === "admin"} />
+          <WebhooksClient workspaceId={workspace.id} isAdmin={role === "admin"} />
         </div>
       </div>
     </>

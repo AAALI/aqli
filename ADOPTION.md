@@ -206,7 +206,7 @@ connected over MCP doing the sweep.
 
 ## F-2 — Connect any assistant (MCP)
 
-**Status: the server is done. The way a customer connects to it is not.**
+**Status: shipped.**
 
 **Why every customer needs it:** this is the reason to choose Aqli rather than a
 cheaper Confluence. It has to work for whatever assistant the customer already
@@ -273,7 +273,7 @@ question your handbook answers, and ask it to draft something.
 - [ ] `claude mcp add --transport http aqli https://<domain>/api/mcp` works with a bearer key; all six tools callable against a deployed instance.
 - [ ] "What's our policy on X?" retrieves an approved doc and links it.
 - [ ] "Draft a doc about Y in Marketing" appears in the review queue, attributed, and is **not retrievable before approval**.
-- [ ] An admin connects an assistant from Settings without leaving the app or reading the repo.
+- [x] An admin connects an assistant from Settings without leaving the app or reading the repo: revealing a key now shows the `claude mcp add` line and the endpoint, beside the REST example rather than instead of it.
 - [x] Bundle measured with the endpoint: **2,400.75 KiB** gzipped against a **2,389.01 KiB** baseline — **+11.7 KiB**, 671 KiB of headroom under C4.
 
 ---
@@ -383,7 +383,7 @@ place the evaluation started.
 
 ## F-5 — Day one for people who did not choose the tool
 
-**Status: partly shipped.** ~1 day of product work; a two-week pilot to prove it.
+**Status: the product work is shipped. The pilot is the part nobody can build.**
 
 **Why every customer needs it:** the buyer is technical and the users are not.
 Everything below exists because a non-technical teammate who cannot find, edit
@@ -401,6 +401,10 @@ will hear about it until the renewal.
   backup posture). Every adopting company writes these two documents; shipping
   the template is cheaper for us than the support thread is for them, and it
   puts the first real doc in the workspace on day one.
+  *Shipped. Written through the same proposal path as everything else, so each
+  has a revision from the moment it exists. The runbook is mostly blanks on
+  purpose: a template that invents your region and your backup policy is worse
+  than one that asks, because it reads as true.*
 - **Review policy in plain language** at the point of choice in Settings →
   Spaces: `open` (everyone merges), `review_agents` (default — humans edit
   freely, agent writes queue), `review_all` (everything queues).
@@ -411,6 +415,13 @@ will hear about it until the renewal.
   workspace** on mentions and review-queue events — chat-agnostic, small, and it
   serves Slack, Teams and Discord customers equally. A bespoke bot for one chat
   tool is a worse trade at this stage, and email transport is its own project.
+  *Shipped: Settings → Workspace takes an incoming-webhook URL, and mentions and
+  review requests POST to it. Titles and links only — a webhook lands in a
+  channel whose membership nobody here controls, so a document's contents have
+  no business in it. https only, admin-only to read (the URL is a capability),
+  and the last delivery's outcome is shown so a wrong URL is visible rather than
+  inferred from silence in chat. Never retried: the event is still in the bell,
+  which stays the source of truth.*
 
 ### Run
 
@@ -424,9 +435,10 @@ there is data worth moving.
 
 ### Acceptance
 
+- [x] "How we run Aqli" and the ops runbook exist as approved docs, seeded not written from scratch.
+- [x] A mention and a review request reach chat when a workspace has asked for it, and a failed delivery is visible to an admin.
 - [ ] Every member has signed in once; no password-flow failures.
 - [ ] A designated non-technical pilot member completes unassisted: find a doc, edit it, paste a screenshot, comment with an @mention, see the notification.
-- [ ] "How we run Aqli" and the ops runbook exist as approved docs, seeded not written from scratch.
 - [ ] Backup restore tested once (a scratch project counts).
 
 ---

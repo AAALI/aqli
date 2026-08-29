@@ -141,6 +141,7 @@ export default function KeysClient({
   const dim = modal !== null;
 
   const agentBase = `${appUrl}/api/agent`;
+  const mcpUrl = `${appUrl}/api/mcp`;
 
   function openNew() {
     setName("");
@@ -284,8 +285,10 @@ export default function KeysClient({
             <IconBook size={14} />
           </span>
           <div style={{ flex: 1, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-            Agents authenticate with <code style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, background: "var(--bg-card)", padding: "1px 6px", borderRadius: 4 }}>Authorization: Bearer aqli_…</code> against{" "}
-            <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{agentBase}</strong> to read approved context and submit drafts for review.
+            Assistants connect over MCP at{" "}
+            <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{mcpUrl}</strong>, or call the REST API at{" "}
+            <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{agentBase}</strong> — both with{" "}
+            <code style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, background: "var(--bg-card)", padding: "1px 6px", borderRadius: 4 }}>Authorization: Bearer aqli_…</code>, to read approved context and submit drafts for review.
           </div>
           <span style={{ color: "var(--text-secondary)", display: "flex" }}><IconArrowUpRight size={14} /></span>
         </div>
@@ -307,7 +310,7 @@ export default function KeysClient({
             />
           )}
           {modal === "reveal" && secret && (
-            <RevealModal name={revealName} secret={secret} agentBase={agentBase} onClose={() => { setModal(null); setSecret(null); }} />
+            <RevealModal name={revealName} secret={secret} agentBase={agentBase} mcpUrl={mcpUrl} onClose={() => { setModal(null); setSecret(null); }} />
           )}
         </>
       )}
@@ -461,7 +464,7 @@ function NewKeyModal({
   );
 }
 
-function RevealModal({ name, secret, agentBase, onClose }: { name: string; secret: string; agentBase: string; onClose: () => void }) {
+function RevealModal({ name, secret, agentBase, mcpUrl, onClose }: { name: string; secret: string; agentBase: string; mcpUrl: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   function copy() {
     navigator.clipboard?.writeText(secret);
@@ -483,7 +486,24 @@ function RevealModal({ name, secret, agentBase, onClose }: { name: string; secre
         </div>
         <button className="btn btn-secondary" onClick={copy}>{copied ? "Copied" : "Copy"}</button>
       </div>
-      <Label>Quick test</Label>
+      {/* Two ways in, both with this key. The MCP line comes first because it
+          is the one most people need: connecting an assistant used to mean
+          reading the README, which is a rollout only engineering completes
+          (ADOPTION.md F-2). */}
+      <Label>Connect an assistant</Label>
+      <CodeBlock
+        value={[
+          `claude mcp add --transport http aqli ${mcpUrl} \\`,
+          `  --header "Authorization: Bearer ${secret.slice(0, 16)}…"`,
+        ]}
+      />
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+        For a client that takes JSON rather than a command, the endpoint is{" "}
+        <code style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, background: "var(--bg-sidebar)", padding: "1px 6px", borderRadius: 4, color: "var(--text-secondary)" }}>{mcpUrl}</code>{" "}
+        with the same Authorization header.
+      </div>
+
+      <Label>Or call the REST API</Label>
       <CodeBlock
         value={[
           `curl ${agentBase}/context \\`,

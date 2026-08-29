@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createWorkspace, getMyWorkspaces } from "@/lib/supabase/workspaces";
 import { isUniqueViolation } from "@/lib/supabase/errors";
 import { normalizeSlug, validateSlug } from "@/lib/onboarding/plan";
+import { seedStarterDocs } from "@/lib/onboarding/seed";
 
 export async function GET() {
   const supabase = await createServerSupabaseClient();
@@ -36,6 +37,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const workspace = await createWorkspace(name, slug);
+
+    // A new workspace opens with two real documents rather than an empty state
+    // (ADOPTION.md F-5). Never fatal: the signup has already succeeded by the
+    // time this runs, and a workspace with no starter pages is a far better day
+    // than a workspace that failed to appear.
+    await seedStarterDocs(workspace).catch((err) => {
+      console.error("could not seed the starter documents:", err);
+    });
+
     return NextResponse.json({ workspace }, { status: 201 });
   } catch (err) {
     // `workspaces.slug` is unique across the whole install, so a common name is

@@ -3,6 +3,7 @@ import { authenticateAgent } from "../../../_auth";
 import { getAgentWorkspaceMeta } from "../../../_workspace";
 import { getAgentDoc, setAgentDocStatus } from "@/lib/supabase/agent-docs";
 import { logActivity } from "@/lib/supabase/activity";
+import { notifyWebhooks } from "@/lib/notifications/dispatch";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const agent = await authenticateAgent(req);
@@ -30,7 +31,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     metadata: { from_status: doc.status, to_status: "review" },
   });
 
-  // Notifications (email / Slack) are intentionally out of scope for Week 3.
+  // Chat, when the workspace has asked for it. This is the event a pilot
+  // actually stalls on: an assistant asks for review, and the person who could
+  // approve it never opens the app that day (ADOPTION.md F-5).
+  await notifyWebhooks(doc.workspace_id, {
+    type: "review_requested",
+    text: `${doc.agent_id ?? "An assistant"} asked for review`,
+    docId: id,
+    docTitle: doc.title,
+    actorName: doc.agent_id,
+  });
 
   const workspace = await getAgentWorkspaceMeta(agent.workspaceId);
   return NextResponse.json({

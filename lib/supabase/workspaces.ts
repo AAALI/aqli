@@ -25,6 +25,11 @@ export async function getMyWorkspaces() {
 /**
  * Bootstraps a workspace for the current user via a SECURITY DEFINER RPC.
  * Creates the workspace, an admin membership, and default spaces.
+ *
+ * The starter documents are seeded by the route that calls this, not here.
+ * Seeding goes through the proposal path, which reaches the markdown-to-Tiptap
+ * converter — and this module is imported by nearly every page, so pulling that
+ * graph in here cost 245 KiB of worker bundle for code no page renders (C4).
  */
 export async function createWorkspace(name: string, slug: string) {
   const supabase = await createServerSupabaseClient();

@@ -38,7 +38,9 @@ const SCOPE_COLUMN: Record<string, string | null> = {
   members: "workspace_id",
   proposals: "workspace_id",
   revisions: "workspace_id",
+  space_members: "workspace_id",
   spaces: "workspace_id",
+  workspace_webhooks: "workspace_id",
   // Keyed by its own id rather than a workspace_id column.
   workspaces: "id",
   // `doc_versions` has no workspace column. It is reachable only through a

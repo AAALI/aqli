@@ -25,7 +25,7 @@ treats as reviewed.
 | Confluence importer | Yes — `pnpm import`, or Settings → Import for a markdown zip. Attachments, cross-links and the page tree are carried across; a per-page report says what conversion could not represent. Unverified against a real export: see below. |
 | Sub-pages (page tree) | Yes — parent pages, drag to re-parent or reorder, breadcrumbs, and `parent_id` on the agent API. |
 | Per-space permissions | Yes — a space can be members-only, and the boundary holds in search, RAG and every assistant. |
-| **Email notifications** | **Not built.** Mentions and review requests reach people through the in-app bell only. |
+| Email notifications | **Not built** — there is no mail transport. Mentions and review requests reach the in-app bell, and a chat webhook if you add one (Settings → Workspace). |
 | Instance health | `pnpm preflight`, or Settings → Health, reports what an installation is missing. |
 | Getting out again | `pnpm export`, or Settings → Import & export: markdown + images, and it imports back. |
 
@@ -172,9 +172,10 @@ before, and you will not hear about it.
 
 Two friction points to expect, since neither has a fix in the product yet:
 
-- **Notifications are in-app only.** If your team lives in chat and does not
-  visit the app daily, mentions and review requests will be missed. A webhook
-  from your own side is the usual stopgap.
+- **Notifications are in-app or chat, not email.** Add a Slack, Teams or
+  Discord incoming-webhook URL in Settings → Workspace before the pilot starts,
+  or mentions and review requests will only be found by people who open the app
+  that day. There is no email leg at all.
 - **Nothing pins a page to the top of a space.** The tree orders siblings, but
   a "start here" convention still has to be a title or a pinned link.
 
