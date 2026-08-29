@@ -13,6 +13,7 @@ and approve. Nothing becomes ground truth without a person signing off.
 - ✅ Page tree — sub-pages with drag to re-parent, breadcrumbs, and `parent_id` across the agent API and MCP
 - ✅ Import — markdown/zip and Confluence space exports, with attachments, cross-links and the page tree preserved
 - ✅ Export — the whole workspace as markdown + images, deterministic and re-importable: the exit door stays open
+- ✅ Private spaces — People, Finance and Legal content readable only by their members, including through assistants
 - ✅ Agent REST API — query context, create docs, request review
 - ✅ MCP server — the same surface as six tools for any MCP client
 - ✅ Built-in RAG — every approved doc embedded and searchable by agents

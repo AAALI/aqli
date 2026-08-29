@@ -11,6 +11,7 @@ type SpaceRow = {
   slug: string;
   icon: string;
   review_policy: ReviewPolicy;
+  visibility: "open" | "private";
 };
 
 /**
@@ -64,8 +65,11 @@ const selectStyle: React.CSSProperties = {
 export default function SpacePoliciesClient({
   canManage,
   initialSpaces,
+  workspaceMembers = [],
 }: {
   canManage: boolean;
+  /** Everyone in the workspace, for the private-space roster. */
+  workspaceMembers?: { user_id: string; email: string; full_name: string | null }[];
   initialSpaces: SpaceRow[];
 }) {
   const router = useRouter();
@@ -107,12 +111,91 @@ export default function SpacePoliciesClient({
     }
   }
 
+  const [rosterFor, setRosterFor] = useState<string | null>(null);
+  const [roster, setRoster] = useState<RosterEntry[] | null>(null);
+  const [rosterError, setRosterError] = useState<string | null>(null);
+
+  /** Fetched when someone opens a roster — never in an effect, never up front. */
+  async function loadRoster(spaceId: string) {
+    setRoster(null);
+    setRosterError(null);
+    try {
+      const res = await fetch(`/api/spaces/${spaceId}/members`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not load the members");
+      setRoster(data.members as RosterEntry[]);
+    } catch (e) {
+      setRosterError(e instanceof Error ? e.message : "Something went wrong");
+      setRoster([]);
+    }
+  }
+
+  async function setRosterRole(
+    spaceId: string,
+    userId: string,
+    role: "member" | "reviewer" | null,
+  ) {
+    setBusy(spaceId);
+    setRosterError(null);
+    try {
+      const res =
+        role === null
+          ? await fetch(`/api/spaces/${spaceId}/members?user_id=${userId}`, { method: "DELETE" })
+          : await fetch(`/api/spaces/${spaceId}/members`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ user_id: userId, role }),
+            });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not update the members");
+      await loadRoster(spaceId);
+    } catch (e) {
+      setRosterError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /**
+   * Making a space private hides it from everyone who is not in it — including
+   * from assistants, whose reads inherit the visibility of whoever owns the
+   * key. An admin who is not a member loses their own access too, which is why
+   * the confirmation says so rather than assuming it is obvious.
+   */
+  async function setVisibility(space: SpaceRow, visibility: SpaceRow["visibility"]) {
+    if (visibility === space.visibility) return;
+    const previous = space.visibility;
+
+    setSpaces((prev) => prev.map((s) => (s.id === space.id ? { ...s, visibility } : s)));
+    setBusy(space.id);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/spaces/${space.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visibility }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not update this space");
+      setSaved(space.id);
+      setTimeout(() => setSaved(null), 1600);
+    } catch (e) {
+      setSpaces((prev) =>
+        prev.map((s) => (s.id === space.id ? { ...s, visibility: previous } : s)),
+      );
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="content" style={{ padding: "32px 44px", overflow: "auto" }}>
       <div style={{ maxWidth: 920, margin: "0 auto" }}>
         <SettingsHeader
           title="Spaces"
-          sub="Who has to approve a change before it becomes part of a space. Approvals happen in the review queue; nothing is lost while it waits."
+          sub="Who can read a space, and who has to approve a change before it becomes part of one. Approvals happen in the review queue; nothing is lost while it waits."
           action={
             error ? (
               <span style={{ fontSize: 12.5, color: "#993C1D" }}>{error}</span>
@@ -128,7 +211,7 @@ export default function SpacePoliciesClient({
                 key={space.id}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "36px 1fr 210px",
+                  gridTemplateColumns: "36px 1fr 150px 210px",
                   gap: 16,
                   alignItems: "center",
                   padding: "16px 20px",
@@ -169,6 +252,46 @@ export default function SpacePoliciesClient({
                   </span>
                 </div>
 
+                <div style={{ justifySelf: "end" }}>
+                  <select
+                    value={space.visibility}
+                    disabled={!canManage || busy === space.id}
+                    onChange={(e) => setVisibility(space, e.target.value as SpaceRow["visibility"])}
+                    style={{ ...selectStyle, opacity: canManage ? 1 : 0.6, minWidth: 130 }}
+                    title={
+                      space.visibility === "private"
+                        ? "Only members of this space can read it — in the app, in search, and through any assistant."
+                        : "Everyone in the workspace can read this space."
+                    }
+                  >
+                    <option value="open">Everyone</option>
+                    <option value="private">Members only</option>
+                  </select>
+                  {space.visibility === "private" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const opening = rosterFor !== space.id;
+                        setRosterFor(opening ? space.id : null);
+                        if (opening) void loadRoster(space.id);
+                      }}
+                      style={{
+                        display: "block",
+                        marginTop: 6,
+                        fontSize: 12,
+                        background: "none",
+                        border: 0,
+                        padding: 0,
+                        color: "var(--text-secondary)",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      {rosterFor === space.id ? "Hide members" : "Members"}
+                    </button>
+                  )}
+                </div>
+
                 <div style={{ justifySelf: "end", display: "flex", alignItems: "center", gap: 10 }}>
                   {saved === space.id && (
                     <span style={{ fontSize: 12, color: "var(--approved-text)" }}>Saved</span>
@@ -186,6 +309,18 @@ export default function SpacePoliciesClient({
                     ))}
                   </select>
                 </div>
+                {rosterFor === space.id && (
+                  <div style={{ gridColumn: "1 / -1", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+                    <SpaceRoster
+                      entries={roster}
+                      canManage={canManage}
+                      busy={busy === space.id}
+                      error={rosterError}
+                      workspaceMembers={workspaceMembers}
+                      onSet={(userId, role) => void setRosterRole(space.id, userId, role)}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -203,6 +338,90 @@ export default function SpacePoliciesClient({
             Only workspace admins can change a space&apos;s review policy.
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+type RosterEntry = { user_id: string; role: "member" | "reviewer" };
+
+/**
+ * Who is in a private space, and who may approve in it.
+ *
+ * Controlled: the parent fetches when someone opens the roster, so nothing is
+ * loaded in an effect and a space nobody opened costs no query. Most spaces are
+ * open and have no roster to show at all.
+ *
+ * Naming a reviewer is what completes `review_all` — the policy could say
+ * "everything waits for approval" but never said whose. A space with no named
+ * reviewer keeps the old behaviour, so this is opt-in rather than a silent
+ * change to who can unblock a queue.
+ */
+function SpaceRoster({
+  entries,
+  canManage,
+  busy,
+  error,
+  workspaceMembers,
+  onSet,
+}: {
+  entries: RosterEntry[] | null;
+  canManage: boolean;
+  busy: boolean;
+  error: string | null;
+  workspaceMembers: { user_id: string; email: string; full_name: string | null }[];
+  onSet: (userId: string, role: "member" | "reviewer" | null) => void;
+}) {
+  if (!entries) {
+    return <p style={{ fontSize: 12.5, color: "var(--text-muted)" }}>Loading members…</p>;
+  }
+
+  const roleOf = (userId: string) => entries.find((e) => e.user_id === userId)?.role ?? null;
+
+  return (
+    <div>
+      <p style={{ fontSize: 12.5, color: "var(--text-secondary)", marginBottom: 10, lineHeight: 1.5 }}>
+        Only these people can read this space — in the app, in search, and through any assistant,
+        which inherits the space membership of whoever owns its key. A <strong>reviewer</strong> can
+        also approve proposals here; if nobody is named, any editor or admin can, as before.
+      </p>
+      {error && (
+        <p style={{ fontSize: 12.5, color: "var(--danger-fg, #b91c1c)", marginBottom: 8 }}>{error}</p>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {workspaceMembers.map((member) => {
+          const role = roleOf(member.user_id);
+          return (
+            <div
+              key={member.user_id}
+              style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}
+            >
+              <span style={{ flex: 1, minWidth: 0 }}>
+                {member.full_name || member.email}
+                {member.full_name && (
+                  <span style={{ color: "var(--text-muted)", marginLeft: 6, fontSize: 12 }}>
+                    {member.email}
+                  </span>
+                )}
+              </span>
+              <select
+                value={role ?? "none"}
+                disabled={!canManage || busy}
+                onChange={(e) =>
+                  onSet(
+                    member.user_id,
+                    e.target.value === "none" ? null : (e.target.value as "member" | "reviewer"),
+                  )
+                }
+                style={{ ...selectStyle, minWidth: 140, opacity: canManage ? 1 : 0.6 }}
+              >
+                <option value="none">No access</option>
+                <option value="member">Member</option>
+                <option value="reviewer">Reviewer</option>
+              </select>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

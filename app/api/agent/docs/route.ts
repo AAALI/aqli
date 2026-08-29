@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
       // `parent_id=root` lists the top level; a uuid lists that page's
       // sub-pages. Absent, the listing is flat, as it was before sub-pages.
       parentId: (searchParams.get("parent_id") as string | "root") ?? undefined,
+      viewerId: agent.ownerUserId,
       limit,
       offset,
     }),

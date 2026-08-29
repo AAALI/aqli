@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       await queryContext(
         workspace_id,
         `${title ?? ""}\n${lastUser.content}`.slice(0, 1500),
-        { limit: 5, status: "approved" },
+        { limit: 5, status: "approved", viewerId: user.id },
       )
     ).filter((r) => r.doc_id !== doc_id);
   } catch {

@@ -12,5 +12,20 @@ export type Space = {
    * `app.decide_disposition`. Defaults to `review_agents`.
    */
   review_policy: ReviewPolicy;
+  /**
+   * Who may read it (ADOPTION.md F-4). `open` is every workspace member;
+   * `private` is its `space_members` only — in the UI, in search, in RAG and on
+   * the agent path, which inherits the key owner's membership.
+   */
+  visibility: "open" | "private";
+  created_at: string;
+};
+
+/** A member of a space. `reviewer` may also approve proposals there. */
+export type SpaceMember = {
+  id: string;
+  space_id: string;
+  user_id: string;
+  role: "member" | "reviewer";
   created_at: string;
 };

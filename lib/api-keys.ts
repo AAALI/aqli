@@ -67,6 +67,12 @@ export async function validateApiKey(
    * proposals, which is not what `DEFAULT_AGENT_SCOPES` promises.
    */
   scopes: AgentScope[];
+  /**
+   * The member this key acts for. Every agent read inherits their space
+   * visibility, so a private space the owner is not in is not in the agent's
+   * answers either (ADOPTION.md F-4).
+   */
+  ownerUserId: string | null;
 }> {
   const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
   // Unscoped by necessity: the bearer token is the only thing the request
@@ -78,12 +84,12 @@ export async function validateApiKey(
 
   const { data } = await supabase
     .from("api_keys")
-    .select("id, workspace_id, revoked_at, last_used_at, scopes")
+    .select("id, workspace_id, revoked_at, last_used_at, scopes, created_by")
     .eq("key_hash", keyHash)
     .single();
 
   if (!data || data.revoked_at) {
-    return { valid: false, workspaceId: null, keyId: null, scopes: [] };
+    return { valid: false, workspaceId: null, keyId: null, scopes: [], ownerUserId: null };
   }
 
   // Best-effort last-used timestamp. It's a UI freshness signal, so skip the
@@ -104,6 +110,7 @@ export async function validateApiKey(
     // A key predating the scopes column reads as null; treat it as the
     // documented default rather than as a key that can do nothing.
     scopes: (data.scopes as AgentScope[] | null) ?? DEFAULT_AGENT_SCOPES,
+    ownerUserId: (data.created_by as string | null) ?? null,
   };
 }
 

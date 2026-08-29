@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     const results = await queryContext(workspace_id, text.slice(0, 2000), {
       limit: 6,
       status: "approved",
+      viewerId: user.id,
     });
     return NextResponse.json({
       results: results

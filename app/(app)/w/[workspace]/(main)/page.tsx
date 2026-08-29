@@ -43,7 +43,9 @@ export default async function WorkspaceHome({
     getPendingReviewDocs(workspace.id),
     getOpenProposalCount(workspace.id),
     getStaleDocs(workspace.id),
-    getWorkspaceActivity(workspace.id, 24),
+    // The feed reads across the workspace on the service role, so it is told
+    // who is looking rather than left to show everyone everything.
+    getWorkspaceActivity(workspace.id, 24, user?.id ?? null),
     getSpaces(workspace.id),
     listIntegrationConnections(workspace.id),
   ]);

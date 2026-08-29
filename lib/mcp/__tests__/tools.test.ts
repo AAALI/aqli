@@ -30,10 +30,11 @@ function makeDeps(overrides: Partial<ToolDeps> = {}): ToolDeps {
   };
 }
 
-const ctx = (scopes: ToolContext["scopes"]): ToolContext => ({
+const ctx = (scopes: ToolContext["scopes"], ownerUserId: string | null = "owner-1"): ToolContext => ({
   workspaceId: "ws1",
   keyId: "key1",
   scopes,
+  ownerUserId,
 });
 
 /** Tool results carry JSON in a text block; parse it back to assert on it. */
@@ -127,6 +128,7 @@ describe("search_docs", () => {
       spaceSlug: undefined,
       docType: undefined,
       status: "approved",
+      viewerId: "owner-1",
     });
     expect(payload(result).passages[0]).toMatchObject({
       doc_id: "d1",
@@ -148,6 +150,7 @@ describe("search_docs", () => {
       spaceSlug: "marketing",
       docType: "policy",
       status: "approved",
+      viewerId: "owner-1",
     });
   });
 
@@ -289,6 +292,64 @@ describe("the page tree", () => {
     const propose = TOOLS.find((t) => t.name === "propose_doc");
     expect(list?.inputSchema.properties).toHaveProperty("parent_id");
     expect(propose?.inputSchema.properties).toHaveProperty("parent_id");
+  });
+});
+
+describe("what the key's owner can see", () => {
+  it("passes the owner to search, so a private space is not in the answer", async () => {
+    const queryContext = vi.fn().mockResolvedValue([]);
+    await dispatchTool("search_docs", { query: "leave" }, ctx(["read"], "owner-7"), makeDeps({ queryContext }));
+    expect(queryContext).toHaveBeenCalledWith(
+      "ws1",
+      "leave",
+      expect.objectContaining({ viewerId: "owner-7" }),
+    );
+  });
+
+  it("passes the owner to the document list", async () => {
+    const listAgentDocs = vi.fn().mockResolvedValue({ docs: [], total: 0 });
+    await dispatchTool("list_docs", {}, ctx(["read"], "owner-7"), makeDeps({ listAgentDocs }));
+    expect(listAgentDocs).toHaveBeenCalledWith("ws1", expect.objectContaining({ viewerId: "owner-7" }));
+  });
+
+  it("passes the owner when reading one document, and when counting its sub-pages", async () => {
+    const getAgentDoc = vi.fn().mockResolvedValue({
+      id: "d1",
+      workspace_id: "ws1",
+      title: "Salary bands",
+      type: "policy",
+      status: "approved",
+      body_md: "secret",
+      agent_id: null,
+      current_revision_id: "r1",
+      last_reviewed_at: null,
+      updated_at: "2026-08-01",
+      frontmatter: { tags: [] },
+      space: null,
+    });
+    const countChildDocs = vi.fn().mockResolvedValue(0);
+    await dispatchTool("read_doc", { id: "d1" }, ctx(["read"], "owner-7"), makeDeps({ getAgentDoc, countChildDocs }));
+    expect(getAgentDoc).toHaveBeenCalledWith("ws1", "d1", "owner-7");
+    expect(countChildDocs).toHaveBeenCalledWith("ws1", "d1", "owner-7");
+  });
+
+  it("reports a document it cannot see as absent, not as forbidden", async () => {
+    // "You may not see this one" confirms the document exists, which for a
+    // private space is the leak itself.
+    const getAgentDoc = vi.fn().mockResolvedValue(null);
+    const result = await dispatchTool("read_doc", { id: "d1" }, ctx(["read"]), makeDeps({ getAgentDoc }));
+    const text = result.content[0].text;
+    expect(text).toContain("No document with id");
+    expect(text).not.toMatch(/permission|forbidden|private/i);
+  });
+
+  it("passes a null owner through rather than falling back to seeing everything", async () => {
+    // A key whose owner has left the workspace is a member of nothing, so it
+    // reads open spaces only. Silently treating null as "no filter" would give
+    // an orphaned key more access than the person it belonged to.
+    const listAgentDocs = vi.fn().mockResolvedValue({ docs: [], total: 0 });
+    await dispatchTool("list_docs", {}, ctx(["read"], null), makeDeps({ listAgentDocs }));
+    expect(listAgentDocs).toHaveBeenCalledWith("ws1", expect.objectContaining({ viewerId: null }));
   });
 });
 

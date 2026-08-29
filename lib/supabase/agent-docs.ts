@@ -1,4 +1,5 @@
 import { scoped, submitProposal, type SubmitResult } from "@/lib/db";
+import { blockedSpaceIds, excludeBlockedSpaces, isSpaceVisible } from "@/lib/spaces/visibility";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
 import type { Doc, DocType, DocStatus, DocFrontmatter } from "@/types/doc";
 
@@ -16,6 +17,11 @@ import type { Doc, DocType, DocStatus, DocFrontmatter } from "@/types/doc";
  * lands as a revision with the key recorded against it. That closes the
  * trust-boundary bug by construction: there is no code path left where an
  * agent edits a document directly.
+ *
+ * Reads take a `viewerId` — the key's owner — and inherit that person's space
+ * visibility (ADOPTION.md F-4). Passing null means "a member of nothing", so
+ * every private space is excluded: a key whose owner has left the workspace
+ * loses the access they had, rather than keeping it forever.
  */
 
 export async function getServiceSpaceBySlug(workspaceId: string, slug: string) {
@@ -36,8 +42,12 @@ export async function listAgentDocs(
     offset: number;
     /** A document id to list the children of, or "root" for top-level documents. */
     parentId?: string | "root";
+    /** The key's owner. Their private-space membership decides what is listed. */
+    viewerId?: string | null;
   },
 ) {
+  const blocked = await blockedSpaceIds(workspaceId, opts.viewerId ?? null);
+
   let q = scoped(workspaceId)
     .from("docs")
     .select("*, space:spaces(slug, name)", { count: "exact" })
@@ -47,6 +57,7 @@ export async function listAgentDocs(
   if (opts.status) q = q.eq("status", opts.status);
   if (opts.parentId === "root") q = q.is("parent_doc_id", null);
   else if (opts.parentId) q = q.eq("parent_doc_id", opts.parentId);
+  q = excludeBlockedSpaces(q, blocked);
   const { data, error, count } = await q;
   if (error) throw error;
   return {
@@ -67,11 +78,18 @@ export type AgentDoc = Doc & { space: { slug: string; name: string } | null };
  * for one document. Knowing there are six is enough to decide whether to call
  * `list_docs` for them.
  */
-export async function countChildDocs(workspaceId: string, docId: string): Promise<number> {
-  const { count, error } = await scoped(workspaceId)
+export async function countChildDocs(
+  workspaceId: string,
+  docId: string,
+  viewerId?: string | null,
+): Promise<number> {
+  const blocked = await blockedSpaceIds(workspaceId, viewerId ?? null);
+  let q = scoped(workspaceId)
     .from("docs")
     .select("id", { count: "exact", head: true })
     .eq("parent_doc_id", docId);
+  q = excludeBlockedSpaces(q, blocked);
+  const { count, error } = await q;
   if (error) throw error;
   return count ?? 0;
 }
@@ -79,6 +97,7 @@ export async function countChildDocs(workspaceId: string, docId: string): Promis
 export async function getAgentDoc(
   workspaceId: string,
   id: string,
+  viewerId?: string | null,
 ): Promise<AgentDoc | null> {
   const { data, error } = await scoped(workspaceId)
     .from("docs")
@@ -86,7 +105,15 @@ export async function getAgentDoc(
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return (data as unknown as AgentDoc) ?? null;
+
+  const doc = (data as unknown as AgentDoc) ?? null;
+  if (!doc) return null;
+
+  // A document in a space the viewer cannot read is "no such document", not
+  // "you may not see this one": the second answer confirms it exists, which
+  // for a private space is the leak itself.
+  const blocked = await blockedSpaceIds(workspaceId, viewerId ?? null);
+  return isSpaceVisible(doc.space_id, blocked) ? doc : null;
 }
 
 export type AgentWrite = {

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       const samples = await queryContext(
         workspace_id,
         `${doc_title ?? ""} ${text}`.slice(0, 1500),
-        { limit: 3, status: "approved" },
+        { limit: 3, status: "approved", viewerId: user.id },
       );
       if (samples.length > 0) {
         voiceSamples =
