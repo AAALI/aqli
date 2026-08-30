@@ -38,6 +38,7 @@ import {
 import { queryContext } from "@/lib/ai/context";
 import { embedDoc } from "@/lib/ai/embedder";
 import { logActivity } from "@/lib/supabase/activity";
+import { notifyWebhooks } from "@/lib/notifications/dispatch";
 import { MergeError } from "@/lib/db";
 import type { ActivityAction } from "@/types/activity";
 import type { Doc } from "@/types/doc";
@@ -53,6 +54,7 @@ const deps: ToolDeps = {
   proposeAgentDoc,
   setAgentDocStatus,
   getSpaceBySlug: getServiceSpaceBySlug,
+  notifyWebhooks,
   getWorkspaceMeta: getAgentWorkspaceMeta,
   // The tool layer is typed structurally so it can be tested with fakes; these
   // two casts are where the real, wider types meet those narrow shapes.

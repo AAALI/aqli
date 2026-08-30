@@ -169,19 +169,20 @@ What makes Aqli the *reason to switch*, not just a cheaper Confluence:
    `/api/mcp` beside it. Until it does, connecting an assistant means reading
    the README, and a rollout that needs an engineer per assistant is one only
    engineering completes (`ADOPTION.md` F-2).
-2. **Notification reach, then Slack.** Mentions and review requests reach people
-   through the in-app bell only, and a team that lives in chat will miss them.
-   The cheap, chat-agnostic fix first: an outbound webhook per workspace on
-   mentions and review-queue events, which serves Slack, Teams and Discord
-   equally. Then the richer Slack integration — ask-the-handbook Q&A bot (RAG
-   over approved docs) + "save this thread as a draft doc". That is the non-eng
-   equivalent of the PR pipeline: knowledge capture where the work already
-   happens.
+2. - [x] **Notification reach**, then Slack. *Shipped: an outbound webhook per
+   workspace on mentions and review-queue events, which serves Slack, Teams and
+   Discord equally without an OAuth flow with any of them. Titles and links
+   only; https only; admin-only to read, because the URL is a capability.*
+   Still ahead: the richer Slack integration — an ask-the-handbook Q&A bot (RAG
+   over approved docs) and "save this thread as a draft doc". That is the
+   non-eng equivalent of the PR pipeline: knowledge capture where the work
+   already happens.
 3. **Human review workflows.** Assigned reviewers, per-space approval rules
    (Legal approves Policy docs), scheduled re-verification cadences per doc type.
-   *Partly here already: Settings → Spaces turns on `review_all`, so a space
-   can require approval for every change including a human's. What is missing
-   is naming who approves.*
+   *Partly here already: Settings → Spaces turns on `review_all`, and a space
+   can now name its reviewers, which is what `review_all` was missing — it
+   could say everything waits for approval but never said whose. Scheduled
+   re-verification cadences per doc type are what is left.*
 4. **Public/shared docs.** Publish a doc or space read-only via share link —
    handbook pages, customer-facing docs. (GitBook's bread and butter.)
 

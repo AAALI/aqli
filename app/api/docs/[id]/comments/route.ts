@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDoc } from "@/lib/supabase/docs";
+import { notifyWebhooks } from "@/lib/notifications/dispatch";
 import {
   CommentError,
   createDocComment,
@@ -68,6 +69,21 @@ export async function POST(req: NextRequest, { params }: Params) {
         mentioned: comment.mentions.length,
       },
     });
+
+    // Chat, when the workspace has asked for it. Only when someone was named:
+    // a webhook that fires on every comment is one people mute, and a muted
+    // channel is worse than no channel.
+    if (comment.mentions.length > 0) {
+      await notifyWebhooks(doc.workspace_id, {
+        type: "mention",
+        text: `${comment.author_name ?? "Someone"} mentioned ${
+          comment.mentions.length === 1 ? "someone" : `${comment.mentions.length} people`
+        } in a comment`,
+        docId: id,
+        docTitle: doc.title,
+        actorName: comment.author_name,
+      });
+    }
 
     return NextResponse.json({ comment }, { status: 201 });
   } catch (err) {

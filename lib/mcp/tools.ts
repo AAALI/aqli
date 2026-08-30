@@ -95,6 +95,21 @@ export type ToolDeps = {
     frontmatter: { tags?: string[] } | null;
     space: { slug: string; name: string } | null;
   } | null>;
+  /**
+   * Announce an event to the workspace's chat webhooks, if it has any.
+   * Optional: a deployment with none configured passes nothing, and the tools
+   * behave exactly as before.
+   */
+  notifyWebhooks?: (
+    workspaceId: string,
+    input: {
+      type: "mention" | "review_requested";
+      text: string;
+      docId: string;
+      docTitle: string;
+      actorName: string | null;
+    },
+  ) => Promise<void>;
   /** How many sub-pages hang off a document. A count, not the pages: read_doc must stay one document. */
   countChildDocs: (workspaceId: string, docId: string, viewerId?: string | null) => Promise<number>;
   proposeAgentDoc: (input: {
@@ -560,6 +575,16 @@ export async function dispatchTool(
         });
 
         if (!result.doc) {
+          // The event a pilot actually stalls on: something is waiting for a
+          // person, and the person is not in the app today (ADOPTION.md F-5).
+          await deps.notifyWebhooks?.(ctx.workspaceId, {
+            type: "review_requested",
+            text: "An assistant proposed a new document",
+            docId: result.proposalId,
+            docTitle: title,
+            actorName: "mcp",
+          });
+
           return text({
             outcome: "queued_for_review",
             proposal_id: result.proposalId,
@@ -665,7 +690,7 @@ export async function dispatchTool(
 
       case "request_review": {
         const id = requireString(a, "id");
-        const doc = await deps.getAgentDoc(ctx.workspaceId, id);
+        const doc = await deps.getAgentDoc(ctx.workspaceId, id, ctx.ownerUserId);
         if (!doc) return failure(`No document with id "${id}" in this workspace.`);
 
         await deps.setAgentDocStatus(ctx.workspaceId, id, "review");
@@ -682,6 +707,14 @@ export async function dispatchTool(
             from_status: doc.status,
             to_status: "review",
           },
+        });
+
+        await deps.notifyWebhooks?.(ctx.workspaceId, {
+          type: "review_requested",
+          text: `${doc.agent_id ?? "An assistant"} asked for review`,
+          docId: id,
+          docTitle: doc.title,
+          actorName: doc.agent_id,
         });
 
         const workspace = await deps.getWorkspaceMeta(ctx.workspaceId);
