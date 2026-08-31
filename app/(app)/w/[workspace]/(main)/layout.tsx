@@ -5,6 +5,8 @@ import { getSpaces } from "@/lib/supabase/spaces";
 import { getReviewCount, getOpenProposalCount } from "@/lib/supabase/review";
 import { getStaleCount } from "@/lib/supabase/stale";
 import Sidebar from "@/components/layout/Sidebar";
+import SchemaBehind from "@/components/preflight/SchemaBehind";
+import { loadOrDrift } from "@/lib/preflight/drift";
 
 export default async function MainShell({
   children,
@@ -24,12 +26,18 @@ export default async function MainShell({
 
   // The sidebar badge counts everything waiting on a person: open proposals
   // plus the documents the pre-proposals flow left at `status = 'review'`.
-  const [spaces, proposalCount, legacyReviewCount, staleCount] = await Promise.all([
-    getSpaces(workspace.id),
-    getOpenProposalCount(workspace.id),
-    getReviewCount(workspace.id),
-    getStaleCount(workspace.id),
-  ]);
+  const counts = await loadOrDrift(() =>
+    Promise.all([
+      getSpaces(workspace.id),
+      getOpenProposalCount(workspace.id),
+      getReviewCount(workspace.id),
+      getStaleCount(workspace.id),
+    ]),
+  );
+  if (!counts.ok) {
+    return <SchemaBehind drift={counts.drift} healthHref={`/w/${slug}/settings/health`} />;
+  }
+  const [spaces, proposalCount, legacyReviewCount, staleCount] = counts.data;
   const reviewCount = proposalCount + legacyReviewCount;
   const userName =
     (user?.user_metadata?.full_name as string | undefined) ||
