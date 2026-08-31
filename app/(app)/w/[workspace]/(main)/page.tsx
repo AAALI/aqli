@@ -24,6 +24,8 @@ import {
   IconSparkle,
   IconPlus,
 } from "@/components/aqli/icons";
+import SchemaBehind from "@/components/preflight/SchemaBehind";
+import { loadOrDrift } from "@/lib/preflight/drift";
 import type { DocWithSpace } from "@/types/doc";
 
 export default async function WorkspaceHome({
@@ -38,17 +40,24 @@ export default async function WorkspaceHome({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [recentDocs, pendingReview, proposalCount, staleDocs, activity, spaces, connections] = await Promise.all([
-    getDocs(workspace.id, { limit: 16 }),
-    getPendingReviewDocs(workspace.id),
-    getOpenProposalCount(workspace.id),
-    getStaleDocs(workspace.id),
-    // The feed reads across the workspace on the service role, so it is told
-    // who is looking rather than left to show everyone everything.
-    getWorkspaceActivity(workspace.id, 24, user?.id ?? null),
-    getSpaces(workspace.id),
-    listIntegrationConnections(workspace.id),
-  ]);
+  const home = await loadOrDrift(() =>
+    Promise.all([
+      getDocs(workspace.id, { limit: 16 }),
+      getPendingReviewDocs(workspace.id),
+      getOpenProposalCount(workspace.id),
+      getStaleDocs(workspace.id),
+      // The feed reads across the workspace on the service role, so it is told
+      // who is looking rather than left to show everyone everything.
+      getWorkspaceActivity(workspace.id, 24, user?.id ?? null),
+      getSpaces(workspace.id),
+      listIntegrationConnections(workspace.id),
+    ]),
+  );
+  if (!home.ok) {
+    return <SchemaBehind drift={home.drift} healthHref={`/w/${slug}/settings/health`} />;
+  }
+  const [recentDocs, pendingReview, proposalCount, staleDocs, activity, spaces, connections] =
+    home.data;
   const githubConnected = connections.some(
     (c) => c.provider === "github" && c.status === "connected",
   );

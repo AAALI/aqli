@@ -5,6 +5,8 @@ import { getSpaces } from "@/lib/supabase/spaces";
 import { getDocs } from "@/lib/supabase/docs";
 import CommandPalette from "@/components/cmdk/CommandPalette";
 import AqliChatWidget from "@/components/ai/AqliChatWidget";
+import SchemaBehind from "@/components/preflight/SchemaBehind";
+import { loadOrDrift } from "@/lib/preflight/drift";
 
 export default async function WorkspaceLayout({
   children,
@@ -23,10 +25,16 @@ export default async function WorkspaceLayout({
   const workspace = await getWorkspaceBySlug(slug).catch(() => null);
   if (!workspace) notFound();
 
-  const [spaces, recentDocs] = await Promise.all([
-    getSpaces(workspace.id),
-    getDocs(workspace.id, { limit: 6 }),
-  ]);
+  // A database that is behind fails here rather than anywhere useful, and Next
+  // strips the reason before a client error boundary can read it. Catch it on
+  // the server, where the message still exists, and say what is missing.
+  const shell = await loadOrDrift(() =>
+    Promise.all([getSpaces(workspace.id), getDocs(workspace.id, { limit: 6 })]),
+  );
+  if (!shell.ok) {
+    return <SchemaBehind drift={shell.drift} healthHref={`/w/${slug}/settings/health`} />;
+  }
+  const [spaces, recentDocs] = shell.data;
 
   return (
     <div className="aqli-screen is-app">

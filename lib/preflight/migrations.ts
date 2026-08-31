@@ -35,6 +35,7 @@ export const EXPECTED_MIGRATIONS: ExpectedMigration[] = [
   { version: "20260812000000", name: "import_source_ref" },
   { version: "20260813000000", name: "space_permissions" },
   { version: "20260814000000", name: "workspace_webhooks" },
+  { version: "20260815000000", name: "preflight_match_by_name" },
 ];
 
 /** Just the versions, which is what the database ledger stores. */

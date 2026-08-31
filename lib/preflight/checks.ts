@@ -28,7 +28,19 @@ export type DbReport = {
   generated_at: string;
   migrations:
     | { tracked: false }
-    | { tracked: true; applied_count: number; missing: string[]; unknown: string[] };
+    | {
+        tracked: true;
+        applied_count: number;
+        missing: string[];
+        unknown: string[];
+        /**
+         * The ledger itself, both ordered by version so they pair up by index.
+         * Absent on a report from a database that predates
+         * 20260815000000_preflight_match_by_name.sql.
+         */
+        applied?: string[];
+        applied_names?: string[];
+      };
   rls: { disabled: string[]; enabled_without_policies: string[] };
   gates: Record<string, { recorded_at: string; detail: Record<string, unknown> }>;
   markdown: { body_md_required: boolean; at_risk_docs: number; docs: number };
@@ -73,6 +85,54 @@ function migrationNamedAfter(table: string): string | undefined {
  * reading `lib/flags.ts` uses. Duplicated rather than imported because that
  * module reads `process.env` directly and this one is handed an environment.
  */
+/**
+ * Which expected migrations are genuinely absent, and which ledger rows are
+ * genuinely foreign.
+ *
+ * The ledger's `version` is a timestamp the Supabase CLI stamped when the
+ * migration was *applied*, not the one in this checkout's filename. Renumber
+ * the folder — or apply the same migrations through a different tool — and
+ * every version disagrees while the schema is perfectly correct. An
+ * installation in exactly that state reported 24 missing and 26 unknown for
+ * weeks, which trained everyone who read it to ignore it, which is how six
+ * genuinely-unapplied migrations reached production unnoticed.
+ *
+ * So a migration counts as applied if the ledger has its version *or* its
+ * name. Names are what identify a migration; versions only order it.
+ */
+function reconcile(
+  applied: string[],
+  appliedNames: string[] | undefined,
+  expected: typeof EXPECTED_MIGRATIONS,
+): { missing: string[]; unknown: string[]; matchedByName: number } {
+  const versions = new Set(applied);
+  const names = new Set(appliedNames ?? []);
+
+  const missing: string[] = [];
+  let matchedByName = 0;
+  for (const m of expected) {
+    if (versions.has(m.version)) continue;
+    if (names.has(m.name)) {
+      matchedByName += 1;
+      continue;
+    }
+    missing.push(m.version);
+  }
+
+  const expectedVersions = new Set(expected.map((m) => m.version));
+  const expectedNames = new Set(expected.map((m) => m.name));
+  // A ledger row is only "unknown" if neither its version nor the name
+  // recorded alongside it belongs to this checkout. Without the name half,
+  // every renumbered row looks like a migration the code has never heard of.
+  const unknown = applied.filter((version, i) => {
+    if (expectedVersions.has(version)) return false;
+    const name = (appliedNames ?? [])[i];
+    return !(name && expectedNames.has(name));
+  });
+
+  return { missing, unknown, matchedByName };
+}
+
 function mergeEngineOff(env: Record<string, string | undefined>): boolean {
   const v = env.AQLI_MERGE_ENGINE;
   return v === "0" || v === "false";
@@ -117,13 +177,24 @@ export function buildChecks(input: PreflightInput): Check[] {
       fix: "Expected on a hand-migrated database. If you use the Supabase CLI, this table should exist — check you are pointed at the project you think you are.",
     });
   } else {
-    const { missing, unknown } = db.migrations;
+    // The database computes `missing`/`unknown` from versions alone. When it
+    // also hands back the ledger, redo the comparison here with the names in
+    // play, so a renumbered ledger stops reporting the whole folder as missing
+    // and unknown at the same time. An older report has no ledger to redo it
+    // with, so its own answer stands.
+    const { missing, unknown, matchedByName } = db.migrations.applied
+      ? reconcile(db.migrations.applied, db.migrations.applied_names, EXPECTED_MIGRATIONS)
+      : { ...db.migrations, matchedByName: 0 };
+    const renumbered =
+      matchedByName > 0
+        ? ` ${matchedByName} matched by name rather than version — this ledger was renumbered, which is fine.`
+        : "";
     if (missing.length > 0) {
       checks.push({
         id: "migrations",
         title: "Migrations",
         status: "fail",
-        detail: `${missing.length} migration(s) in this checkout have not been applied: ${list(missing.map(migrationFileName))}.`,
+        detail: `${missing.length} migration(s) in this checkout have not been applied: ${list(missing.map(migrationFileName))}.${renumbered}`,
         fix: "Apply them (supabase db push, or run the files in order). Some of them close holes rather than add features.",
       });
     } else if (unknown.length > 0) {
@@ -139,7 +210,7 @@ export function buildChecks(input: PreflightInput): Check[] {
         id: "migrations",
         title: "Migrations",
         status: "ok",
-        detail: `All ${EXPECTED_MIGRATION_VERSIONS.length} applied.`,
+        detail: `All ${EXPECTED_MIGRATION_VERSIONS.length} applied.${renumbered}`,
       });
     }
   }
