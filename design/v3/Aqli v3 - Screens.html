@@ -1,0 +1,901 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="design_doc_mode" content="canvas" />
+<title>Aqli v3 — Screens</title>
+<link rel="stylesheet" href="aqli-v3.css?v=3" />
+<style>
+body{background:#EDECE7}
+.sbmini{width:232px;flex:0 0 232px}
+.meter{display:flex;height:6px;border-radius:99px;overflow:hidden;background:var(--border);width:220px}
+.meter i{display:block}
+.tpl{display:flex;flex-direction:column;gap:7px;padding:16px 17px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card);cursor:pointer;text-align:left}
+.tpl:hover{border-color:var(--border-strong)}
+.tpl b{font-family:var(--font-serif);font-size:16px;font-weight:500;letter-spacing:-.005em}
+.tpl span{font-size:12.5px;color:var(--text-muted);line-height:1.5}
+.shelf{margin-top:26px}
+.shelf>h3{margin:0 0 4px;font-family:var(--font-serif);font-size:18px;font-weight:500}
+.shelf>p{margin:0 0 6px;font-size:12.5px;color:var(--text-muted)}
+.set-nav{width:206px;flex:0 0 206px;border-right:1px solid var(--border);background:var(--bg-sidebar);padding:22px 10px}
+.set-nav .nav-i{font-size:13px}
+.keyrow{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)}
+.sw{width:38px;height:22px;border-radius:99px;background:var(--accent);position:relative;flex:0 0 38px}
+.sw:after{content:'';position:absolute;top:2px;left:18px;width:18px;height:18px;border-radius:99px;background:#fff}
+.sw.off{background:var(--border-strong)}
+.sw.off:after{left:2px}
+.kk{height:36px;border-radius:5px;background:#FBFBF9;display:flex;align-items:center;justify-content:center;font-size:14px;color:#1A1A18;box-shadow:0 1px 0 rgba(0,0,0,.18)}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ GROUP 1 · ONBOARDING ══════════════ -->
+<div class="grp" style="left:80px;top:84px">Onboarding — three cards, one field each
+<span>Was five screens (account · workspace · spaces · AI access · a receipt). AI access moved to Settings, where it belongs and where nobody is blocked by it; the receipt is gone. Every step carries a real skip, and every answer has a default already filled in — so the fastest path to writing is three Returns.</span></div>
+
+<!-- 1 · Account -->
+<div class="fr" style="left:80px;top:320px">
+<h4>01 · Account<span>Email and password, or one tap. Nothing else is asked.</span></h4>
+<div class="ob" data-screen-label="Onboarding 01">
+  <div class="ob-t">
+    <span class="wm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 14.5C5 9 9 5 13 5c3.5 0 5.8 2.3 5.8 5.2 0 2.6-1.8 4.5-4.3 4.5-1.7 0-2.9-1-2.9-2.5 0-1.4 1-2.4 2.2-2.4.5 0 .9.1 1.2.3" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.4" cy="17.6" r="1.5" fill="var(--accent)"/></svg><span>aqli</span></span>
+    <div class="ob-steps"><span class="ob-dot on"></span><span class="ob-dot"></span><span class="ob-dot"></span></div>
+  </div>
+  <div class="ob-mid">
+    <div class="ob-card">
+      <p class="ob-eb" style="margin:0">Step 1 of 3</p>
+      <h1 class="ob-q">Let's get you writing.</h1>
+      <p class="ob-s">Two minutes from here to a published doc. You can change everything later.</p>
+      <div class="ob-f">
+        <button class="btn sec lg" style="justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23 12.2c0-.8-.1-1.6-.2-2.3H12v4.4h6.1a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7c2.2-2 3.5-5 3.5-8.5Z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.8-2.9l-3.7-2.9c-1.1.7-2.4 1.1-4.1 1.1a7.2 7.2 0 0 1-6.8-5H1.4v3a12 12 0 0 0 10.6 6.7Z"/><path fill="#FBBC05" d="M5.2 14.3a7.2 7.2 0 0 1 0-4.6v-3H1.4a12 12 0 0 0 0 10.6l3.8-3Z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.3-3.3A11.6 11.6 0 0 0 12 0 12 12 0 0 0 1.4 6.7l3.8 3A7.2 7.2 0 0 1 12 4.8Z"/></svg> Continue with Google</button>
+        <div style="display:flex;align-items:center;gap:12px;margin:2px 0"><hr style="flex:1;height:1px;background:var(--border);border:0"><span style="font-size:11.5px;color:var(--text-muted)">or</span><hr style="flex:1;height:1px;background:var(--border);border:0"></div>
+        <input class="inp lg" value="ali@1989.studio" />
+        <input class="inp lg" type="password" value="············" />
+      </div>
+      <div class="ob-acts">
+        <button class="btn pri lg">Continue<span class="kbd" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.75)">⏎</span></button>
+        <span class="ob-skip">Already have an account? <a href="#">Sign in</a></span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 2 · Workspace -->
+<div class="fr" style="left:1640px;top:320px">
+<h4>02 · Workspace<span>Pre-filled from the email domain. The URL is derived, not asked for.</span></h4>
+<div class="ob" data-screen-label="Onboarding 02">
+  <div class="ob-t">
+    <span class="wm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 14.5C5 9 9 5 13 5c3.5 0 5.8 2.3 5.8 5.2 0 2.6-1.8 4.5-4.3 4.5-1.7 0-2.9-1-2.9-2.5 0-1.4 1-2.4 2.2-2.4.5 0 .9.1 1.2.3" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.4" cy="17.6" r="1.5" fill="var(--accent)"/></svg><span>aqli</span></span>
+    <div class="ob-steps"><span class="ob-dot done"></span><span class="ob-dot on"></span><span class="ob-dot"></span></div>
+  </div>
+  <div class="ob-mid">
+    <div class="ob-card">
+      <p class="ob-eb" style="margin:0">Step 2 of 3</p>
+      <h1 class="ob-q">What should we call it?</h1>
+      <p class="ob-s">The name your team will see at the top of every page.</p>
+      <div class="ob-f">
+        <input class="inp lg" value="1989 Studio" />
+        <p class="hint" style="margin:0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7L11.5 7"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1.5-1.5"/></svg> aqli.app/<b style="color:var(--text-secondary);font-weight:600">1989-studio</b> · <a href="#">change</a></p>
+      </div>
+      <div class="ob-acts">
+        <button class="btn pri lg">Continue<span class="kbd" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.75)">⏎</span></button>
+        <span class="ob-skip">Back</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 3 · Spaces -->
+<div class="fr" style="left:3200px;top:320px">
+<h4>03 · Spaces<span>One is already ticked and enough. Skipping is a first-class action, not a grey link.</span></h4>
+<div class="ob" data-screen-label="Onboarding 03">
+  <div class="ob-t">
+    <span class="wm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 14.5C5 9 9 5 13 5c3.5 0 5.8 2.3 5.8 5.2 0 2.6-1.8 4.5-4.3 4.5-1.7 0-2.9-1-2.9-2.5 0-1.4 1-2.4 2.2-2.4.5 0 .9.1 1.2.3" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.4" cy="17.6" r="1.5" fill="var(--accent)"/></svg><span>aqli</span></span>
+    <div class="ob-steps"><span class="ob-dot done"></span><span class="ob-dot done"></span><span class="ob-dot on"></span></div>
+  </div>
+  <div class="ob-mid">
+    <div class="ob-card" style="width:520px">
+      <p class="ob-eb" style="margin:0">Step 3 of 3 · optional</p>
+      <h1 class="ob-q">Anywhere else to put things?</h1>
+      <p class="ob-s">Spaces are just shelves. <b style="font-weight:600">Company</b> is ready — add more now or whenever you need them.</p>
+      <div class="ob-f">
+        <div class="pickrow">
+          <span class="pick on"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5V4.5Z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/></svg></span>Company</span>
+          <span class="pick"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4l13 1.5L14 11l4 5.5L5 18"/></svg></span>Product</span>
+          <span class="pick"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span>Engineering</span>
+          <span class="pick"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6"/><path d="M17.5 19a5.5 5.5 0 0 0-3-4.9"/></svg></span>People</span>
+          <span class="pick"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18"/><path d="M3 15h18"/><path d="M9 9.5V20"/></svg></span>Sales</span>
+          <span class="pick"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H6l-3 2v-10a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z"/></svg></span>Marketing</span>
+          <span class="pick"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="4" rx="1"/><path d="M5 9v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/><path d="M10 13h4"/></svg></span>Ops</span>
+          <span class="pick" style="color:var(--text-muted);border-style:dashed">＋ Something else</span>
+        </div>
+      </div>
+      <div class="ob-acts">
+        <button class="btn pri lg">Start writing<span class="kbd" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.75)">⏎</span></button>
+        <span class="ob-skip">Company is fine — skip</span>
+      </div>
+      <p class="hint" style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-5.2"/></svg> Connecting AI agents and teammates now lives in Settings — nothing here blocks you.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 4 · First run -->
+<div class="fr" style="left:4760px;top:320px">
+<h4>04 · First run<span>The arrival moment: one target, three patterns, and a cursor waiting.</span></h4>
+<div class="screen" data-screen-label="First run">
+  <aside class="sb">
+    <div class="sb-head"><span class="wm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 14.5C5 9 9 5 13 5c3.5 0 5.8 2.3 5.8 5.2 0 2.6-1.8 4.5-4.3 4.5-1.7 0-2.9-1-2.9-2.5 0-1.4 1-2.4 2.2-2.4.5 0 .9.1 1.2.3" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.4" cy="17.6" r="1.5" fill="var(--accent)"/></svg><span>aqli</span></span><div class="sb-ws">1989 Studio</div></div>
+    <div class="nav">
+      <a class="nav-i on"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/><path d="M10 20v-5h4v5"/></svg></span>Home</a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></span>Search<span class="k">⌘K</span></a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg></span>Drafts</a>
+    </div>
+    <div class="nav-lb">Spaces</div>
+    <div class="nav" style="padding-top:0">
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5V4.5Z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/></svg></span>Company<span class="n">0</span></a>
+      <div class="sb-new"><span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>New space</div>
+    </div>
+    <div class="sb-foot"><span class="av av-y">A</span><span class="meta"><b>Ali</b><i>1989 Studio</i></span></div>
+  </aside>
+  <div class="main">
+    <div class="tb"><div class="crumb"><b>Home</b></div><div class="sp"></div><div class="tb-acts"><button class="btn sec">Invite your team</button><button class="ib"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></button></div></div>
+    <div class="wrap" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:140px">
+      <div style="width:660px">
+        <h1 class="h1" style="font-size:36px">A clean slate, Ali.</h1>
+        <p class="h1s" style="max-width:470px">Write one thing. Everything else in Aqli — search, checking, your agents — starts working the moment there's something here.</p>
+        <button class="btn pri lg" style="margin-top:26px;height:52px;padding:0 24px;font-size:16px;border-radius:9px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Start writing <span class="kbd" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.72);margin-left:6px">N</span></button>
+        <p style="margin:34px 0 10px;font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--text-muted)">Or start from a pattern</p>
+        <div class="grid3">
+          <button class="tpl"><b>How-to</b><span>Steps someone can follow without asking you.</span></button>
+          <button class="tpl"><b>Decision</b><span>What we chose, what we rejected, why.</span></button>
+          <button class="tpl"><b>Brief</b><span>What we're doing, for whom, by when.</span></button>
+        </div>
+        <p class="hint" style="margin-top:28px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 16h6M9 10h3"/></svg> Bringing docs from Notion or Confluence? <a href="#">Import them</a> — links and headings survive.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+
+<div class="grp" style="left:6320px;top:84px">Writing &amp; reading — the same sheet of paper
+<span>The whole point of the redesign. A writer sees a title, a body, and a Publish button; nothing about status, ownership, review or outlines exists until they ask for it. Reading is the identical column with one trust line added and a rail that stays shut.</span></div>
+
+<div class="fr" style="left:6320px;top:320px">
+<h4>05 · Writing<span>No rail, no badges, no metadata, no doc-type picker. 712px measure, serif at 18.5px.</span></h4>
+<div class="screen" data-screen-label="Write">
+  <div class="main">
+    <div class="tb bare">
+      <button class="btn gho" style="padding:0 8px 0 4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>Company</button>
+      <span class="saved"><i></i>Saved</span>
+      <div class="sp"></div>
+      <div class="tb-acts"><button class="ib"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></button><button class="btn pri">Publish</button></div>
+    </div>
+    <div class="body">
+      <div class="paper">
+        <div class="col">
+          <h1 class="dt">Q3 Payments Launch</h1>
+          <div class="dbody"><h2>What we're doing</h2>
+            <p>Shipping the redesigned payouts flow to every Company customer by <strong>Sep 30</strong>, cutting median setup time from six minutes to under ninety seconds.</p>
+            <p>Success is a 40% drop in setup-related support tickets in the first month, and a fifteen-point lift in the post-setup satisfaction score.</p>
+            <h2>Who it's for</h2>
+            <p>Customers still on the legacy flow, and the finance-ops teams who configure recurring payouts for them — roughly 4,200 accounts, weighted toward higher-volume senders.</p>
+            <h2>How we'll say it</h2>
+            <p>Getting paid should feel like it already happened.</p><p><span style="display:inline-block;width:2px;height:22px;background:var(--accent);vertical-align:-4px"></span></p></div>
+        </div>
+      </div>
+      <div class="slash" style="position:absolute;top:339px;left:404px">
+        <div class="si on"><span class="sic" style="font-family:var(--font-serif);font-weight:600">H</span><span><b>Heading</b><em>Section title</em></span></div>
+        <div class="si"><span class="sic">•</span><span><b>Bulleted list</b><em>One point per line</em></span></div>
+        <div class="si"><span class="sic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h11M4 17h14"/></svg></span><span><b>Table</b><em>Owners, dates, decisions</em></span></div>
+        <div class="si"><span class="sic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H6l-3 2v-10a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z"/></svg></span><span><b>Cite a doc</b><em>Links both ways, automatically</em></span></div>
+        <div class="si"><span class="sic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg></span><span><b>Ask Aqli to draft this</b><em>Uses what your team already wrote</em></span></div>
+      </div>
+      <button class="spark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg></button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="fr" style="left:7880px;top:320px">
+<h4>06 · Reading<span>One trust line under the title. The rail is open here to show it — it ships closed.</span></h4>
+<div class="screen" style="height:960px" data-screen-label="Read">
+  <div class="main">
+    <div class="tb bare">
+      <div class="crumb"><span>Company</span><span class="sep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span><b>Q3 Payments Launch</b></div>
+      <div class="sp"></div>
+      <div class="tb-acts"><button class="btn gho"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg>Edit</button><button class="btn gho">Share</button><button class="ib"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></button></div>
+    </div>
+    <div class="body">
+      <div class="paper">
+        <div class="col" style="padding-right:80px;max-width:712px">
+          <h1 class="dt">Q3 Payments Launch</h1>
+          <div class="tline"><span class="tl cur"><i></i>Current</span><span class="who">checked by <span class="av s av-s">S</span> Sara, 5 days ago</span></div>
+          <div class="dbody"><h2>What we're doing</h2>
+            <p>Shipping the redesigned payouts flow to every Company customer by <strong>Sep 30</strong>, cutting median setup time from six minutes to under ninety seconds.</p>
+            <p>Success is a 40% drop in setup-related support tickets in the first month, and a fifteen-point lift in the post-setup satisfaction score.</p>
+            <h2>Who it's for</h2>
+            <p>Customers still on the legacy flow, and the finance-ops teams who configure recurring payouts for them — roughly 4,200 accounts, weighted toward higher-volume senders.</p>
+            <h2>How we'll say it</h2>
+            <p>Getting paid should feel like it already happened.</p></div>
+          <div style="margin-top:52px;padding-top:22px;border-top:1px solid var(--border)">
+            <div class="sect-h"><h2>Cited by 3 docs</h2></div>
+            <div class="bl"><b>Payouts Redesign — PRD</b><span><span class="dot cur"></span>Company · cites “What we're doing”</span></div>
+            <div class="bl"><b>Q3 Launch Comms Plan</b><span><span class="dot age"></span>Company · cites “How we'll say it”</span></div>
+          </div>
+        </div>
+      </div>
+      <aside class="rail">
+        <div class="rail-tabs"><div class="rt on">Outline</div><div class="rt">Cited by</div><div class="rt">History</div><span class="rail-x" style="margin-bottom:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6 18 18M18 6 6 18"/></svg></span></div>
+        <div class="rail-body">
+          <a class="ol-i on">What we're doing</a>
+          <a class="ol-i">Who it's for</a>
+          <a class="ol-i">How we'll say it</a>
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted)">3 sections · about 2 min read</div>
+        </div>
+      </aside>
+      <button class="spark" style="right:336px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H6l-3 2v-10a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z"/></svg></button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════ GROUP 2 · EVERYDAY ══════════════ -->
+<div class="grp" style="left:80px;top:1260px">Every day — one status system, no process nav
+<span>The sidebar lost its “Workflow” section. Review Queue became <b>Checks</b> — one item with a count. “Needs updating” and “AI activity” are gone as destinations: staleness is now the Current / Ageing / Unverified state carried by every doc everywhere it appears, and agent activity lives in Settings.</span></div>
+
+<!-- 5 · Home -->
+<div class="fr" style="left:80px;top:1500px">
+<h4>07 · Home<span>Answers one question: what should I read, write, or check today.</span></h4>
+<div class="screen" style="height:1120px" data-screen-label="Home">
+  <aside class="sb">
+    <div class="sb-head"><span class="wm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 14.5C5 9 9 5 13 5c3.5 0 5.8 2.3 5.8 5.2 0 2.6-1.8 4.5-4.3 4.5-1.7 0-2.9-1-2.9-2.5 0-1.4 1-2.4 2.2-2.4.5 0 .9.1 1.2.3" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.4" cy="17.6" r="1.5" fill="var(--accent)"/></svg><span>aqli</span></span><div class="sb-ws">1989 Studio</div></div>
+    <div class="nav">
+      <a class="nav-i on"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/><path d="M10 20v-5h4v5"/></svg></span>Home</a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></span>Search<span class="k">⌘K</span></a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg></span>Drafts<span class="n">3</span></a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-11"/></svg></span>Checks<span class="n" style="color:var(--ageing-text);background:var(--ageing-bg);border:1px solid var(--ageing-border);border-radius:99px;padding:0 6px;font-size:10.5px">2</span></a>
+    </div>
+    <div class="nav-lb">Spaces</div>
+    <div class="nav" style="padding-top:0">
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5V4.5Z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/></svg></span>Company<span class="n">43</span></a>
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4l13 1.5L14 11l4 5.5L5 18"/></svg></span>Product<span class="n">18</span></a>
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span>Engineering<span class="n">31</span></a>
+      <div class="sb-new"><span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>New space</div>
+    </div>
+    <div class="sb-foot"><span class="av av-y">A</span><span class="meta"><b>Ali</b><i>1989 Studio</i></span></div>
+  </aside>
+  <div class="main">
+    <div class="tb"><div class="crumb"><b>Home</b></div><div class="sp"></div><div class="tb-acts"><button class="btn pri"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Write</button><button class="ib"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></button><button class="ib"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></button></div></div>
+    <div class="wrap">
+      <div style="max-width:820px">
+        <h1 class="h1">Wednesday morning.</h1>
+        <p class="h1s">One draft in flight, two things waiting on you.</p>
+
+        <div class="card" style="margin-top:26px;display:flex;align-items:center;gap:18px;padding:16px 18px">
+          <div style="flex:1;min-width:0">
+            <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted)">Where you left off</p>
+            <p style="margin:6px 0 0;font-family:var(--font-serif);font-size:19px;font-weight:500;letter-spacing:-.008em">Q3 Payments Launch</p>
+            <p style="margin:4px 0 0;font-size:12.5px;color:var(--text-muted)">Draft · you stopped mid-sentence in “How we'll say it” · 14 min ago</p>
+          </div>
+          <button class="btn pri">Keep writing</button>
+        </div>
+
+        <div class="sect">
+          <div class="sect-h"><h2>Waiting on you</h2><a href="#">All checks →</a></div>
+          <a class="row"><span class="tl unv"><i></i>Unverified</span><span><span class="t">Refund policy — v2</span><span class="m"><span class="av s av-s">S</span>Sara asked you to check it · 2 days ago · 4 min read</span></span><button class="btn sm sec">Check</button></a>
+          <a class="row"><span class="tl age"><i></i>Ageing</span><span><span class="t">Payouts Messaging v3</span><span class="m">You own it · nobody has confirmed it in 4 months · 3 docs cite it</span></span><button class="btn sm sec">Still true?</button></a>
+        </div>
+
+        <div class="sect">
+          <div class="sect-h"><h2>New since Monday</h2></div>
+          <a class="row"><span class="dot cur"></span><span><span class="t">Fix: ACH return code R09 routing</span><span class="m"><span class="ty">Engineering</span>· written from PR #1247 · merged by Khalid</span></span><span class="m">yesterday</span></a>
+          <a class="row"><span class="dot cur"></span><span><span class="t">On-call handover — August</span><span class="m"><span class="ty">Engineering</span>· Ali · replaces the July version</span></span><span class="m">Mon</span></a>
+          <a class="row"><span class="dot unv"></span><span><span class="t">Pricing experiment — results</span><span class="m"><span class="ty">Product</span>· Sara · nobody has checked it yet</span></span><span class="m">Mon</span></a>
+        </div>
+
+        <div class="sect">
+          <div class="sect-h"><h2>Asked this week · no doc answers it</h2></div>
+          <a class="row"><span class="m" style="font-family:var(--font-mono);font-size:13px;color:var(--text-secondary);margin:0">7×</span><span><span class="t" style="font-style:italic">“How do I refund a partial payout?”</span><span class="m">asked by 5 people · closest doc is 4 months old</span></span><button class="btn sm sec">Write it</button></a>
+          <a class="row"><span class="m" style="font-family:var(--font-mono);font-size:13px;color:var(--text-secondary);margin:0">4×</span><span><span class="t" style="font-style:italic">“Who approves a price change?”</span><span class="m">asked by 3 people · nothing cited</span></span><button class="btn sm sec">Write it</button></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 6 · Space -->
+<div class="fr" style="left:1640px;top:1500px">
+<h4>08 · Space<span>Shelves and a health bar instead of a filterable table of doc types.</span></h4>
+<div class="screen" style="height:1360px" data-screen-label="Space">
+  <aside class="sb">
+    <div class="sb-head"><span class="wm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 14.5C5 9 9 5 13 5c3.5 0 5.8 2.3 5.8 5.2 0 2.6-1.8 4.5-4.3 4.5-1.7 0-2.9-1-2.9-2.5 0-1.4 1-2.4 2.2-2.4.5 0 .9.1 1.2.3" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.4" cy="17.6" r="1.5" fill="var(--accent)"/></svg><span>aqli</span></span><div class="sb-ws">1989 Studio</div></div>
+    <div class="nav">
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/><path d="M10 20v-5h4v5"/></svg></span>Home</a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></span>Search<span class="k">⌘K</span></a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg></span>Drafts<span class="n">3</span></a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-11"/></svg></span>Checks<span class="n" style="color:var(--ageing-text);background:var(--ageing-bg);border:1px solid var(--ageing-border);border-radius:99px;padding:0 6px;font-size:10.5px">2</span></a>
+    </div>
+    <div class="nav-lb">Spaces</div>
+    <div class="nav" style="padding-top:0">
+      <a class="nav-i on"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5V4.5Z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/></svg></span>Company<span class="n">43</span></a>
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4l13 1.5L14 11l4 5.5L5 18"/></svg></span>Product<span class="n">18</span></a>
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span>Engineering<span class="n">31</span></a>
+      <div class="sb-new"><span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>New space</div>
+    </div>
+    <div class="sb-foot"><span class="av av-y">A</span><span class="meta"><b>Ali</b><i>1989 Studio</i></span></div>
+  </aside>
+  <div class="main">
+    <div class="tb"><div class="crumb"><span>Spaces</span><span class="sep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span><b>Company</b></div><div class="sp"></div><div class="tb-acts"><button class="btn gho">Arrange shelves</button><button class="btn pri"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Write</button><button class="ib"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></button></div></div>
+    <div class="wrap">
+      <div style="max-width:840px">
+        <h1 class="h1" style="display:flex;align-items:center;gap:12px"><span style="color:var(--text-secondary);display:flex"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5V4.5Z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/></svg></span>Company</h1>
+        <div style="margin-top:14px;display:flex;align-items:center;gap:16px">
+          <div class="meter"><i style="background:#0F6E56;width:72%"></i><i style="background:#D99B2B;width:19%"></i><i style="background:#C9C7BE;width:9%"></i></div>
+          <p style="margin:0;font-size:12.5px;color:var(--text-secondary)">43 docs · <b style="font-weight:600;color:var(--current-text)">31 current</b> · <b style="font-weight:600;color:var(--ageing-text)">8 ageing</b> · 4 unverified</p>
+          <a href="#" style="font-size:12.5px;font-weight:600;margin-left:auto">Show what needs a look →</a>
+        </div>
+
+        <div class="sect" style="margin-top:32px">
+          <div class="sect-h"><h2>Start here</h2><a href="#">Edit</a></div>
+          <div class="grid3">
+            <a class="tpl"><span style="display:flex;align-items:center;gap:7px"><span class="dot cur"></span><span class="ty">Handbook</span></span><b>How we work</b><span>The short version of everything. 6 min.</span></a>
+            <a class="tpl"><span style="display:flex;align-items:center;gap:7px"><span class="dot cur"></span><span class="ty">Policy</span></span><b>Spending &amp; approvals</b><span>What you can buy without asking. 3 min.</span></a>
+            <a class="tpl"><span style="display:flex;align-items:center;gap:7px"><span class="dot cur"></span><span class="ty">How-to</span></span><b>Shipping something</b><span>Draft to production, end to end. 8 min.</span></a>
+          </div>
+        </div>
+
+        <div class="shelf">
+          <div class="sect-h" style="margin-bottom:6px"><h2>Reading path</h2></div>
+          <h3>New here? Read these four, in order.</h3>
+          <p>~20 minutes · 38 people have finished it</p>
+          <a class="row"><span class="m" style="font-family:var(--font-mono);margin:0">1</span><span><span class="t">How we work</span><span class="m"><span class="dot cur"></span>checked 8 days ago</span></span><span class="m">6 min</span></a>
+          <a class="row"><span class="m" style="font-family:var(--font-mono);margin:0">2</span><span><span class="t">Spending &amp; approvals</span><span class="m"><span class="dot cur"></span>checked 3 weeks ago</span></span><span class="m">3 min</span></a>
+          <a class="row"><span class="m" style="font-family:var(--font-mono);margin:0">3</span><span><span class="t">How we decide things</span><span class="m"><span class="dot cur"></span>checked 5 weeks ago</span></span><span class="m">4 min</span></a>
+          <a class="row"><span class="m" style="font-family:var(--font-mono);margin:0">4</span><span><span class="t">Shipping something</span><span class="m"><span class="dot age"></span>nobody has confirmed it in 5 months</span></span><span class="m">8 min</span></a>
+        </div>
+
+        <div class="shelf">
+          <h3>Payouts <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);font-weight:400">7</span></h3>
+          <a class="row"><span class="dot cur"></span><span><span class="t">Payouts Messaging v3</span><span class="m"><span class="ty">Brief</span>· Sara · cited by 3</span></span><span class="m">checked 5d ago</span></a>
+          <a class="row"><span class="dot age"></span><span><span class="t">Partial refunds — how they work</span><span class="m"><span class="ty">How-to</span>· Ali · answers a question asked 7× this week</span></span><span class="m">4 months</span></a>
+          <a class="row"><span class="dot cur"></span><span><span class="t">Q3 Payments Launch</span><span class="m"><span class="ty">Brief</span>· you · published today</span></span><span class="m">today</span></a>
+        </div>
+
+        <div class="shelf">
+          <h3>Hiring <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);font-weight:400">5</span></h3>
+          <a class="row"><span class="dot cur"></span><span><span class="t">Interview loop</span><span class="m"><span class="ty">How-to</span>· Khalid · cited by 4</span></span><span class="m">checked 2w ago</span></a>
+          <a class="row"><span class="dot unv"></span><span><span class="t">Offer letter template — 2026</span><span class="m"><span class="ty">Policy</span>· Sara · nobody has checked it</span></span><span class="m">3d ago</span></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 7 · Checks -->
+<div class="fr" style="left:3200px;top:1500px">
+<h4>09 · Checks<span>Was “Review Queue”. Same job, human words, and it reads like a to-do, not a tribunal.</span></h4>
+<div class="screen" style="height:960px" data-screen-label="Checks">
+  <aside class="sb">
+    <div class="sb-head"><span class="wm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 14.5C5 9 9 5 13 5c3.5 0 5.8 2.3 5.8 5.2 0 2.6-1.8 4.5-4.3 4.5-1.7 0-2.9-1-2.9-2.5 0-1.4 1-2.4 2.2-2.4.5 0 .9.1 1.2.3" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.4" cy="17.6" r="1.5" fill="var(--accent)"/></svg><span>aqli</span></span><div class="sb-ws">1989 Studio</div></div>
+    <div class="nav">
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/><path d="M10 20v-5h4v5"/></svg></span>Home</a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></span>Search<span class="k">⌘K</span></a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg></span>Drafts<span class="n">3</span></a>
+      <a class="nav-i on"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-11"/></svg></span>Checks<span class="n" style="color:var(--ageing-text);background:var(--ageing-bg);border:1px solid var(--ageing-border);border-radius:99px;padding:0 6px;font-size:10.5px">2</span></a>
+    </div>
+    <div class="nav-lb">Spaces</div>
+    <div class="nav" style="padding-top:0">
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5V4.5Z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/></svg></span>Company<span class="n">43</span></a>
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4l13 1.5L14 11l4 5.5L5 18"/></svg></span>Product<span class="n">18</span></a>
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span>Engineering<span class="n">31</span></a>
+      <div class="sb-new"><span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>New space</div>
+    </div>
+    <div class="sb-foot"><span class="av av-y">A</span><span class="meta"><b>Ali</b><i>1989 Studio</i></span></div>
+  </aside>
+  <div class="main">
+    <div class="tb"><div class="crumb"><b>Checks</b></div><div class="sp"></div><div class="tb-acts"><button class="ib"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></button></div></div>
+    <div class="wrap">
+      <div style="max-width:760px">
+        <h1 class="h1">Two things to confirm.</h1>
+        <p class="h1s">Reading time, both together: about six minutes.</p>
+
+        <div class="card" style="margin-top:26px">
+          <div style="display:flex;align-items:flex-start;gap:14px">
+            <span class="av av-s l">S</span>
+            <div style="flex:1;min-width:0">
+              <p style="margin:0;font-size:13px;color:var(--text-secondary)"><b style="font-weight:600;color:var(--text-primary)">Sara</b> wants you to check this before it counts as true.</p>
+              <p style="margin:9px 0 0;font-family:var(--font-serif);font-size:22px;font-weight:500;letter-spacing:-.01em">Refund policy — v2</p>
+              <p style="margin:5px 0 0;font-size:12.5px;color:var(--text-muted)">Company · 4 min read · asked 2 days ago</p>
+              <div style="margin-top:16px;padding:14px 16px;background:var(--bg-base);border:1px solid var(--border);border-radius:9px">
+                <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text-muted)">What's different from v1</p>
+                <ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.7;color:var(--text-secondary)">
+                  <li>Partial refunds are now allowed without a manager, under AED 500.</li>
+                  <li>The 14-day window became 30 days for annual plans.</li>
+                  <li>Removed the section on cheque refunds entirely.</li>
+                </ul>
+              </div>
+              <div style="margin-top:16px;display:flex;align-items:center;gap:9px">
+                <button class="btn pri">Read it, then confirm</button>
+                <button class="btn sec">Comment instead</button>
+                <span class="sp"></span>
+                <button class="btn gho">Not my call</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;border-left:3px solid var(--ageing-border)">
+          <div style="display:flex;align-items:flex-start;gap:14px">
+            <span class="av l" style="background:var(--ageing-bg);color:var(--ageing-text);border:1px solid var(--ageing-border)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M12 4v4"/><circle cx="12" cy="3.5" r="1" fill="currentColor"/><circle cx="9" cy="13" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.2" fill="currentColor" stroke="none"/><path d="M9.5 16h5"/><path d="M2 13v2M22 13v2"/></svg></span>
+            <div style="flex:1;min-width:0">
+              <p style="margin:0;font-size:13px;color:var(--text-secondary)"><b style="font-weight:600;color:var(--text-primary)">Claude Code</b> wrote this after a task you gave it.</p>
+              <p style="margin:9px 0 0;font-family:var(--font-serif);font-size:22px;font-weight:500;letter-spacing:-.01em">Fix: ACH return code R09 routing</p>
+              <p style="margin:5px 0 0;font-size:12.5px;color:var(--text-muted)">Engineering · 2 min read · cites 2 approved docs · 1 hour ago</p>
+              <div style="margin-top:16px;padding:14px 16px;background:var(--bg-base);border:1px solid var(--border);border-radius:9px;font-family:var(--font-serif);font-size:14.5px;line-height:1.7;color:var(--text-secondary)">
+                “R09 means the receiving account had insufficient funds at settlement, not that the account is invalid. We now retry once after 48 hours before failing the payout…”
+              </div>
+              <div style="margin-top:16px;display:flex;align-items:center;gap:9px">
+                <button class="btn pri">Read it, then confirm</button>
+                <button class="btn sec">Send it back</button>
+                <span class="sp"></span>
+                <button class="btn gho">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="hint" style="margin-top:28px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-5.2"/></svg> Docs written from a merged pull request publish themselves — they never land here. <a href="#">Change that</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 8 · Settings -->
+<div class="fr" style="left:4760px;top:1500px">
+<h4>10 · Settings · AI access<span>Where onboarding's fourth step went. Optional, findable, and no longer in anyone's way.</span></h4>
+<div class="screen" style="height:980px" data-screen-label="Settings">
+  <aside class="set-nav">
+    <button class="btn gho" style="margin-bottom:16px;padding:0 8px 0 4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>1989 Studio</button>
+    <div class="nav-lb" style="padding:6px 10px 6px">Workspace</div>
+    <a class="nav-i">General</a>
+    <a class="nav-i">People</a>
+    <a class="nav-i">Spaces</a>
+    <div class="nav-lb" style="padding:16px 10px 6px">Connections</div>
+    <a class="nav-i on">AI access</a>
+    <a class="nav-i">Integrations</a>
+    <a class="nav-i">Notifications</a>
+    <div class="nav-lb" style="padding:16px 10px 6px">You</div>
+    <a class="nav-i">Profile</a>
+    <a class="nav-i">Sign out</a>
+  </aside>
+  <div class="main">
+    <div class="tb"><div class="crumb"><span>Settings</span><span class="sep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span><b>AI access</b></div></div>
+    <div class="wrap">
+      <div style="max-width:700px">
+        <h1 class="h1">AI access</h1>
+        <p class="h1s" style="max-width:520px">Agents read your <b style="font-weight:600">current</b> docs for context and write drafts back. Nothing they write counts as true until a person confirms it.</p>
+
+        <div class="sect">
+          <div class="sect-h"><h2>Connected</h2><a href="#">＋ New key</a></div>
+          <div class="keyrow">
+            <div><b style="font-family:var(--font-serif);font-size:16.5px;font-weight:500">Claude Code</b><p style="margin:3px 0 0;font-size:12.5px;color:var(--text-muted)">Reads Company, Engineering · wrote 12 docs · last used 1 hour ago</p></div>
+            <span class="kbd" style="font-size:11px">aqli_live_··· 8f2c</span>
+            <span class="tl cur"><i></i>Active</span>
+          </div>
+          <div class="keyrow">
+            <div><b style="font-family:var(--font-serif);font-size:16.5px;font-weight:500">Cursor</b><p style="margin:3px 0 0;font-size:12.5px;color:var(--text-muted)">Reads Engineering · wrote 3 docs · last used 6 days ago</p></div>
+            <span class="kbd" style="font-size:11px">aqli_live_··· 41ae</span>
+            <span class="tl cur"><i></i>Active</span>
+          </div>
+          <div class="keyrow" style="border-bottom:0">
+            <div><b style="font-family:var(--font-serif);font-size:16.5px;font-weight:500">Compliance Bot</b><p style="margin:3px 0 0;font-size:12.5px;color:var(--text-muted)">Reads Company · never used</p></div>
+            <span class="kbd" style="font-size:11px">aqli_live_··· 9b07</span>
+            <span class="tl unv"><i></i>Idle</span>
+          </div>
+        </div>
+
+        <div class="sect">
+          <div class="sect-h"><h2>Rules</h2></div>
+          <div class="card" style="display:flex;align-items:center;gap:18px">
+            <div style="flex:1"><b style="font-size:14px;font-weight:600">A person confirms every agent draft</b><p style="margin:4px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.6">Agent docs arrive in Checks as Unverified. Off means they publish themselves — with the agent named on the page.</p></div>
+            <span class="sw"></span>
+          </div>
+          <div class="card" style="display:flex;align-items:center;gap:18px;margin-top:12px">
+            <div style="flex:1"><b style="font-size:14px;font-weight:600">Docs from merged pull requests publish themselves</b><p style="margin:4px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.6">A human already reviewed the code. The doc is attributed to whoever merged it. <span style="color:var(--text-muted)">3 repos watched · median 40s from merge to doc</span></p></div>
+            <span class="sw"></span>
+          </div>
+          <div class="card" style="display:flex;align-items:center;gap:18px;margin-top:12px">
+            <div style="flex:1"><b style="font-size:14px;font-weight:600">Agents may read Ageing docs</b><p style="margin:4px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.6">Off keeps them to Current docs only — fewer answers, none of them stale.</p></div>
+            <span class="sw off"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 09 · Search -->
+<div class="fr" style="left:6320px;top:1500px">
+<h4>11 · Search<span>⌘K answers fast; this page is for when the answer needs its sources shown.</span></h4>
+<div class="screen" style="height:1180px" data-screen-label="Search">
+  <aside class="sb">
+    <div class="sb-head"><span class="wm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 14.5C5 9 9 5 13 5c3.5 0 5.8 2.3 5.8 5.2 0 2.6-1.8 4.5-4.3 4.5-1.7 0-2.9-1-2.9-2.5 0-1.4 1-2.4 2.2-2.4.5 0 .9.1 1.2.3" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.4" cy="17.6" r="1.5" fill="var(--accent)"/></svg><span>aqli</span></span><div class="sb-ws">1989 Studio</div></div>
+    <div class="nav">
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/><path d="M10 20v-5h4v5"/></svg></span>Home</a>
+      <a class="nav-i on"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></span>Search<span class="k">⌘K</span></a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg></span>Drafts<span class="n">3</span></a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-11"/></svg></span>Checks<span class="n" style="color:var(--ageing-text);background:var(--ageing-bg);border:1px solid var(--ageing-border);border-radius:99px;padding:0 6px;font-size:10.5px">2</span></a>
+    </div>
+    <div class="nav-lb">Spaces</div>
+    <div class="nav" style="padding-top:0">
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5V4.5Z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/></svg></span>Company<span class="n">43</span></a>
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4l13 1.5L14 11l4 5.5L5 18"/></svg></span>Product<span class="n">18</span></a>
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span>Engineering<span class="n">31</span></a>
+      <div class="sb-new"><span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>New space</div>
+    </div>
+    <div class="sb-foot"><span class="av av-y">A</span><span class="meta"><b>Ali</b><i>1989 Studio</i></span></div>
+  </aside>
+  <div class="main">
+    <div class="tb"><div class="crumb"><b>Search</b></div><div class="sp"></div><div class="tb-acts"><span class="kbd">⌘K for the quick version</span></div></div>
+    <div class="wrap">
+      <div style="max-width:820px">
+        <div style="display:flex;align-items:center;gap:12px;padding:0 0 18px;border-bottom:1px solid var(--border)">
+          <span style="color:var(--text-muted);display:flex"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></span>
+          <span style="font-family:var(--font-serif);font-size:27px;letter-spacing:-.015em">how do I refund part of a payout?</span>
+          <span class="sp"></span>
+          <span class="kbd">esc to clear</span>
+        </div>
+
+        <div class="card" style="margin-top:22px;border-color:var(--current-border);background:var(--current-bg)">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+            <span style="color:var(--accent);display:flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg></span>
+            <span style="font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--accent)">Answer · from 2 current docs</span>
+          </div>
+          <p style="margin:0;font-family:var(--font-serif);font-size:17.5px;line-height:1.7;color:#242422">Under <strong>AED 500</strong>, on a payout less than 30 days old and with no chargeback open, you can issue a partial refund yourself from the payout's detail page. Anything above that threshold needs Sara. The refund returns to the original method in 3–5 working days, and the remainder of the payout stays settled.</p>
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--current-border);display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+            <span style="font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)">Because</span>
+            <a style="font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:7px"><span class="dot cur"></span>Partial refunds — how they work <span style="color:var(--text-muted);font-weight:400">§When you can do it alone</span></a>
+            <a style="font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:7px"><span class="dot cur"></span>Spending &amp; approvals <span style="color:var(--text-muted);font-weight:400">§Thresholds</span></a>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:12px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-5.2"/></svg> Both sources were confirmed in the last month. Aqli never answers from unverified docs — <a href="#">change that</a></p>
+
+        <div class="sect">
+          <div class="sect-h"><h2>Matches · 6</h2>
+            <div style="margin-left:auto;display:flex;gap:6px">
+              <span class="pick on" style="height:27px;font-size:12px">Everywhere</span>
+              <span class="pick" style="height:27px;font-size:12px">Company</span>
+              <span class="pick" style="height:27px;font-size:12px">Current only</span>
+            </div>
+          </div>
+          <a class="row" style="align-items:flex-start"><span class="dot cur" style="margin-top:7px"></span><span><span class="t">Partial refunds — how they work</span><p style="margin:6px 0 0;font-family:var(--font-serif);font-size:15px;line-height:1.65;color:var(--text-secondary)">“Under AED 500, on a payout less than 30 days old, with no chargeback open. Anything outside that needs <mark style="background:var(--ageing-bg);color:inherit">Sara</mark>…”</p><span class="m"><span class="ty">How-to</span>· Company · Ali · confirmed 8 days ago · cited by 4</span></span><span class="m">2 min</span></a>
+          <a class="row" style="align-items:flex-start"><span class="dot cur" style="margin-top:7px"></span><span><span class="t">Spending &amp; approvals</span><p style="margin:6px 0 0;font-family:var(--font-serif);font-size:15px;line-height:1.65;color:var(--text-secondary)">“…anything above AED 500 needs a second pair of eyes, including <mark style="background:var(--ageing-bg);color:inherit">refunds</mark> and goodwill credits.”</p><span class="m"><span class="ty">Policy</span>· Company · Sara · confirmed 3 weeks ago</span></span><span class="m">3 min</span></a>
+          <a class="row" style="align-items:flex-start"><span class="dot age" style="margin-top:7px"></span><span><span class="t">Payouts — support macros</span><p style="margin:6px 0 0;font-family:var(--font-serif);font-size:15px;line-height:1.65;color:var(--text-secondary)">“Macro 14 covers a <mark style="background:var(--ageing-bg);color:inherit">partial refund</mark> request. Paste the reference number before sending…”</p><span class="m"><span class="ty">Runbook</span>· Company · nobody has confirmed it in 5 months</span></span><span class="m">4 min</span></a>
+          <a class="row" style="align-items:flex-start"><span class="dot unv" style="margin-top:7px"></span><span><span class="t">Fix: ACH return code R09 routing</span><p style="margin:6px 0 0;font-family:var(--font-serif);font-size:15px;line-height:1.65;color:var(--text-secondary)">“…we retry once after 48 hours before failing the <mark style="background:var(--ageing-bg);color:inherit">payout</mark> and issuing a refund.”</p><span class="m"><span class="ty">Fix note</span>· Engineering · from PR #1247 · waiting on a check</span></span><span class="m">2 min</span></a>
+        </div>
+
+        <div class="sect">
+          <div class="sect-h"><h2>Nobody has written this down</h2></div>
+          <a class="row"><span class="m" style="font-family:var(--font-mono);font-size:13px;color:var(--text-secondary);margin:0">7×</span><span><span class="t" style="font-style:italic">“Refunds on annual plans — same threshold?”</span><span class="m">asked 7 times this month · no doc covers it</span></span><button class="btn sm sec">Write it</button></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════ GROUP 3 · MOBILE ══════════════ -->
+<div class="grp" style="left:80px;top:2960px">Phone — read anywhere, write in a pinch
+<span>The same three states, the same paper column. Reading is the primary phone job, so the doc gets the full screen and every control collapses into the one bar at the bottom.</span></div>
+
+<div class="fr" style="left:80px;top:3165px">
+<h4>12 · Home</h4>
+<div class="phone" data-screen-label="Phone home">
+  <div class="pstat"><span>9:41</span><span>􀙇 􀛨 􀛧</span></div>
+  <div class="pbar"><span class="wm"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M5 14.5C5 9 9 5 13 5c3.5 0 5.8 2.3 5.8 5.2 0 2.6-1.8 4.5-4.3 4.5-1.7 0-2.9-1-2.9-2.5 0-1.4 1-2.4 2.2-2.4.5 0 .9.1 1.2.3" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.4" cy="17.6" r="1.5" fill="var(--accent)"/></svg></span><div class="sp"></div><button class="ib"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></button><span class="av s av-y">A</span></div>
+  <div style="flex:1;overflow:hidden;padding:20px 18px">
+    <h1 class="h1" style="font-size:25px">Wednesday morning.</h1>
+    <p class="h1s" style="font-size:13px;margin-top:5px">Two things waiting on you.</p>
+    <div class="card" style="margin-top:18px;padding:14px 15px">
+      <p style="margin:0;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted)">Where you left off</p>
+      <p style="margin:6px 0 0;font-family:var(--font-serif);font-size:17px;font-weight:500">Q3 Payments Launch</p>
+      <button class="btn pri sm" style="margin-top:11px">Keep writing</button>
+    </div>
+    <div class="sect" style="margin-top:24px">
+      <div class="sect-h"><h2 style="font-size:11px">Waiting on you</h2></div>
+      <a class="row" style="grid-template-columns:auto 1fr;padding:12px 0"><span class="dot unv"></span><span><span class="t" style="font-size:15px">Refund policy — v2</span><span class="m" style="font-size:11.5px">Sara asked · 4 min read</span></span></a>
+      <a class="row" style="grid-template-columns:auto 1fr;padding:12px 0"><span class="dot age"></span><span><span class="t" style="font-size:15px">Payouts Messaging v3</span><span class="m" style="font-size:11.5px">4 months unconfirmed · you own it</span></span></a>
+    </div>
+    <div class="sect" style="margin-top:20px">
+      <div class="sect-h"><h2 style="font-size:11px">New since Monday</h2></div>
+      <a class="row" style="grid-template-columns:auto 1fr;padding:12px 0"><span class="dot cur"></span><span><span class="t" style="font-size:15px">Fix: ACH R09 routing</span><span class="m" style="font-size:11.5px">from PR #1247</span></span></a>
+      <a class="row" style="grid-template-columns:auto 1fr;padding:12px 0"><span class="dot cur"></span><span><span class="t" style="font-size:15px">On-call handover — August</span><span class="m" style="font-size:11.5px">Ali · Monday</span></span></a>
+    </div>
+  </div>
+  <div class="ptabs">
+    <div class="ptab on"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/><path d="M10 20v-5h4v5"/></svg>Home</div>
+    <div class="ptab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg>Search</div>
+    <div class="ptab"><span style="width:34px;height:34px;border-radius:99px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;margin-top:-6px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div>
+    <div class="ptab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-11"/></svg>Checks</div>
+    <div class="ptab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5V4.5Z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/></svg>Spaces</div>
+  </div>
+</div>
+</div>
+
+<div class="fr" style="left:590px;top:3165px">
+<h4>13 · Reading</h4>
+<div class="phone" data-screen-label="Phone read">
+  <div class="pstat"><span>9:41</span><span>􀙇 􀛨 􀛧</span></div>
+  <div class="pbar"><button class="ib"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg></button><span style="font-size:13px;color:var(--text-secondary)">Company</span><div class="sp"></div><span class="tl cur"><i></i>Current</span></div>
+  <div style="flex:1;overflow:hidden;padding:22px 22px 0">
+    <h1 class="dt" style="font-size:29px">Partial refunds — how they work</h1>
+    <div class="tline" style="font-size:12px;margin-top:12px"><span class="who">checked by <span class="av s av-s">S</span> Sara, 8 days ago</span></div>
+    <div class="dbody" style="font-size:17px;margin-top:20px">
+      <p>A partial refund returns some of a payout while leaving the rest settled. Use it when only part of an order was wrong.</p>
+      <h2 style="font-size:20px;margin-top:24px">When you can do it alone</h2>
+      <p>Under AED 500, on a payout less than 30 days old, with no chargeback open. Anything outside that needs Sara.</p>
+      <p>Refunds land back on the original method within…</p>
+    </div>
+  </div>
+  <div class="ptabs" style="height:66px;flex-basis:66px;align-items:center;padding:0 8px;gap:4px">
+    <button class="btn gho" style="flex:1;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h11M4 17h14"/></svg>Outline</button>
+    <button class="btn gho" style="flex:1;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H6l-3 2v-10a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z"/></svg>Ask</button>
+    <button class="btn gho" style="flex:1;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg>Edit</button>
+    <button class="btn gho" style="flex:1;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>Share</button>
+  </div>
+</div>
+</div>
+
+<div class="fr" style="left:1100px;top:3165px">
+<h4>14 · Writing</h4>
+<div class="phone" data-screen-label="Phone write">
+  <div class="pstat"><span>9:41</span><span>􀙇 􀛨 􀛧</span></div>
+  <div class="pbar"><button class="ib"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg></button><span class="saved"><i></i>Saved</span><div class="sp"></div><button class="btn pri sm">Publish</button></div>
+  <div style="flex:1;overflow:hidden;padding:22px 22px 0">
+    <h1 class="dt" style="font-size:29px">Cheque handling</h1>
+    <div class="dbody" style="font-size:17px;margin-top:18px">
+      <p>We stopped accepting cheques in June. If one arrives, log it in Ops and post it back the same week.</p>
+      <p><span style="display:inline-block;width:2px;height:19px;background:var(--accent);vertical-align:-4px"></span></p>
+    </div>
+  </div>
+  <div style="height:52px;flex:0 0 52px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--bg-card)">
+    <button class="ib" style="font-family:var(--font-serif);font-size:16px;font-weight:600">H</button>
+    <button class="ib" style="font-weight:700">B</button>
+    <button class="ib" style="font-style:italic;font-family:var(--font-serif)">I</button>
+    <button class="ib">•</button>
+    <button class="ib"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg></button>
+    <div class="sp"></div>
+    <button class="ib" style="color:var(--accent)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg></button>
+  </div>
+  <div style="height:216px;flex:0 0 216px;background:#D3D1CB;padding:10px 5px;display:flex;flex-direction:column;gap:9px">
+    <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:5px"><span class="kk">q</span><span class="kk">w</span><span class="kk">e</span><span class="kk">r</span><span class="kk">t</span><span class="kk">y</span><span class="kk">u</span><span class="kk">i</span><span class="kk">o</span><span class="kk">p</span></div>
+    <div style="display:grid;grid-template-columns:repeat(9,1fr);gap:5px;margin:0 18px"><span class="kk">a</span><span class="kk">s</span><span class="kk">d</span><span class="kk">f</span><span class="kk">g</span><span class="kk">h</span><span class="kk">j</span><span class="kk">k</span><span class="kk">l</span></div>
+    <div style="display:grid;grid-template-columns:1.4fr repeat(7,1fr) 1.4fr;gap:5px"><span class="kk" style="background:#B4B2AC">⇧</span><span class="kk">z</span><span class="kk">x</span><span class="kk">c</span><span class="kk">v</span><span class="kk">b</span><span class="kk">n</span><span class="kk">m</span><span class="kk" style="background:#B4B2AC">⌫</span></div>
+    <div style="display:grid;grid-template-columns:1.3fr 4fr 1.3fr;gap:5px"><span class="kk" style="background:#B4B2AC">123</span><span class="kk">space</span><span class="kk" style="background:var(--accent);color:#fff">return</span></div>
+  </div>
+</div>
+</div>
+
+
+<div class="grp" style="left:80px;top:4100px">The rest of the codebase — what happens to it
+<span>Eighteen routes exist today. Four of them stop being places you can go: <b>/stale</b> and <b>/agent-log</b> become filters and a settings panel, <b>/review</b> is now Checks, and the doc-type picker at <b>/s/[space]/new</b> is deleted outright — “new doc” goes straight to a cursor. The four below are the ones worth keeping, restyled.</span></div>
+
+<div class="fr" style="left:80px;top:4340px">
+<h4>15 · Drafts<span>Was “yours, then everyone else's”, framed around review. Now framed around finishing.</span></h4>
+<div class="screen" style="height:940px" data-screen-label="Drafts">
+  <aside class="sb">
+    <div class="sb-head"><span class="wm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 14.5C5 9 9 5 13 5c3.5 0 5.8 2.3 5.8 5.2 0 2.6-1.8 4.5-4.3 4.5-1.7 0-2.9-1-2.9-2.5 0-1.4 1-2.4 2.2-2.4.5 0 .9.1 1.2.3" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.4" cy="17.6" r="1.5" fill="var(--accent)"/></svg><span>aqli</span></span><div class="sb-ws">1989 Studio</div></div>
+    <div class="nav">
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/><path d="M10 20v-5h4v5"/></svg></span>Home</a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></span>Search<span class="k">⌘K</span></a>
+      <a class="nav-i on"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg></span>Drafts<span class="n">3</span></a>
+      <a class="nav-i"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-11"/></svg></span>Checks<span class="n" style="color:var(--ageing-text);background:var(--ageing-bg);border:1px solid var(--ageing-border);border-radius:99px;padding:0 6px;font-size:10.5px">2</span></a>
+    </div>
+    <div class="nav-lb">Spaces</div>
+    <div class="nav" style="padding-top:0">
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5V4.5Z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/></svg></span>Company<span class="n">43</span></a>
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4l13 1.5L14 11l4 5.5L5 18"/></svg></span>Product<span class="n">18</span></a>
+      <a class="nav-i"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span>Engineering<span class="n">31</span></a>
+      <div class="sb-new"><span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>New space</div>
+    </div>
+    <div class="sb-foot"><span class="av av-y">A</span><span class="meta"><b>Ali</b><i>1989 Studio</i></span></div>
+  </aside>
+  <div class="main">
+    <div class="tb"><div class="crumb"><b>Drafts</b></div><div class="sp"></div><div class="tb-acts"><button class="btn pri"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Write</button></div></div>
+    <div class="wrap"><div style="max-width:760px">
+      <h1 class="h1">Three unfinished things.</h1>
+      <p class="h1s">Nobody can see these but you. They stay drafts until you publish them.</p>
+      <div class="sect">
+        <div class="sect-h"><h2>Yours</h2></div>
+        <a class="row"><span class="m" style="margin:0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg></span><span><span class="t">Q3 Payments Launch</span><span class="m">stopped mid-sentence in “How we'll say it” · 14 min ago</span></span><button class="btn sm pri">Keep writing</button></a>
+        <a class="row"><span class="m" style="margin:0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg></span><span><span class="t">Cheque handling</span><span class="m">two paragraphs · started Monday</span></span><button class="btn sm sec">Keep writing</button></a>
+        <a class="row"><span class="m" style="margin:0;color:var(--text-muted)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg></span><span><span class="t" style="color:var(--text-secondary)">Untitled</span><span class="m">empty · started 3 weeks ago</span></span><button class="btn sm gho">Delete</button></a>
+      </div>
+      <div class="sect">
+        <div class="sect-h"><h2>Started by others, shared with you</h2></div>
+        <a class="row"><span class="av s av-s">S</span><span><span class="t">Pricing experiment — results</span><span class="m">Sara · she asked you to add the payouts numbers</span></span><span class="m">2d ago</span></a>
+      </div>
+      <p class="hint" style="margin-top:30px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-11"/></svg> A draft nobody has touched in a month gets one nudge, then quietly archives itself.</p>
+    </div></div>
+  </div>
+</div>
+</div>
+
+<div class="fr" style="left:1640px;top:4340px">
+<h4>16 · Doc history<span>Reached from the rail's History tab. Versions on the left, the change itself on the right.</span></h4>
+<div class="screen" style="height:940px" data-screen-label="History">
+  <div class="main">
+    <div class="tb"><div class="crumb"><span>Company</span><span class="sep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span><span>Partial refunds — how they work</span><span class="sep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span><b>History</b></div><div class="sp"></div><div class="tb-acts"><button class="btn gho">Back to the doc</button></div></div>
+    <div class="body">
+      <div style="width:290px;flex:0 0 290px;border-right:1px solid var(--border);padding:18px 14px;overflow:auto">
+        <div class="bl" style="background:var(--accent-light);border-radius:8px;padding:11px 12px;border-bottom:0"><b>v6 · Threshold raised to AED 500</b><span><span class="av s av-a">A</span>Ali · 8 days ago</span></div>
+        <div class="bl" style="padding:11px 12px"><b>v5 · Confirmed, no changes</b><span><span class="av s av-s">S</span>Sara · 3 weeks ago</span></div>
+        <div class="bl" style="padding:11px 12px"><b>v4 · Chargeback rule added</b><span><span class="av s av-a">A</span>Ali · 2 months ago</span></div>
+        <div class="bl" style="padding:11px 12px"><b>v3 · Rewritten from support macros</b><span><span class="av s" style="background:var(--unver-bg);color:var(--text-secondary);border:1px solid var(--border)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M12 4v4"/><circle cx="12" cy="3.5" r="1" fill="currentColor"/><circle cx="9" cy="13" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.2" fill="currentColor" stroke="none"/><path d="M9.5 16h5"/><path d="M2 13v2M22 13v2"/></svg></span>Claude Code · 4 months ago</span></div>
+        <div class="bl" style="padding:11px 12px"><b>v2 · First published</b><span><span class="av s av-k">K</span>Khalid · 7 months ago</span></div>
+      </div>
+      <div class="paper">
+        <div class="col" style="padding-top:36px;max-width:660px">
+          <p class="ob-eb" style="margin:0">Version 6 of 6 · 8 days ago</p>
+          <h1 class="dt" style="font-size:30px;margin-top:8px">Threshold raised to AED 500</h1>
+          <p style="margin:12px 0 0;font-size:13.5px;color:var(--text-secondary)">Ali edited this, then Sara confirmed it the same day. Three docs cite this section — all three were re-checked automatically.</p>
+          <div class="dbody" style="margin-top:28px;font-size:17px">
+            <h2 style="font-size:20px">When you can do it alone</h2>
+            <p><span style="background:#FBE3E1;color:#8A2A22;text-decoration:line-through;padding:1px 3px;border-radius:3px">Under AED 250</span> <span style="background:var(--current-bg);color:var(--current-text);padding:1px 3px;border-radius:3px">Under AED 500</span>, on a payout less than 30 days old, with no chargeback open. Anything outside that needs Sara.</p>
+            <p>Refunds land back on the original method within 3–5 working days.</p>
+            <p style="background:var(--current-bg);color:var(--current-text);padding:3px 4px;border-radius:3px;display:inline-block">Partial refunds above the threshold need a second approver — see Spending &amp; approvals.</p>
+          </div>
+          <div style="margin-top:32px;display:flex;gap:9px"><button class="btn sec">Restore this version</button><button class="btn gho">Compare with v4</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="fr" style="left:3200px;top:4340px">
+<h4>17 · Settings · People<span>Members and pending invites in one list, because to a human they're the same thing.</span></h4>
+<div class="screen" style="height:940px" data-screen-label="People">
+  <aside class="set-nav">
+    <button class="btn gho" style="margin-bottom:16px;padding:0 8px 0 4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>1989 Studio</button>
+    <div class="nav-lb" style="padding:6px 10px 6px">Workspace</div>
+    <a class="nav-i">General</a>
+    <a class="nav-i on">People</a>
+    <a class="nav-i">Spaces</a>
+    <div class="nav-lb" style="padding:16px 10px 6px">Connections</div>
+    <a class="nav-i">AI access</a>
+    <a class="nav-i">Integrations</a>
+    <a class="nav-i">Notifications</a>
+    <div class="nav-lb" style="padding:16px 10px 6px">You</div>
+    <a class="nav-i">Profile</a>
+    <a class="nav-i">Sign out</a>
+  </aside>
+  <div class="main">
+    <div class="tb"><div class="crumb"><span>Settings</span><span class="sep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span><b>People</b></div></div>
+    <div class="wrap"><div style="max-width:700px">
+      <h1 class="h1">People</h1>
+      <p class="h1s">Four people, one pending. Anyone can write; admins can publish on someone else's behalf and confirm docs.</p>
+      <div style="margin-top:22px;display:flex;gap:9px">
+        <input class="inp" style="flex:1" placeholder="name@company.com — invite by email" />
+        <button class="btn pri" style="height:38px">Send invite</button>
+      </div>
+      <div class="sect">
+        <div class="sect-h"><h2>In the workspace</h2></div>
+        <div class="keyrow" style="grid-template-columns:auto 1fr auto auto;gap:13px"><span class="av av-y">A</span><div><b style="font-size:14px;font-weight:600">Ali</b> <span style="font-size:12.5px;color:var(--text-muted)">· you</span><p style="margin:2px 0 0;font-size:12.5px;color:var(--text-muted)">ali@1989.studio · owns 12 docs</p></div><span class="tl cur"><i></i>Admin</span><span class="ib">⋯</span></div>
+        <div class="keyrow" style="grid-template-columns:auto 1fr auto auto;gap:13px"><span class="av av-s">S</span><div><b style="font-size:14px;font-weight:600">Sara</b><p style="margin:2px 0 0;font-size:12.5px;color:var(--text-muted)">sara@1989.studio · confirmed 19 docs this quarter</p></div><span class="tl cur"><i></i>Admin</span><span class="ib">⋯</span></div>
+        <div class="keyrow" style="grid-template-columns:auto 1fr auto auto;gap:13px"><span class="av av-k">K</span><div><b style="font-size:14px;font-weight:600">Khalid</b><p style="margin:2px 0 0;font-size:12.5px;color:var(--text-muted)">khalid@1989.studio · owns 8 docs</p></div><span class="tl unv"><i></i>Member</span><span class="ib">⋯</span></div>
+        <div class="keyrow" style="grid-template-columns:auto 1fr auto auto;gap:13px;border-bottom:0"><span class="av" style="background:var(--unver-bg);color:var(--text-muted);border:1px dashed var(--border-strong)">?</span><div><b style="font-size:14px;font-weight:600;color:var(--text-secondary)">yasmin@1989.studio</b><p style="margin:2px 0 0;font-size:12.5px;color:var(--text-muted)">invited 2 days ago · expires in 5</p></div><button class="btn sm sec">Resend</button><span class="ib"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6 18 18M18 6 6 18"/></svg></span></div>
+      </div>
+      <div class="sect">
+        <div class="sect-h"><h2>When someone new joins</h2></div>
+        <div class="card" style="display:flex;align-items:center;gap:18px">
+          <div style="flex:1"><b style="font-size:14px;font-weight:600">Send them the Company reading path</b><p style="margin:4px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.6">Four docs, about twenty minutes. They land on it instead of an empty home page.</p></div>
+          <span class="sw"></span>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</div>
+</div>
+
+<div class="fr" style="left:4760px;top:4340px">
+<h4>18 · Settings · Integrations<span>Was a provider grid. Now it says what each connection actually writes into the workspace.</span></h4>
+<div class="screen" style="height:940px" data-screen-label="Integrations">
+  <aside class="set-nav">
+    <button class="btn gho" style="margin-bottom:16px;padding:0 8px 0 4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>1989 Studio</button>
+    <div class="nav-lb" style="padding:6px 10px 6px">Workspace</div>
+    <a class="nav-i">General</a>
+    <a class="nav-i">People</a>
+    <a class="nav-i">Spaces</a>
+    <div class="nav-lb" style="padding:16px 10px 6px">Connections</div>
+    <a class="nav-i">AI access</a>
+    <a class="nav-i on">Integrations</a>
+    <a class="nav-i">Notifications</a>
+    <div class="nav-lb" style="padding:16px 10px 6px">You</div>
+    <a class="nav-i">Profile</a>
+    <a class="nav-i">Sign out</a>
+  </aside>
+  <div class="main">
+    <div class="tb"><div class="crumb"><span>Settings</span><span class="sep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span><b>Integrations</b></div></div>
+    <div class="wrap"><div style="max-width:700px">
+      <h1 class="h1">Integrations</h1>
+      <p class="h1s">Each one is a source of truth Aqli can watch. Nothing writes to your docs without saying so on the page.</p>
+      <div class="sect">
+        <div class="sect-h"><h2>Connected</h2></div>
+        <div class="card" style="display:flex;gap:15px;align-items:flex-start">
+          <span class="av l" style="background:#1A1A18"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.8c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.4-1.1.6-1.4-2.2-.2-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.8-4.6 5 .4.3.7 1 .7 2v2.9c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg></span>
+          <div style="flex:1">
+            <b style="font-family:var(--font-serif);font-size:17px;font-weight:500">GitHub</b>
+            <p style="margin:4px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.6">Watching 3 repos. When a PR merges, Aqli writes a fix note into <b style="font-weight:600">Engineering</b> and publishes it under whoever merged it.</p>
+            <p style="margin:9px 0 0;font-size:12.5px;color:var(--text-muted)">17 docs written this quarter · median 40s from merge to doc · last one 1 hour ago</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-end"><span class="tl cur"><i></i>Active</span><button class="btn sm gho">Configure</button></div>
+        </div>
+        <div class="card" style="display:flex;gap:15px;align-items:flex-start;margin-top:12px">
+          <span class="av l" style="background:#4A154B"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M6 15a2 2 0 1 1-2-2h2v2Zm1 0a2 2 0 1 1 4 0v5a2 2 0 1 1-4 0v-5Zm2-8a2 2 0 1 1 2-2v2H9Zm0 1a2 2 0 1 1 0 4H4a2 2 0 1 1 0-4h5Zm9 2a2 2 0 1 1 2 2h-2V10Zm-1 0a2 2 0 1 1-4 0V5a2 2 0 1 1 4 0v5Zm-2 8a2 2 0 1 1-2 2v-2h2Zm0-1a2 2 0 1 1 0-4h5a2 2 0 1 1 0 4h-5Z"/></svg></span>
+          <div style="flex:1">
+            <b style="font-family:var(--font-serif);font-size:17px;font-weight:500">Slack</b>
+            <p style="margin:4px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.6">Answers questions in <b style="font-weight:600">#ask-anything</b> from current docs, and logs the ones nothing answers.</p>
+            <p style="margin:9px 0 0;font-size:12.5px;color:var(--text-muted)">204 questions answered · 11 gaps found · 2 of them written up</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-end"><span class="tl cur"><i></i>Active</span><button class="btn sm gho">Configure</button></div>
+        </div>
+      </div>
+      <div class="sect">
+        <div class="sect-h"><h2>Available</h2></div>
+        <div class="grid3">
+          <button class="tpl"><b>Linear</b><span>Turn a shipped project into a decision record.</span></button>
+          <button class="tpl"><b>Notion</b><span>One-way import, links and headings intact.</span></button>
+          <button class="tpl"><b>Confluence</b><span>One-way import, per space.</span></button>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</div>
+</div>
+
+<div class="fr" style="left:6320px;top:4340px">
+<h4>19 · Retired<span>The four routes v3 deletes, and where their job went.</span></h4>
+<div class="screen" style="height:940px;background:var(--bg-card)" data-screen-label="Retired">
+  <div class="main" style="background:var(--bg-card)">
+    <div class="wrap" style="padding:60px 64px">
+      <h1 class="h1">Four fewer places to be.</h1>
+      <p class="h1s" style="max-width:520px">Each of these was a destination in the old app. None of them was where anyone wanted to be — they were all detours around the same question: is this doc still true?</p>
+      <div class="sect" style="margin-top:40px">
+        <div class="keyrow" style="grid-template-columns:1fr auto 1.2fr;gap:22px;align-items:flex-start">
+          <div><b style="font-family:var(--font-mono);font-size:14px">/stale</b><p style="margin:5px 0 0;font-size:13px;color:var(--text-muted);line-height:1.6">“Needs updating” — a whole page listing docs that had gone quiet.</p></div>
+          <span style="color:var(--text-muted);margin-top:4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+          <div><b style="font-size:14px;font-weight:600">The <span class="tl age" style="vertical-align:-4px"><i></i>Ageing</span> state</b><p style="margin:5px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.6">Carried by the doc itself, everywhere it appears — list, search, sidebar, phone. Plus one filter chip on the space page.</p></div>
+        </div>
+        <div class="keyrow" style="grid-template-columns:1fr auto 1.2fr;gap:22px;align-items:flex-start">
+          <div><b style="font-family:var(--font-mono);font-size:14px">/agent-log</b><p style="margin:5px 0 0;font-size:13px;color:var(--text-muted);line-height:1.6">A feed of everything the AI had done, which nobody read twice.</p></div>
+          <span style="color:var(--text-muted);margin-top:4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+          <div><b style="font-size:14px;font-weight:600">Settings › AI access</b><p style="margin:5px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.6">Per-agent counts on the key that produced them. The drafts themselves arrive in Checks, where they can be acted on.</p></div>
+        </div>
+        <div class="keyrow" style="grid-template-columns:1fr auto 1.2fr;gap:22px;align-items:flex-start">
+          <div><b style="font-family:var(--font-mono);font-size:14px">/review</b><p style="margin:5px 0 0;font-size:13px;color:var(--text-muted);line-height:1.6">“Review Queue”, sitting under a sidebar group called Workflow.</p></div>
+          <span style="color:var(--text-muted);margin-top:4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+          <div><b style="font-size:14px;font-weight:600">Checks</b><p style="margin:5px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.6">Same job, human words, top-level. The Workflow group is gone — it was navigation for a process, not for people.</p></div>
+        </div>
+        <div class="keyrow" style="grid-template-columns:1fr auto 1.2fr;gap:22px;align-items:flex-start;border-bottom:0">
+          <div><b style="font-family:var(--font-mono);font-size:14px">/s/[space]/new</b><p style="margin:5px 0 0;font-size:13px;color:var(--text-muted);line-height:1.6">Pick a doc type, pick a space, name it — three decisions before a single word.</p></div>
+          <span style="color:var(--text-muted);margin-top:4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+          <div><b style="font-size:14px;font-weight:600">Deleted</b><p style="margin:5px 0 0;font-size:13px;color:var(--text-secondary);line-height:1.6">Write goes straight to a cursor. Type and space are asked once, in the Publish sheet, when the answers are actually known.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

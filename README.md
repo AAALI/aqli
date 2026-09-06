@@ -136,6 +136,17 @@ Moving a whole company onto Aqli? [ADOPTION.md](ADOPTION.md) lists what has to
 be true first — import, space permissions, assistant connections, export —
 with acceptance criteria for each.
 
+## Design and architecture
+
+- [docs/architecture.md](docs/architecture.md) — the one architecture: why the
+  store is markdown-canonical, why every write is a proposal, and which
+  alternatives were rejected.
+- [docs/technical-spec.md](docs/technical-spec.md) — the implementation detail
+  behind it, measured against this repository rather than assumed.
+- [design/v3/](design/v3/) — the current design handoff: the brief, the
+  journeys, the CSS the screens are built from, two runnable HTML prototypes
+  and a screenshot per frame. Start with `design/v3/BRIEF.md`.
+
 ## Self-hosting
 
 Aqli is MIT-licensed and self-hostable from this repository: bring your own
