@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aqli v3 — Write &amp; Read (prototype)</title>
+<link rel="stylesheet" href="aqli-v3.css?v=3" />
+<style>
+body{background:#EDECE7;display:flex;align-items:center;justify-content:center;min-height:100vh;min-width:1496px;padding:28px}
+#stage{flex:0 0 auto;width:1440px;height:900px;position:relative}
+.screen{position:absolute;inset:0}
+.hidden{display:none!important}
+.tip{position:fixed;left:0;right:0;bottom:0;height:40px;background:rgba(26,26,24,.92);color:#EDECE7;display:flex;align-items:center;justify-content:center;gap:22px;font-size:12px;letter-spacing:.01em;z-index:99}
+.tip b{color:#fff;font-weight:600}
+.tip .kbd{border-color:rgba(255,255,255,.24);color:rgba(255,255,255,.7)}
+.ph-empty:empty:before{content:attr(data-ph);color:var(--text-muted)}
+</style>
+</head>
+<body>
+<div id="stage">
+
+<!-- ═══════════ WRITING ═══════════ -->
+<div class="screen flat" id="v-edit" data-screen-label="Write">
+  <div class="main">
+    <div class="tb bare">
+      <button class="btn gho" id="back" style="padding:0 8px 0 4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>Company</button>
+      <span class="saved"><i></i>Saved</span>
+      <div class="sp"></div>
+      <div class="tb-acts">
+        <button class="ib" id="k-edit" title="Search ⌘K"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></button>
+        <button class="btn pri" id="open-publish">Publish</button>
+      </div>
+    </div>
+    <div class="body">
+      <div class="paper" id="edit-paper">
+        <div class="col">
+          <h1 class="dt ph-empty" id="e-title" contenteditable="true" data-ph="Untitled" spellcheck="false">Q3 Payments Launch</h1>
+          <div class="dbody" id="e-body" contenteditable="true" spellcheck="false">
+            <h2>What we're doing</h2>
+            <p>Shipping the redesigned payouts flow to every Company customer by <strong>Sep 30</strong>, cutting median setup time from six minutes to under ninety seconds.</p>
+            <p>Success is a 40% drop in setup-related support tickets in the first month, and a fifteen-point lift in the post-setup satisfaction score.</p>
+            <h2>Who it's for</h2>
+            <p>Customers still on the legacy flow, and the finance-ops teams who configure recurring payouts for them — roughly 4,200 accounts, weighted toward higher-volume senders.</p>
+            <h2>How we'll say it</h2>
+            <p>Getting paid should feel like it already happened.</p>
+            <p><br></p>
+          </div>
+        </div>
+      </div>
+      <button class="spark" id="spark" title="Ask Aqli — ⌘J"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg></button>
+
+      <div class="aip hidden" id="aip">
+        <div class="aip-h"><span style="color:var(--accent);display:flex"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg></span>Aqli · reading your draft and the 43 approved docs in Company<span class="rail-x" id="aip-x"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6 18 18M18 6 6 18"/></svg></span></div>
+        <div class="aip-b" id="aip-b">
+          <div class="sug" data-ins="<p>Our positioning already says it best: lead with the outcome, not the mechanism — customers care that money arrived, not how it was routed.</p>"><b>Continue from “already happened”</b><p>Our positioning already says it best: lead with the outcome, not the mechanism — customers care that money arrived, not how it was routed.</p><div style="margin-top:8px;font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:6px"><span class="dot cur"></span>from Payouts Messaging v3 · §Positioning</div></div>
+          <div class="sug" data-ins="<h2>Deliverables</h2><table><thead><tr><th style='width:52%'>Deliverable</th><th>Owner</th><th>Date</th></tr></thead><tbody><tr><td>Setup flow build complete</td><td>Ali</td><td>Sep 5</td></tr><tr><td>Legacy payout migration</td><td>Sara</td><td>Sep 18</td></tr><tr><td>GA to 100% of customers</td><td>Ali</td><td>Sep 30</td></tr></tbody></table>"><b>Add the deliverables table</b><p>Every launch brief in Company has one, with an owner and a date per row. Here's yours, pre-filled from the Q3 plan.</p></div>
+        </div>
+        <div class="aip-f"><span style="color:var(--text-muted);display:flex"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H6l-3 2v-10a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z"/></svg></span><input placeholder="Ask for anything — a section, a rewrite, a source…" /><span class="kbd">⏎</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ READING ═══════════ -->
+<div class="screen flat hidden" id="v-read" data-screen-label="Read">
+  <div class="main">
+    <div class="tb bare">
+      <div class="crumb"><span>Company</span><span class="sep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span><b id="r-crumb">Q3 Payments Launch</b></div>
+      <div class="sp"></div>
+      <div class="tb-acts">
+        <button class="btn gho" id="to-edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg>Edit</button>
+        <button class="btn gho">Share</button>
+        <button class="ib" id="k-read" title="Search ⌘K"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg></button>
+      </div>
+    </div>
+    <div class="body">
+      <div class="paper" id="read-paper">
+        <div class="col" style="padding-right:80px">
+          <h1 class="dt" id="r-title">Q3 Payments Launch</h1>
+          <div class="tline">
+            <span class="tl cur"><i></i>Current</span>
+            <span class="who">checked by <span class="av s av-s">S</span> Sara, 5 days ago</span>
+            <span class="re"><button class="btn sm sec">Check it again</button></span>
+          </div>
+          <div class="dbody" id="r-body"></div>
+          <div style="margin-top:52px;padding-top:22px;border-top:1px solid var(--border)">
+            <div class="sect-h"><h2>Cited by 3 docs</h2></div>
+            <div class="bl"><b>Payouts Redesign — PRD</b><span><span class="dot cur"></span>Company · cites “What we're doing”</span></div>
+            <div class="bl"><b>Q3 Launch Comms Plan</b><span><span class="dot age"></span>Company · cites “How we'll say it”</span></div>
+            <div class="bl"><b>Support Readiness — Q3</b><span><span class="dot cur"></span>Company · cites “Deliverables”</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab" id="rail-open">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h11M4 17h14"/></svg>
+        <span class="vlab">Outline</span>
+      </div>
+
+      <aside class="rail hidden" id="rail">
+        <div class="rail-tabs">
+          <div class="rt on" data-rt="outline">Outline</div>
+          <div class="rt" data-rt="cited">Cited by</div>
+          <div class="rt" data-rt="history">History</div>
+          <span class="rail-x" id="rail-close" style="margin-bottom:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6 18 18M18 6 6 18"/></svg></span>
+        </div>
+        <div class="rail-body" id="rp-outline"></div>
+        <div class="rail-body hidden" id="rp-cited">
+          <div class="bl"><b>Payouts Redesign — PRD</b><span><span class="dot cur"></span>PRD · cites “What we're doing”</span></div>
+          <div class="bl"><b>Q3 Launch Comms Plan</b><span><span class="dot age"></span>Plan · cites “How we'll say it”</span></div>
+          <div class="bl"><b>Support Readiness — Q3</b><span><span class="dot cur"></span>Runbook · cites “Deliverables”</span></div>
+        </div>
+        <div class="rail-body hidden" id="rp-history">
+          <div class="bl"><b>Published</b><span>You · just now · v1</span></div>
+          <div class="bl"><b>Checked by Sara</b><span>5 days ago · no changes</span></div>
+          <div class="bl"><b>Drafted</b><span>You · 10 Aug</span></div>
+        </div>
+      </aside>
+
+      <button class="spark" id="spark-read" title="Ask about this doc"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H6l-3 2v-10a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<!-- slash menu -->
+<div class="slash hidden" id="slash"></div>
+
+<!-- publish sheet -->
+<div class="scrim hidden" id="pub-scrim">
+  <div class="sheet">
+    <div class="sheet-h">
+      <h3>Publish “<span id="pub-title">Q3 Payments Launch</span>”</h3>
+      <p>It becomes findable by everyone in the workspace, and readable by your AI agents.</p>
+    </div>
+    <div class="sheet-b">
+      <div>
+        <span class="fl">Where it lives</span>
+        <div class="pickrow" id="pub-spaces">
+          <span class="pick on" data-one="1"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5V4.5Z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H20"/></svg></span>Company</span>
+          <span class="pick" data-one="1"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4l13 1.5L14 11l4 5.5L5 18"/></svg></span>Product</span>
+          <span class="pick" data-one="1"><span class="em"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span>Engineering</span>
+        </div>
+      </div>
+      <div>
+        <span class="fl">Ask someone to check it <span style="font-weight:400;letter-spacing:0;text-transform:none;font-size:11.5px">— optional</span></span>
+        <div class="pickrow" id="pub-people">
+          <span class="pick" data-name="Sara"><span class="av s av-s">S</span>Sara</span>
+          <span class="pick" data-name="Ali"><span class="av s av-a">A</span>Ali</span>
+          <span class="pick" data-name="Khalid"><span class="av s av-k">K</span>Khalid</span>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-f">
+      <span class="hint" id="pub-hint">Publishes as <b style="color:var(--text-secondary);font-weight:600;margin-left:3px">Unverified</b> until someone checks it.</span>
+      <div class="sp"></div>
+      <button class="btn gho" id="pub-cancel">Cancel</button>
+      <button class="btn pri" id="pub-go">Publish<span class="kbd" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.75);margin-left:3px">⌘⏎</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ⌘K -->
+<div class="scrim hidden" id="k-scrim">
+  <div class="cmdk">
+    <div class="cmdk-in">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="k-input" placeholder="Search, ask a question, or start writing…" autocomplete="off" />
+      <span class="kbd">esc</span>
+    </div>
+    <div class="cmdk-l" id="k-list"></div>
+    <div class="cmdk-f"><span><span class="kbd">↑↓</span> move</span><span><span class="kbd">⏎</span> open</span><span style="margin-left:auto;display:flex;align-items:center;gap:6px"><span class="dot cur"></span>Current<span class="dot age" style="margin-left:8px"></span>Ageing<span class="dot unv" style="margin-left:8px"></span>Unverified</span></div>
+  </div>
+</div>
+
+</div>
+
+<div class="tip">
+  <span><b>Try it:</b> type in the doc</span>
+  <span><span class="kbd">/</span> insert menu</span>
+  <span><span class="kbd">⌘J</span> ask Aqli</span>
+  <span><span class="kbd">⌘K</span> search</span>
+  <span><span class="kbd">⌘⏎</span> publish</span>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const vEdit = $('#v-edit'), vRead = $('#v-read');
+
+/* ── view switching ── */
+function show(which){
+  vEdit.classList.toggle('hidden', which !== 'edit');
+  vRead.classList.toggle('hidden', which !== 'read');
+  if(which === 'edit') setTimeout(()=>placeCaretEnd($('#e-body')), 30);
+}
+$('#to-edit').onclick = () => show('edit');
+$('#back').onclick = () => show('read');
+
+/* ── slash menu ── */
+const CMDS = [
+  {k:'heading', n:'Heading', h:'Section title', i:'H', run(){document.execCommand('formatBlock',false,'h2')}},
+  {k:'list', n:'Bulleted list', h:'One point per line', i:'•', run(){document.execCommand('insertUnorderedList')}},
+  {k:'table', n:'Table', h:'Owners, dates, decisions', i:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18"/><path d="M3 15h18"/><path d="M9 9.5V20"/></svg>', run(){insert("<table><thead><tr><th style='width:52%'>Item</th><th>Owner</th><th>Date</th></tr></thead><tbody><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table><p><br></p>")}},
+  {k:'cite', n:'Cite a doc', h:'Links both ways, automatically', i:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7L11.5 7"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1.5-1.5"/></svg>', run(){insert('<a href="#">Payouts Messaging v3 §Positioning</a> ')}},
+  {k:'quote', n:'Quote', h:'Set a passage apart', i:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6a4 4 0 0 1-4 4"/><path d="M20 11h-4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6a4 4 0 0 1-4 4"/></svg>', run(){document.execCommand('formatBlock',false,'blockquote')}},
+  {k:'divider', n:'Divider', h:'Break the page', i:'—', run(){insert('<hr style="height:1px;background:var(--border);border:0;margin:26px 0"><p><br></p>')}},
+  {k:'ask', n:'Ask Aqli to draft this', h:'Uses what your team already wrote', i:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>', run(){openAI()}},
+];
+let slashOn = false, slashQ = '', slashSel = 0;
+const slash = $('#slash');
+
+function insert(html){ document.execCommand('insertHTML', false, html); }
+function placeCaretEnd(el){
+  el.focus();
+  const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+function caretRect(){
+  const s = getSelection(); if(!s.rangeCount) return null;
+  let r = s.getRangeAt(0).getClientRects()[0];
+  if(!r){ const n = s.getRangeAt(0).startContainer; r = (n.nodeType===1?n:n.parentElement).getBoundingClientRect(); }
+  return r;
+}
+function renderSlash(){
+  const list = CMDS.filter(c => c.n.toLowerCase().includes(slashQ.toLowerCase()));
+  if(!list.length){ closeSlash(); return; }
+  slashSel = Math.min(slashSel, list.length-1);
+  slash.innerHTML = list.map((c,i)=>`<div class="si ${i===slashSel?'on':''}" data-k="${c.k}"><span class="sic">${c.i}</span><span><b>${c.n}</b><em>${c.h}</em></span></div>`).join('');
+  slash._list = list;
+  $$('#slash .si').forEach(el => el.onmousedown = e => { e.preventDefault(); runCmd(CMDS.find(c=>c.k===el.dataset.k)); });
+}
+function placeSlash(){
+  const r = caretRect(); if(!r) return;
+  const st = document.getElementById('stage').getBoundingClientRect();
+  const h = slash.offsetHeight || 300;
+  const below = r.bottom - st.top + 8;
+  slash.style.top = (below + h > st.height ? Math.max(8, r.top - st.top - h - 8) : below) + 'px';
+  slash.style.left = Math.min(r.left - st.left, st.width - 340) + 'px';
+}
+function openSlash(){
+  if(!caretRect()) return;
+  slashOn = true; slashQ = ''; slashSel = 0;
+  slash.classList.remove('hidden');
+  renderSlash();
+  placeSlash();
+}
+function closeSlash(){ slashOn = false; slash.classList.add('hidden'); }
+function runCmd(c){
+  // delete the typed "/query"
+  const s = getSelection();
+  for(let i=0;i<slashQ.length+1;i++) document.execCommand('delete');
+  closeSlash();
+  c.run();
+}
+
+const body = $('#e-body');
+body.addEventListener('keydown', e => {
+  if(slashOn){
+    const list = slash._list || CMDS;
+    if(e.key === 'ArrowDown'){ e.preventDefault(); slashSel = (slashSel+1) % list.length; renderSlash(); return; }
+    if(e.key === 'ArrowUp'){ e.preventDefault(); slashSel = (slashSel-1+list.length) % list.length; renderSlash(); return; }
+    if(e.key === 'Enter'){ e.preventDefault(); runCmd(list[slashSel]); return; }
+    if(e.key === 'Escape'){ closeSlash(); return; }
+    if(e.key === ' '){ closeSlash(); return; }
+    if(e.key === 'Backspace' && slashQ === ''){ closeSlash(); return; }
+  }
+});
+body.addEventListener('input', e => {
+  if(e.data === '/' && !slashOn){ openSlash(); return; }
+  if(slashOn){
+    const s = getSelection(); const n = s.anchorNode;
+    const txt = (n.textContent || '').slice(0, s.anchorOffset);
+    const m = txt.match(/\/([^\/\s]*)$/);
+    if(!m){ closeSlash(); return; }
+    slashQ = m[1]; slashSel = 0; renderSlash(); placeSlash();
+  }
+});
+
+/* ── AI panel ── */
+function openAI(){ $('#aip').classList.remove('hidden'); $('#spark').classList.add('hidden'); }
+function closeAI(){ $('#aip').classList.add('hidden'); $('#spark').classList.remove('hidden'); }
+$('#spark').onclick = openAI;
+$('#aip-x').onclick = closeAI;
+$$('#aip-b .sug').forEach(el => el.onclick = () => {
+  placeCaretEnd(body);
+  insert(el.dataset.ins);
+  el.style.opacity = .4; el.style.pointerEvents = 'none';
+});
+$('#spark-read').onclick = () => { $('#rail-open').click(); };
+
+/* ── publish ── */
+const pub = $('#pub-scrim');
+function openPub(){ $('#pub-title').textContent = $('#e-title').textContent.trim() || 'Untitled'; pub.classList.remove('hidden'); }
+$('#open-publish').onclick = openPub;
+$('#pub-cancel').onclick = () => pub.classList.add('hidden');
+$$('#pub-spaces .pick').forEach(el => el.onclick = () => { $$('#pub-spaces .pick').forEach(p=>p.classList.remove('on')); el.classList.add('on'); });
+$$('#pub-people .pick').forEach(el => el.onclick = () => { el.classList.toggle('on'); syncHint(); });
+function syncHint(){
+  const picked = $$('#pub-people .pick.on').map(p => p.dataset.name);
+  $('#pub-hint').innerHTML = picked.length
+    ? `Publishes now. <b style="color:var(--text-secondary);font-weight:600">${picked.join(' and ')}</b> will be asked to check it.`
+    : `Publishes as <b style="color:var(--text-secondary);font-weight:600;margin-left:3px">Unverified</b> until someone checks it.`;
+}
+$('#pub-go').onclick = () => {
+  const title = $('#e-title').textContent.trim() || 'Untitled';
+  $('#r-title').textContent = title; $('#r-crumb').textContent = title;
+  $('#r-body').innerHTML = body.innerHTML;
+  const checkers = $$('#pub-people .pick.on').map(p => p.dataset.name);
+  const tl = $('#v-read .tline');
+  if(checkers.length){
+    tl.innerHTML = `<span class="tl unv"><i></i>Unverified</span><span class="who">waiting on ${checkers.join(' and ')}</span><span class="re"><button class="btn sm sec">Nudge</button></span>`;
+  } else {
+    tl.innerHTML = `<span class="tl unv"><i></i>Unverified</span><span class="who">published by you, just now · nobody has checked it yet</span><span class="re"><button class="btn sm sec">Ask someone to check</button></span>`;
+  }
+  buildOutline();
+  pub.classList.add('hidden');
+  show('read');
+};
+
+/* ── reading rail ── */
+function buildOutline(){
+  const hs = [...$('#r-body').querySelectorAll('h2,h3')];
+  $('#rp-outline').innerHTML = hs.length
+    ? hs.map((h,i)=>`<a class="ol-i ${i===0?'on':''} ${h.tagName==='H3'?'sub':''}" data-i="${i}">${h.textContent}</a>`).join('')
+      + `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted)">${hs.length} sections · about ${Math.max(1,Math.round($('#r-body').textContent.split(/\s+/).length/230))} min read</div>`
+    : `<p style="font-size:13px;color:var(--text-muted);margin:0">No headings yet.</p>`;
+  $$('#rp-outline .ol-i').forEach(a => a.onclick = () => {
+    $$('#rp-outline .ol-i').forEach(x=>x.classList.remove('on')); a.classList.add('on');
+    const h = hs[+a.dataset.i];
+    $('#read-paper').scrollTo({top: h.offsetTop - 40, behavior:'smooth'});
+  });
+}
+$('#rail-open').onclick = () => { $('#rail').classList.remove('hidden'); $('#rail-open').classList.add('hidden'); };
+$('#rail-close').onclick = () => { $('#rail').classList.add('hidden'); $('#rail-open').classList.remove('hidden'); };
+$$('.rt').forEach(t => t.onclick = () => {
+  $$('.rt').forEach(x=>x.classList.remove('on')); t.classList.add('on');
+  ['outline','cited','history'].forEach(k => $('#rp-'+k).classList.toggle('hidden', k !== t.dataset.rt));
+});
+
+/* ── ⌘K ── */
+const K = [
+  {g:'Jump to', items:[
+    {t:'Q3 Payments Launch', s:'Company · you · edited just now', st:'unv'},
+    {t:'Payouts Messaging v3', s:'Company · checked by Sara 5d ago', st:'cur'},
+    {t:'Product Launch Playbook', s:'Company · checked 4 months ago', st:'age'},
+    {t:'ACH return code R09 — fix note', s:'Engineering · from PR #1247', st:'cur'},
+  ]},
+  {g:'Ask Aqli', items:[
+    {t:'What changed in payouts since June?', s:'Answers from 43 checked docs', ask:1},
+  ]},
+  {g:'Write', items:[
+    {t:'New blank doc', s:'⌘K then ⌘⏎', write:1},
+    {t:'New doc from the launch brief pattern', s:'Used 9 times in Company', write:1},
+  ]},
+];
+let kSel = 0;
+function kRender(q=''){
+  const groups = K.map(g => ({...g, items: g.items.filter(i => (i.t+i.s).toLowerCase().includes(q.toLowerCase()))})).filter(g=>g.items.length);
+  let n = 0;
+  $('#k-list').innerHTML = groups.map(g =>
+    `<div class="cg">${g.g}</div>` + g.items.map(i => {
+      const idx = n++;
+      const lead = i.ask
+        ? `<span style="color:var(--accent);display:flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H6l-3 2v-10a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z"/></svg></span>`
+        : i.write
+        ? `<span style="color:var(--text-muted);display:flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg></span>`
+        : `<span class="dot ${i.st}"></span>`;
+      return `<div class="ci ${idx===kSel?'on':''}" data-i="${idx}">${lead}<span><b>${i.t}</b><em>${i.s}</em></span><span class="kbd">⏎</span></div>`;
+    }).join('')
+  ).join('');
+  $$('#k-list .ci').forEach(el => el.onclick = () => { kSel = +el.dataset.i; kGo(); });
+  return n;
+}
+function kGo(){ $('#k-scrim').classList.add('hidden'); }
+function kOpen(){ $('#k-scrim').classList.remove('hidden'); $('#k-input').value=''; kSel=0; kRender(); $('#k-input').focus(); }
+$('#k-edit').onclick = kOpen; $('#k-read').onclick = kOpen;
+$('#k-input').oninput = e => { kSel = 0; kRender(e.target.value); };
+$('#k-input').onkeydown = e => {
+  const n = $$('#k-list .ci').length;
+  if(e.key==='ArrowDown'){ e.preventDefault(); kSel=(kSel+1)%n; kRender($('#k-input').value); }
+  if(e.key==='ArrowUp'){ e.preventDefault(); kSel=(kSel-1+n)%n; kRender($('#k-input').value); }
+  if(e.key==='Enter'){ e.preventDefault(); kGo(); }
+};
+$$('.scrim').forEach(s => s.onclick = e => { if(e.target===s) s.classList.add('hidden'); });
+
+/* ── global keys ── */
+addEventListener('keydown', e => {
+  const meta = e.metaKey || e.ctrlKey;
+  if(meta && e.key.toLowerCase()==='k'){ e.preventDefault(); kOpen(); }
+  else if(meta && e.key.toLowerCase()==='j'){ e.preventDefault(); if(!vEdit.classList.contains('hidden')) openAI(); }
+  else if(meta && e.key==='Enter'){
+    e.preventDefault();
+    if(!pub.classList.contains('hidden')) $('#pub-go').click();
+    else if(!vEdit.classList.contains('hidden')) openPub();
+  }
+  else if(e.key==='Escape'){ closeSlash(); $$('.scrim').forEach(s=>s.classList.add('hidden')); }
+});
+
+buildOutline();
+$('#r-body').innerHTML = body.innerHTML;
+buildOutline();
+setTimeout(()=>placeCaretEnd(body), 120);
+</script>
+</body>
+</html>

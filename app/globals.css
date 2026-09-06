@@ -2,6 +2,10 @@
 @plugin "@tailwindcss/typography";
 @plugin "@tailwindcss/forms";
 
+/* The design handoff is reference material, not app source — keep its class
+   names out of Tailwind's automatic content detection. */
+@source not "../design";
+
 /* ───────── Aqli design tokens ───────── */
 :root {
   /* Light mode */

@@ -26,17 +26,22 @@ pnpm dev        # local dev (Turbopack)
 pnpm build      # production build
 pnpm typecheck  # tsc --noEmit
 pnpm lint       # eslint
-```
-
-## Commands (continued)
-
-```bash
 pnpm test       # vitest
 pnpm test:sql   # boots a throwaway Postgres, replays every migration, runs supabase/tests/
 pnpm preflight  # is this installation in the state the code expects? (needs SUPABASE_SERVICE_KEY)
 pnpm import     # bring in a markdown/zip or Confluence export (dry run unless --apply)
 pnpm export     # the whole workspace as markdown + images, deterministic and re-importable
 ```
+
+## Where things live
+
+| Path | What |
+|---|---|
+| `docs/architecture.md`, `docs/technical-spec.md` | The design and its implementation detail. |
+| `docs/moving-from-confluence.md` | The migration playbook for operators. |
+| `design/v3/` | Current design handoff — brief, journeys, CSS, two runnable HTML prototypes, a screenshot per frame. Read `design/v3/BRIEF.md` before touching UI. |
+| `ROADMAP.md`, `ADOPTION.md` | What's next, and what has to be true before a company can move onto Aqli. |
+| `reports/` | Findings and handover notes from migrations already run. |
 
 ## Architecture decisions worth knowing
 
