@@ -126,13 +126,13 @@ permissions, one-click import, email notifications).
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for the full plan. Short version: Phase 1
+See [docs/roadmap.md](docs/roadmap.md) for the full plan. Short version: Phase 1
 (team-neutral onboarding, doc types, and diagrams) has shipped; Phase 2 is
 table-stakes editor and organisation features (images, tables, comments,
 import, sub-pages, space permissions); Phase 3 presses the AI-native advantage
 (MCP server, Slack Q&A, review workflows, public sharing).
 
-Moving a whole company onto Aqli? [ADOPTION.md](ADOPTION.md) lists what has to
+Moving a whole company onto Aqli? [docs/adoption.md](docs/adoption.md) lists what has to
 be true first — import, space permissions, assistant connections, export —
 with acceptance criteria for each.
 

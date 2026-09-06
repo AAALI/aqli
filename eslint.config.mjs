@@ -21,7 +21,7 @@ const eslintConfig = defineConfig([
   // Spec §2.4 — close the service-role footgun.
   //
   // The service role bypasses RLS, so a query that forgets its `workspace_id`
-  // predicate is a cross-tenant read that nothing will stop. `lib/db` is the
+  // predicate is a cross-tenant read that nothing will stop. `src/lib/db` is the
   // only place allowed to build one; everywhere else goes through `scoped()`
   // or `withWorkspace()`, which append the predicate whether or not anyone
   // remembered to. `unscoped(reason)` is the documented escape hatch for the
@@ -30,7 +30,7 @@ const eslintConfig = defineConfig([
   // This turns a discipline problem into a lint error.
   {
     files: ["**/*.ts", "**/*.tsx"],
-    ignores: ["lib/db/**"],
+    ignores: ["src/lib/db/**"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -39,7 +39,7 @@ const eslintConfig = defineConfig([
             {
               name: "@/lib/db/client",
               message:
-                "Service-role clients are built only in lib/db. Use `scoped(workspaceId)` or `withWorkspace()` from @/lib/db, or `unscoped(reason)` if the query truly cannot be workspace-scoped.",
+                "Service-role clients are built only in src/lib/db. Use `scoped(workspaceId)` or `withWorkspace()` from @/lib/db, or `unscoped(reason)` if the query truly cannot be workspace-scoped.",
             },
           ],
           patterns: [
@@ -47,7 +47,7 @@ const eslintConfig = defineConfig([
               group: ["**/lib/db/client", "./client", "../client"],
               importNames: ["rawServiceClient"],
               message:
-                "rawServiceClient is internal to lib/db. Use `scoped(workspaceId)` or `withWorkspace()` from @/lib/db.",
+                "rawServiceClient is internal to src/lib/db. Use `scoped(workspaceId)` or `withWorkspace()` from @/lib/db.",
             },
           ],
         },
@@ -57,7 +57,7 @@ const eslintConfig = defineConfig([
 
   // Spec §4.1 — one schema, not two.
   //
-  // `lib/markdown/schema.ts` is the allowlist: the editor mounts it and the
+  // `src/lib/markdown/schema.ts` is the allowlist: the editor mounts it and the
   // serializer is asserted complete against it, so a node the editor can
   // produce always has a markdown spelling. Building a separate extension list
   // silently breaks that pairing in both directions, and it had: the doc editor
@@ -70,11 +70,11 @@ const eslintConfig = defineConfig([
   //
   // Flat config resolves one `no-restricted-imports` per file, last match
   // winning, so this block has to restate the service-role paths rather than
-  // just add to them — and it has to ignore `lib/db/**` as well, or it would
-  // re-impose on `lib/db` the very rule the block above exempts it from.
+  // just add to them — and it has to ignore `src/lib/db/**` as well, or it would
+  // re-impose on `src/lib/db` the very rule the block above exempts it from.
   {
     files: ["**/*.ts", "**/*.tsx"],
-    ignores: ["lib/db/**", "lib/markdown/**"],
+    ignores: ["src/lib/db/**", "src/lib/markdown/**"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -83,7 +83,7 @@ const eslintConfig = defineConfig([
             {
               name: "@/lib/db/client",
               message:
-                "Service-role clients are built only in lib/db. Use `scoped(workspaceId)` or `withWorkspace()` from @/lib/db, or `unscoped(reason)` if the query truly cannot be workspace-scoped.",
+                "Service-role clients are built only in src/lib/db. Use `scoped(workspaceId)` or `withWorkspace()` from @/lib/db, or `unscoped(reason)` if the query truly cannot be workspace-scoped.",
             },
             {
               name: "@tiptap/starter-kit",
@@ -96,7 +96,7 @@ const eslintConfig = defineConfig([
               group: ["**/lib/db/client", "./client", "../client"],
               importNames: ["rawServiceClient"],
               message:
-                "rawServiceClient is internal to lib/db. Use `scoped(workspaceId)` or `withWorkspace()` from @/lib/db.",
+                "rawServiceClient is internal to src/lib/db. Use `scoped(workspaceId)` or `withWorkspace()` from @/lib/db.",
             },
           ],
         },

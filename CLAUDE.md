@@ -14,7 +14,7 @@ for the product overview and self-hosting instructions.
 |---|---|---|
 | Framework | **Next.js 16** (App Router) | App Router only. Route `params` are `Promise`s — always `await` them. |
 | Language | TypeScript (strict) | No `any`. |
-| Styling | Tailwind CSS v4 | Config is CSS-first in `app/globals.css` (`@import "tailwindcss"`, `@plugin "..."`). No `tailwind.config.ts`. |
+| Styling | Tailwind CSS v4 | Config is CSS-first in `src/app/globals.css` (`@import "tailwindcss"`, `@plugin "..."`). No `tailwind.config.ts`. |
 | DB / Auth | Supabase (Postgres + pgvector + Auth) | Bring your own project; migrations in `supabase/migrations/`. |
 | Editor | **Tiptap v3** | `Placeholder` imports from `@tiptap/extensions`. |
 | Package manager | pnpm | Not npm/yarn. |
@@ -37,10 +37,12 @@ pnpm export     # the whole workspace as markdown + images, deterministic and re
 
 | Path | What |
 |---|---|
+| `src/` | All application code: `src/app` (routes), `src/components`, `src/lib`, `src/types`, plus `middleware.ts` and `instrumentation-client.ts`. The `@/*` alias resolves to `src/*`. |
+| `scripts/`, `supabase/` | Operator scripts (run via pnpm) and the database: migrations, tests, rollbacks. Both sit outside `src/` because neither ships in the app bundle. |
 | `docs/architecture.md`, `docs/technical-spec.md` | The design and its implementation detail. |
 | `docs/moving-from-confluence.md` | The migration playbook for operators. |
 | `design/v3/` | Current design handoff — brief, journeys, CSS, two runnable HTML prototypes, a screenshot per frame. Read `design/v3/BRIEF.md` before touching UI. |
-| `ROADMAP.md`, `ADOPTION.md` | What's next, and what has to be true before a company can move onto Aqli. |
+| `docs/roadmap.md`, `docs/adoption.md` | What's next, and what has to be true before a company can move onto Aqli. |
 | `reports/` | Findings and handover notes from migrations already run. |
 
 ## Architecture decisions worth knowing
@@ -48,15 +50,15 @@ pnpm export     # the whole workspace as markdown + images, deterministic and re
 - **Auth model:** Supabase Auth (email/password) via `@supabase/ssr`. `middleware.ts`
   refreshes the session and gates `/w/*` routes. There is **no NextAuth** — Supabase
   handles auth directly.
-- **RLS-first data access:** `lib/supabase/*` use the **request-scoped, RLS-respecting**
+- **RLS-first data access:** `src/lib/supabase/*` use the **request-scoped, RLS-respecting**
   server client (`createServerSupabaseClient`), not the service-role key. RLS policies
   enforce workspace membership at the DB layer. API routes additionally gate on
   `auth.getUser()`.
-- **Service-role access goes through `lib/db`** (spec §2.4). `scoped(workspaceId)` returns a
+- **Service-role access goes through `src/lib/db`** (spec §2.4). `scoped(workspaceId)` returns a
   `ScopedClient` that appends the workspace predicate to every select/update/delete and stamps
   `workspace_id` onto every insert, so a query cannot leave its workspace even if the caller
   forgets. An ESLint `no-restricted-imports` rule bans building a raw service client outside
-  `lib/db/`. `unscoped(reason)` is the escape hatch for queries that genuinely cannot be scoped
+  `src/lib/db/`. `unscoped(reason)` is the escape hatch for queries that genuinely cannot be scoped
   (resolving a bearer key or a webhook to its workspace) and requires a written reason.
   Tables are opted into `SCOPE_COLUMN` by name — a new table throws rather than defaulting to
   unscoped access.
@@ -67,7 +69,7 @@ pnpm export     # the whole workspace as markdown + images, deterministic and re
   space's `review_policy` and the actor's scopes allow, merges it in the same transaction —
   appending a `revisions` row, advancing the document, superseding rivals. Queued proposals
   wait in the review queue. `app.merge_proposal` raises `stale_base` (surfaced as 409) when the
-  document moved under a proposal. The rules live in `lib/merge/disposition.ts` and,
+  document moved under a proposal. The rules live in `src/lib/merge/disposition.ts` and,
   authoritatively, in `app.decide_disposition`; both have the truth table asserted in tests, so
   change them together.
 - **Markdown:** `body_md` is canonical (step 6). `body_json` is a derived Tiptap cache written
@@ -81,10 +83,10 @@ pnpm export     # the whole workspace as markdown + images, deterministic and re
 - **Comments** (`doc_comments`) hold two things: what people type (`comment`), and the review
   trail (`review_request`, `approval`, `rejection`, `change_request`) — everything the review
   path writes on the service client. One thread, but the trail is undeletable by anyone, and
-  the insert policy pins clients to `comment` so the trail cannot be forged. Unlike the rest of `lib/supabase/*`, `comments.ts` both reads *and*
+  the insert policy pins clients to `comment` so the trail cannot be forged. Unlike the rest of `src/lib/supabase/*`, `comments.ts` both reads *and*
   writes on the RLS client — the policies added in `20260808000000` already decide who may
   post, so the service client would only step around them. Mentions live in the comment body
-  as `@[Name](user:<uuid>)` (`lib/mentions.ts`) and are **never** doc-body nodes: the
+  as `@[Name](user:<uuid>)` (`src/lib/mentions.ts`) and are **never** doc-body nodes: the
   markdown allowlist stays as small as it is on purpose.
 
 ## Data model (Supabase)
@@ -95,7 +97,7 @@ guard, the depth cap, one-space-per-subtree and re-parenting on delete are all t
 because four write paths reach that table.
 `api_keys` carry an accountable `owner_user_id` and `scopes`. Schema lives in
 `supabase/migrations/`; helper functions live in the `app` schema, with thin `public` shims
-because PostgREST cannot reach `app`. Types mirror the DB in `types/`.
+because PostgREST cannot reach `app`. Types mirror the DB in `src/types/`.
 
 Migrations that depend on a script having been run record the fact in `app.migration_gates`
 and refuse to apply without it — see `20260805040000_body_md_canonical.sql`, and
@@ -103,7 +105,7 @@ and refuse to apply without it — see `20260805040000_body_md_canonical.sql`, a
 
 ## Conventions
 
-- Server Components fetch via `lib/supabase/*`; Client Components mutate via `/api/*`
+- Server Components fetch via `src/lib/supabase/*`; Client Components mutate via `/api/*`
   fetches then `router.refresh()`.
 - When touching Next.js APIs, check `node_modules/next/dist/docs/` — this is Next 16 and
   may differ from training data (see AGENTS.md).

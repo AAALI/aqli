@@ -37,9 +37,9 @@ never happened. **Your job is the second halves.**
 2. **Find the dead.** Exports with no non-test caller; tables read by nothing;
    feature flags whose off-branch nobody will ever take again; API routes the
    UI never calls. Known starting points, verify each:
-   - `lib/confluence/` (~580 lines + tests) — a Confluence importer with no
+   - `src/lib/confluence/` (~580 lines + tests) — a Confluence importer with no
      ingest surface. Nothing outside its own tests imports it.
-   - `components/landing/` (~3,100 lines, 10% of the codebase) — `FlowDemo.tsx`
+   - `src/components/landing/` (~3,100 lines, 10% of the codebase) — `FlowDemo.tsx`
      alone is 1,742 lines of animated marketing demo, built and shipped with the
      product.
    - `/api/agent/docs/[id]/review` — documented as vestigial.
@@ -70,7 +70,7 @@ They look redundant and are not. Check the reasoning before touching any of
 them; if you still think one should go, argue it explicitly rather than
 quietly removing it.
 
-- **`lib/markdown/schema.ts` deriving the editor schema and the serializer from
+- **`src/lib/markdown/schema.ts` deriving the editor schema and the serializer from
   one extension list.** This looks like indirection. It is the thing that
   stopped tables and images being silently dropped on save, and there is an
   eslint rule enforcing it. `body_md` is canonical — anything the editor can
@@ -78,9 +78,9 @@ quietly removing it.
 - **`integration_secrets` having RLS on with no policies.** That is not a
   missing policy. It is what makes repo-scoped tokens unreachable from a user
   session, and there is a test asserting the absence.
-- **The `ScopedClient` wrapper in `lib/db`.** It exists because cross-workspace
+- **The `ScopedClient` wrapper in `src/lib/db`.** It exists because cross-workspace
   reads happened before it.
-- **The disposition truth table in `lib/merge/disposition.ts` and
+- **The disposition truth table in `src/lib/merge/disposition.ts` and
   `app.decide_disposition`.** Duplicated on purpose, asserted in both.
 - **The `ssr: false` loader components.** Each is a near-empty file that looks
   like ceremony; each keeps ~450 KiB of editor out of the worker.
