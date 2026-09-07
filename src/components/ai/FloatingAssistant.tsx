@@ -64,6 +64,14 @@ export default function FloatingAssistant(props: FloatingAssistantProps) {
 
 // ── Shared shell ─────────────────────────────────────────────────────
 
+/**
+ * Closed, the assistant is one 40px dot in the corner (v3 §2).
+ *
+ * It used to be a labelled dark pill reading "Co-write ⌘J". A label is a
+ * standing suggestion, and the writing surface is not supposed to suggest
+ * anything — the dot is there when you look for it and invisible when you are
+ * writing, which is the whole difference.
+ */
 function AssistantPill({
   label,
   kbd,
@@ -79,12 +87,11 @@ function AssistantPill({
     <button
       type="button"
       onClick={onClick}
-      className="assistant-dock assistant-pill"
-      aria-label={label}
+      className="spark"
+      aria-label={`${label} (${kbd})`}
+      title={`${label} · ${kbd}`}
     >
-      <span className="assistant-orb">{icon}</span>
-      <span>{label}</span>
-      <kbd className="assistant-kbd">{kbd}</kbd>
+      {icon}
     </button>
   );
 }
@@ -105,38 +112,13 @@ function AssistantPanel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="assistant-dock assistant-panel">
-      <div
-        style={{
-          padding: "12px 14px",
-          borderBottom: "1px solid var(--border)",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          background: "var(--bg-base)",
-          flex: "0 0 auto",
-        }}
-      >
-        <span
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: 6,
-            background: "var(--accent)",
-            color: "#fff",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {icon}
+    <div className="aip">
+      <div className="aip-h">
+        <span style={{ color: "var(--accent)", display: "inline-flex" }}>{icon}</span>
+        <span>{title}</span>
+        <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: 11.5 }}>
+          {subtitle}
         </span>
-        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
-            {title}
-          </span>
-          <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>{subtitle}</span>
-        </div>
         <button
           type="button"
           onClick={onClose}
@@ -384,7 +366,7 @@ function CowriteAssistant({
   return (
     <AssistantPanel
       title="Co-write"
-      subtitle="Drafts inline · you approve every change"
+      subtitle="you approve every change"
       icon={<IconWand size={12} />}
       onClose={() => onToggle(false)}
       closeTitle="Collapse (⌘J)"
@@ -579,7 +561,7 @@ function AskAssistant({
   return (
     <AssistantPanel
       title={docId ? "Ask about this doc" : "Ask Aqli"}
-      subtitle="Answers cite approved docs"
+      subtitle="answers cite what your team wrote"
       icon={<IconChat size={12} />}
       onClose={() => onToggle(false)}
       closeTitle="Close"

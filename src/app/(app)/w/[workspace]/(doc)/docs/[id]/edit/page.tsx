@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { getDoc, getDocVersions } from "@/lib/supabase/docs";
+import { getDoc } from "@/lib/supabase/docs";
+import { getSpaces } from "@/lib/supabase/spaces";
 import { listWorkspaceMembers } from "@/lib/supabase/members";
 import { ownerInfo } from "@/lib/supabase/owners";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -14,38 +15,30 @@ export default async function DocEditPage({
   const doc = await getDoc(id).catch(() => null);
   if (!doc) notFound();
 
-  const [versions, members, supabase] = await Promise.all([
-    getDocVersions(id),
-    // Non-fatal: the strip just drops the "will notify" clause if this fails.
+  const [spaces, members, supabase] = await Promise.all([
+    getSpaces(doc.workspace_id),
+    // Non-fatal: the publish sheet simply drops its checker row if this fails.
     listWorkspaceMembers(doc.workspace_id).catch(() => []),
     createServerSupabaseClient(),
   ]);
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const ownerName =
-    doc.owner_id && user?.id === doc.owner_id
-      ? ((user.user_metadata?.full_name as string | undefined) ??
-        user.email?.split("@")[0] ??
-        "You")
-      : doc.owner_id
-        ? "Team member"
-        : null;
 
-  // Who a review request actually reaches: everyone who can act on the queue.
-  // Viewers can't, and telling the author they will notify themselves is noise.
-  const reviewers = members
+  // Who can be asked to check something: everyone who could act on it, minus
+  // yourself. Asking yourself to confirm your own doc is what publishing with
+  // nobody selected already means.
+  const people = members
     .filter((m) => m.role === "admin" || m.role === "editor")
     .filter((m) => m.user_id !== user?.id)
-    .map((m) => ownerInfo(m).name);
+    .map((m) => ({ id: m.user_id, name: ownerInfo(m).name }));
 
   return (
     <DocEditorClientLoader
       doc={doc}
       workspaceSlug={wsSlug}
-      version={versions.length || 1}
-      ownerName={ownerName}
-      reviewers={reviewers}
+      spaces={spaces}
+      people={people}
     />
   );
 }

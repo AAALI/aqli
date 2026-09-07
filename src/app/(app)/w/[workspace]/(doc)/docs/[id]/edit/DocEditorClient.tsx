@@ -1,31 +1,43 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { Placeholder } from "@tiptap/extensions";
 import { CodeBlockWithMermaid } from "@/components/editor/MermaidCodeBlock";
-import Link from "next/link";
-import AppTopBar from "@/components/layout/AppTopBar";
-import DocMetaRow from "@/components/docs/DocMetaRow";
 import SlashMenu from "@/components/editor/v2/SlashMenu";
 import SelectionToolbar from "@/components/editor/v2/SelectionToolbar";
-import EditorRail from "@/components/editor/v2/EditorRail";
 import FloatingAssistant from "@/components/ai/FloatingAssistant";
-import ProcessStrip from "@/components/editor/v2/ProcessStrip";
-import { IconEye } from "@/components/aqli/icons";
+import PublishSheet, { type Checker } from "@/components/docs/PublishSheet";
+import { IconChevLeft, IconSearch } from "@/components/aqli/icons";
 import type { KeyHandlerRegistry } from "@/components/editor/v2/types";
 import { useDocImages } from "@/components/editor/useDocImages";
 import TableControls from "@/components/editor/v2/TableControls";
 import { aqliExtensions } from "@/lib/markdown/schema";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
+import { isPublished } from "@/lib/doc-status";
 import {
   hasTitleHeading,
   prependTitleHeading,
   stripTitleHeading,
 } from "@/lib/markdown/title-heading";
-import { formatRelative } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
+import type { Space } from "@/types/space";
+
+/**
+ * The writing surface (v3 §5.5).
+ *
+ * A title, a body, and Publish. There is no status here, no owner, no doc
+ * type, no reviewers, no outline, no consistency check and no second AI
+ * button — all of which used to ring this page and none of which helps put
+ * words down. Everything the organisation needs to know is asked once, in the
+ * publish sheet, when the answers are actually known.
+ *
+ * What is left on screen: the breadcrumb back to the space, one word of save
+ * state, and a 40px dot in the corner.
+ */
 
 /**
  * A title is one line. The field is a textarea so long titles wrap on screen,
@@ -38,17 +50,17 @@ function singleLine(value: string): string {
 export default function DocEditorClient({
   doc,
   workspaceSlug,
-  version,
-  ownerName,
-  reviewers,
+  spaces,
+  people,
 }: {
   doc: DocWithSpace;
   workspaceSlug: string;
-  version: number;
-  ownerName: string | null;
-  /** Who a review request would reach — shown in the process strip. */
-  reviewers: string[];
+  /** Where it could live — asked at publish, never here. */
+  spaces: Space[];
+  /** Who could be asked to check it — likewise. */
+  people: Checker[];
 }) {
+  const router = useRouter();
   const base = `/w/${workspaceSlug}`;
   const [title, setTitle] = useState(doc.title);
   const [saving, setSaving] = useState(false);
@@ -57,9 +69,11 @@ export default function DocEditorClient({
   // The document on screen is unchanged, so the status line must not say
   // "Saved" (spec §3.1).
   const [queuedForReview, setQueuedForReview] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatPrefill, setChatPrefill] = useState<string | null>(null);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Unsent (or failed) field updates, merged across edits. Cleared only after
   // the PUT that carried them succeeds, so the unload warning and the
@@ -106,9 +120,9 @@ export default function DocEditorClient({
   // long title arrives already unwrapped rather than one line high.
   //
   // How many lines the title wraps to depends on the width as much as the text,
-  // and the width moves without the text changing — a window resize, a rotation,
-  // the reading rail dropping out at its breakpoint. Only width is acted on:
-  // reacting to the height we just set would feed the observer its own output.
+  // and the width moves without the text changing — a window resize, a rotation.
+  // Only width is acted on: reacting to the height we just set would feed the
+  // observer its own output.
   useEffect(() => {
     const el = titleRef.current;
     if (!el) return;
@@ -156,7 +170,6 @@ export default function DocEditorClient({
         // 202: accepted as a proposal, not applied. The write is safely
         // recorded, so this counts as sent — but it is not "saved".
         setQueuedForReview(res.status === 202);
-        setLastSaved(new Date());
         setSaveError(false);
         return true;
       } catch (err) {
@@ -236,7 +249,8 @@ export default function DocEditorClient({
       saveTimer.current = setTimeout(() => void pumpSaves(), 2000); // 2s debounce
     },
     editorProps: {
-      attributes: { class: "ed2-prose" },
+      // The reading surface mounts the same class. One paper column (§2).
+      attributes: { class: "dbody is-editing" },
       handleKeyDown: (_view, event) => {
         for (const handler of keyHandlersRef.current) {
           if (handler(event)) return true;
@@ -278,12 +292,18 @@ export default function DocEditorClient({
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
-  // ⌘J toggles the Co-write chat from anywhere on the screen.
+  // ⌘J opens the one AI affordance; ⌘⏎ opens the publish sheet (§4). The sheet
+  // owns ⌘⏎ once it is open, so this only ever opens it.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
         e.preventDefault();
         setChatOpen((o) => !o);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        setPublishOpen(true);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -330,17 +350,44 @@ export default function DocEditorClient({
     setChatOpen(true);
   }, [editor]);
 
-  const savedLabel = images.uploading > 0
-    ? `Uploading ${images.uploading === 1 ? "image" : `${images.uploading} images`}…`
-    : saving
-    ? "Saving…"
-    : saveError
-      ? "Couldn't save — retrying on next edit"
-      : queuedForReview
-        ? "Sent for review — this space approves every change"
-        : lastSaved
-          ? `Saved ${formatRelative(lastSaved)}`
-          : `Saved ${formatRelative(doc.updated_at)}`;
+  const publish = useCallback(
+    async ({ spaceId, checkerIds }: { spaceId: string | null; checkerIds: string[] }) => {
+      setPublishing(true);
+      setPublishError(null);
+      try {
+        // Whatever is still in the debounce window goes first — publishing a
+        // doc that is missing the last two seconds of typing would be worse
+        // than a slow button.
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        await pumpSaves();
+        const res = await fetch(`/api/docs/${doc.id}/publish`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ space_id: spaceId, checker_ids: checkerIds }),
+        });
+        if (!res.ok) throw new Error(await errorText(res));
+        // Straight to the reading surface — the same paper, one line added.
+        router.push(`${base}/docs/${doc.id}`);
+        router.refresh();
+      } catch (err) {
+        // The sheet stays open with the reason above the footer (§4).
+        setPublishError(err instanceof Error ? err.message : "Couldn't publish. Try again.");
+        setPublishing(false);
+      }
+    },
+    [doc.id, base, router, pumpSaves],
+  );
+
+  const savedLabel =
+    images.uploading > 0
+      ? `Uploading ${images.uploading === 1 ? "image" : `${images.uploading} images`}…`
+      : saving
+        ? "Saving…"
+        : saveError
+          ? "Not saved — retrying"
+          : queuedForReview
+            ? "Sent for review"
+            : "Saved";
 
   const spaceCrumb = doc.space
     ? { label: doc.space.name, href: `${base}/s/${doc.space.slug}` }
@@ -348,31 +395,40 @@ export default function DocEditorClient({
 
   return (
     <>
-      <AppTopBar
-        base={base}
-        crumbs={[spaceCrumb, { label: title || "Untitled" }]}
-        saved={savedLabel}
-        share
-        actions={
-          <Link
-            href={`${base}/docs/${doc.id}`}
-            className="btn btn-ghost"
-            style={{ gap: 6 }}
+      {/* Bare: no bottom border. The paper must not sit under a rule (§2). */}
+      <div className="tb bare">
+        <Link href={spaceCrumb.href} className="btn btn-ghost" style={{ padding: "0 8px 0 4px" }}>
+          <IconChevLeft size={16} />
+          {spaceCrumb.label}
+        </Link>
+        <span className={`tb-saved${saveError ? " is-error" : ""}`}>
+          <i />
+          {savedLabel}
+        </span>
+        <div className="tb-spacer" />
+        <div className="tb-actions">
+          <button
+            type="button"
+            className="iconbtn"
+            aria-label="Search"
+            onClick={() => window.dispatchEvent(new CustomEvent("aqli:open-cmdk"))}
           >
-            <IconEye size={13} />
-            <span>Read</span>
-          </Link>
-        }
-      />
+            <IconSearch size={16} />
+          </button>
+          {/* Publish only exists while it is a draft. A published doc is
+              edited and saved, not re-published. */}
+          {!isPublished(doc.status) && (
+            <button type="button" className="btn btn-primary" onClick={() => setPublishOpen(true)}>
+              Publish
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="main-body" style={{ position: "relative" }}>
         <div ref={scrollRef} className="doc-scroll" style={{ position: "relative" }}>
           <article className="doc-col">
-            {/* The doc's identity, inline with the doc rather than in a band
-                under the top bar. The only place this screen states status. */}
-            <DocMetaRow doc={doc} version={version} />
-
-            {/* A textarea, not an input: at 44px a real title runs past the
+            {/* A textarea, not an input: at 40px a real title runs past the
                 column, and an input clips it mid-word with no way to see the
                 rest. Rows grow with the text; Enter still moves to the body. */}
             <textarea
@@ -388,29 +444,9 @@ export default function DocEditorClient({
                 }
               }}
               placeholder="Untitled"
-              className="ed2-title-input"
-              style={{
-                width: "100%",
-                border: 0,
-                background: "transparent",
-                outline: "none",
-                resize: "none",
-                overflow: "hidden",
-                display: "block",
-                fontFamily: "var(--font-serif)",
-                fontWeight: 400,
-                fontSize: 44,
-                lineHeight: 1.1,
-                color: "var(--text-primary)",
-                padding: 0,
-              }}
+              aria-label="Title"
+              className="dt"
             />
-
-            {/* No "Started … · Saved just now" line here: the breadcrumb
-                already carries the save state, and repeating it under the
-                title was one of the three places this screen used to say the
-                same thing. */}
-            <div style={{ height: 36 }} />
 
             {images.error && (
               <div
@@ -419,7 +455,7 @@ export default function DocEditorClient({
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
-                  marginBottom: 18,
+                  marginTop: 18,
                   padding: "10px 14px",
                   background: "var(--warn-bg)",
                   border: "1px solid var(--warn-border)",
@@ -461,7 +497,6 @@ export default function DocEditorClient({
                 docId={doc.id}
                 base={base}
                 onAskAgent={askAgent}
-                onInsertImage={images.pickAndInsert}
               />
               <TableControls editor={editor} containerRef={scrollRef} />
               <SelectionToolbar
@@ -477,21 +512,7 @@ export default function DocEditorClient({
           )}
         </div>
 
-        {/* Right rail — outline, corpus matches, standing consistency check */}
-        {editor && (
-          <EditorRail
-            editor={editor}
-            docTitle={title}
-            docType={doc.type}
-            workspaceId={doc.workspace_id}
-            docId={doc.id}
-            base={base}
-          />
-        )}
-
-        {/* The editor's one floating affordance. The workspace-wide Ask pill
-            stands down on this route (see AqliChatWidget), so only this one
-            ever occupies the corner. */}
+        {/* The one AI element on this surface: a 40px dot until you ask. */}
         {editor && (
           <FloatingAssistant
             mode="cowrite"
@@ -508,7 +529,26 @@ export default function DocEditorClient({
         )}
       </div>
 
-      <ProcessStrip doc={doc} base={base} ownerName={ownerName} reviewers={reviewers} />
+      {publishOpen && (
+        <PublishSheet
+          title={title}
+          spaces={spaces}
+          people={people}
+          initialSpaceId={doc.space_id}
+          busy={publishing}
+          error={publishError}
+          onCancel={() => {
+            setPublishOpen(false);
+            setPublishError(null);
+          }}
+          onPublish={publish}
+        />
+      )}
     </>
   );
+}
+
+async function errorText(res: Response): Promise<string> {
+  const body = (await res.json().catch(() => null)) as { error?: string } | null;
+  return body?.error ?? `Couldn't publish (${res.status})`;
 }

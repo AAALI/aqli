@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
 @plugin "@tailwindcss/forms";
 
 /* The design handoff is reference material, not app source — keep its class
@@ -301,25 +300,54 @@ html, body {
 
 /* ── Top bar ── */
 .tb {
-  height: 56px;
-  flex: 0 0 56px;
+  height: 54px;
+  flex: 0 0 54px;
   background: var(--bg-base);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 24px;
+  padding: 0 20px;
   gap: 12px;
 }
+/* Write and read only (v3 §2). Paper must not sit under a rule — the hairline
+   would read as the top edge of the page and there is no page, just a column. */
+.tb.bare { border-bottom: 0; }
 .tb-crumb {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13.5px;
   color: var(--text-secondary);
+  min-width: 0;
 }
 .tb-crumb a { color: inherit; text-decoration: none; }
 .tb-crumb .crumb-sep { color: var(--text-muted); display: inline-flex; }
-.tb-crumb .crumb-cur { color: var(--text-primary); font-weight: 500; }
+.tb-crumb .crumb-cur {
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The whole of the save affordance: a 5px accent dot and one muted word. */
+.tb-saved {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.tb-saved i {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  display: block;
+  flex: 0 0 5px;
+}
+.tb-saved.is-error { color: var(--ageing-text); }
+.tb-saved.is-error i { background: var(--ageing-dot); }
 .tb-crumb .crumb-saved {
   margin-left: 8px;
   padding-left: 12px;
@@ -736,201 +764,10 @@ html, body {
 
 /* Editor v2. The writing column itself is `.doc-col`, shared with the
    viewer — both surfaces read at the same measure. */
-.ed2-title-input {
-  letter-spacing: 0;
-}
-
-.ed2-prose {
-  font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 1.7;
-  color: var(--text-primary);
-  min-height: 360px;
-  outline: none;
-}
-
-.ed2-prose h1,
-.ed2-prose h2,
-.ed2-prose h3 {
-  font-family: var(--font-serif);
-  font-weight: 400;
-  color: var(--text-primary);
-  letter-spacing: 0;
-}
-
-.ed2-prose h1 {
-  font-size: 36px;
-  line-height: 1.12;
-  margin: 32px 0 8px;
-}
-
-.ed2-prose h2 {
-  font-size: 26px;
-  line-height: 1.18;
-  margin: 32px 0 6px;
-}
-
-.ed2-prose h3 {
-  font-size: 21px;
-  line-height: 1.25;
-  margin: 26px 0 6px;
-}
-
-.ed2-prose p {
-  margin: 0 0 16px;
-}
-
-.ed2-prose ul,
-.ed2-prose ol {
-  margin: 10px 0 22px;
-  padding-left: 22px;
-}
-
-/* Tailwind's preflight resets `list-style` to none, so the markers have to be
-   asked for again. Without this the editor shows an indented but unnumbered
-   list while the published doc — which renders through `prose` — shows 1, 2, 3. */
-.ed2-prose ul { list-style: disc; }
-.ed2-prose ol { list-style: decimal; }
-.ed2-prose ul ul { list-style: circle; }
-.ed2-prose li::marker { color: var(--text-muted); }
-
-/* A task list carries its own checkbox; a bullet next to it is noise. */
-.ed2-prose ul[data-type="taskList"] {
-  list-style: none;
-  padding-left: 2px;
-}
-
-.ed2-prose li {
-  margin: 4px 0;
-  padding-left: 2px;
-}
-
-.ed2-prose blockquote {
-  margin: 22px 0;
-  padding: 2px 0 2px 16px;
-  border-left: 2px solid var(--border-strong);
-  color: var(--text-secondary);
-}
-
-.ed2-prose code {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  background: var(--bg-sidebar);
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
-.ed2-prose pre {
-  margin: 20px 0;
-  padding: 14px 16px;
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow-x: auto;
-}
-
-.ed2-prose pre code {
-  padding: 0;
-  background: transparent;
-  border-radius: 0;
-  font-size: 13px;
-}
-
-.ed2-prose a {
-  color: var(--accent);
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
-
-.ed2-prose hr {
-  border: 0;
-  border-top: 1px solid var(--border);
-  margin: 28px 0;
-}
-
-/* ───────── Editor: tables and images (roadmap Phase 2 §1–2) ───────── */
-
-/* `table-layout: fixed` matters for editing, not looks: with `auto`, every
-   keystroke in a cell re-measures the whole table and the columns twitch. */
-.ed2-prose table {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
-  margin: 22px 0;
-  font-size: 14px;
-  overflow: hidden;
-}
-
-.ed2-prose th,
-.ed2-prose td {
-  border: 1px solid var(--border-strong);
-  padding: 7px 10px;
-  text-align: left;
-  vertical-align: top;
-  min-width: 60px;
-  position: relative;
-}
-
-.ed2-prose th {
-  background: var(--bg-sidebar);
-  font-weight: 600;
-}
-
-/* Cells hold blocks, so a paragraph inside one would otherwise carry the
-   block margin and make every row unnecessarily tall. */
-.ed2-prose th > p,
-.ed2-prose td > p {
-  margin: 0;
-}
-
-/* ProseMirror's cell selection — without this, selecting across cells shows
-   nothing at all. */
-.ed2-prose .selectedCell::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--accent-light);
-  pointer-events: none;
-}
-
-.ed2-prose img {
-  display: inline-block;
-  max-width: 100%;
-  height: auto;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  vertical-align: middle;
-}
-
-/* Clicking an image selects the node; say so. */
-.ed2-prose img.ProseMirror-selectednode {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-/* Read view: the typography plugin styles tables, but not against these
-   tokens, and it leaves images without the editor's framing. */
-.prose :where(table):not(:where([class~="not-prose"] *)) {
-  table-layout: fixed;
-  width: 100%;
-}
-
-.prose :where(th, td):not(:where([class~="not-prose"] *)) {
-  border: 1px solid var(--border-strong);
-  padding: 7px 10px;
-  vertical-align: top;
-}
-
-.prose :where(th):not(:where([class~="not-prose"] *)) {
-  background: var(--bg-sidebar);
-}
-
-.prose :where(img):not(:where([class~="not-prose"] *)) {
-  display: inline-block;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-}
+/* The editor's own chrome. Everything the writing surface renders is either
+   `.dt` or `.dbody` — the same two classes the reading surface uses. */
+.ProseMirror { outline: none; }
+.ProseMirror-focused { outline: none; }
 
 /* ───────── Landing page (LP1) — Aqli Loop demo ───────── */
 @keyframes lpFadeUp {
@@ -1637,10 +1474,15 @@ html, body {
   flex-direction: column;
 }
 
-/* ───────── The reading / writing column ─────────
-   Both doc surfaces share it: a 720px measure, centred, with 80px of plain
-   breathing room either side. The gutter is padding on the scroller rather
-   than on the column so the measure stays exactly 720px. */
+/* ───────── Paper: the document column ─────────
+   Shared verbatim by write and read (v3 §2). The *only* difference between
+   the two surfaces is the trust line and whether the body is editable — so
+   there is one set of rules here and no second copy anywhere. Fork these and
+   the two surfaces start drifting apart, which is exactly what v3 undid.
+
+   712px measure, padding 56px 40px 200px. The long bottom padding is what
+   lets the last paragraph sit at a comfortable height instead of against the
+   window edge. */
 .doc-scroll {
   flex: 1;
   min-width: 0;
@@ -1648,27 +1490,163 @@ html, body {
   background: var(--bg-base);
   display: flex;
   justify-content: center;
-  padding: 0 80px;
 }
 .doc-col {
   width: 100%;
-  max-width: 720px;
-  padding: 40px 0 100px;
+  max-width: 712px;
+  padding: 56px 40px 200px;
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 1.7;
-}
-@media (max-width: 1100px) {
-  .doc-scroll {
-    padding: 0 40px;
-  }
 }
 @media (max-width: 640px) {
-  .doc-scroll {
-    padding: 0 20px;
-  }
+  .doc-col { padding: 32px 20px 160px; }
 }
+
+/* The doc title. Serif, because it is content — the top bar's breadcrumb is
+   the interface copy for the same words. */
+.dt {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  border: 0;
+  background: transparent;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  display: block;
+  width: 100%;
+  padding: 0;
+}
+.dt::placeholder { color: var(--text-muted); }
+
+/* The doc body. `#242422` is a shade lighter than `--text-primary`, which is
+   reserved for headings — the difference is small on purpose and does most of
+   the work of separating a section title from its prose. */
+.dbody {
+  margin-top: 26px;
+  font-family: var(--font-serif);
+  font-size: 18.5px;
+  line-height: 1.78;
+  color: #242422;
+  outline: none;
+}
+.dark .dbody { color: #DEDDD5; }
+.dbody h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 23px;
+  line-height: 1.3;
+  letter-spacing: -0.008em;
+  margin: 34px 0 10px;
+  color: var(--text-primary);
+}
+/* H3 is sans and tracked: below a serif H2 it has to read as a different
+   *rank*, not merely a smaller size. */
+.dbody h3 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 30px 0 8px;
+}
+.dbody h1 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 1.2;
+  letter-spacing: -0.012em;
+  margin: 34px 0 10px;
+  color: var(--text-primary);
+}
+.dbody p { margin: 0 0 16px; }
+.dbody ul, .dbody ol { margin: 0 0 16px; padding-left: 24px; }
+.dbody ul { list-style: disc; }
+.dbody ol { list-style: decimal; }
+.dbody ul ul { list-style: circle; }
+.dbody li { margin-bottom: 6px; }
+.dbody li::marker { color: var(--text-muted); }
+.dbody strong { font-weight: 600; }
+.dbody a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--current-border); }
+.dbody a:hover { color: var(--accent-hover); }
+.dbody code {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  padding: 0 5px;
+  border-radius: 4px;
+}
+.dbody pre {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 0 0 20px;
+  overflow-x: auto;
+}
+.dbody pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+.dbody blockquote {
+  margin: 0 0 16px;
+  padding-left: 18px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+.dbody hr { height: 1px; background: var(--border); border: 0; margin: 26px 0; }
+/* Tables are interface inside content: sans, so the data reads as data. */
+.dbody table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6px 0 20px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+}
+.dbody th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 14px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.dbody td {
+  padding: 11px 14px 11px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.dbody tr:last-child td { border-bottom: 0; }
+.dbody td > p:last-child, .dbody th > p:last-child { margin-bottom: 0; }
+.dbody img { max-width: 100%; height: auto; border-radius: 8px; margin: 6px 0 20px; }
+.dbody ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+.dbody ul[data-type="taskList"] li { display: flex; gap: 10px; align-items: flex-start; }
+/* Only the writing surface has an empty state to fill. */
+.dbody p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--text-muted);
+}
+.dbody.is-editing { min-height: 320px; }
+.dbody .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent-light);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.dbody th, .dbody td { position: relative; }
 
 /* ───────── Screen headers and empty states ─────────
    Shared by every full-page view (see `components/aqli/page.tsx`). Before
@@ -1879,20 +1857,6 @@ html, body {
   color: var(--stale-text);
 }
 
-/* The editor's bottom process strip — one dim row, no duplicated save state. */
-.pstrip {
-  height: 46px;
-  flex: 0 0 46px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-base);
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
-  gap: 10px;
-  font-size: 12.5px;
-  color: var(--text-muted);
-}
-
 /* Rail first: the reading column needs the room before the sidebar does. */
 @media (max-width: 1100px) {
   .doc-rail {
@@ -1994,24 +1958,218 @@ html, body {
   }
 }
 
-/* ───────── Published doc body ─────────
-   `DocBody` renders through @tailwindcss/typography, whose default `code`
-   style wraps inline code in literal backticks and leaves it unshaded. The
-   editor styles it as a shaded chip (`.ed2-prose code`), so without this the
-   same markdown looks like two different things either side of Edit. */
-.prose :where(code):not(:where([class~="not-prose"] *))::before,
-.prose :where(code):not(:where([class~="not-prose"] *))::after {
-  content: none;
+/* ───────── Slash menu ─────────
+   322px, anchored to the caret. The only thing the writing surface pops up,
+   and only because the writer asked for it by typing `/`. */
+.slash {
+  position: absolute;
+  width: 322px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px -12px rgba(20, 20, 18, 0.26);
+  padding: 6px;
+  z-index: 15;
 }
-
-.prose :where(code):not(:where(pre *)):not(:where([class~="not-prose"] *)) {
-  font-family: var(--font-mono);
-  font-size: 0.875em;
-  font-weight: 400;
+.si {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  gap: 11px;
+  align-items: center;
+  padding: 7px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  border: 0;
+  background: none;
+  width: 100%;
+  font-family: var(--font-sans);
+}
+.si:hover { background: var(--bg-sidebar); }
+.si.is-on { background: var(--accent-light); }
+.si .sic {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   background: var(--bg-sidebar);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+.si.is-on .sic { background: rgba(15, 110, 86, 0.13); color: var(--accent); }
+.si b { font-size: 13px; font-weight: 600; color: var(--text-primary); display: block; }
+.si-empty { margin: 0; padding: 10px 11px; font-size: 12.5px; color: var(--text-muted); }
+.si em { font-size: 11.5px; color: var(--text-muted); font-style: normal; display: block; }
+
+/* ───────── The one AI affordance ─────────
+   Closed it is a single 40px dot in the corner. No label, no pill, no second
+   entry point anywhere on the surface — `/` reaches the same panel and so
+   does ⌘J, and that is the whole of it (v3 §2, BRIEF §3.4). */
+.spark {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 20px -8px rgba(20, 20, 18, 0.22);
+  z-index: 12;
+}
+.spark:hover { color: var(--accent); border-color: var(--current-border); }
+.aip {
+  position: absolute;
+  bottom: 22px;
+  right: 22px;
+  width: 392px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: 0 24px 56px -18px rgba(20, 20, 18, 0.34);
+  z-index: 14;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.aip-h {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.aip-b {
+  padding: 14px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-height: 280px;
+  overflow: auto;
+}
+.sug {
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-base);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font-family: var(--font-sans);
+}
+.sug:hover { border-color: var(--border-strong); }
+.sug b { font-size: 12.5px; font-weight: 600; display: block; margin-bottom: 4px; color: var(--text-primary); }
+.sug p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-secondary); }
+.aip-f {
+  padding: 11px 13px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-base);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.aip-f input {
+  flex: 1;
+  border: 0;
+  background: none;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 13px;
   color: var(--text-primary);
-  padding: 1px 6px;
-  border-radius: 4px;
+}
+.aip-f input::placeholder { color: var(--text-muted); }
+
+/* ───────── Sheet ─────────
+   440px, over a scrim. Every process question the writing surface stopped
+   asking is asked here, once, at publish (v3 §2). */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 18, 0.34);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.sheet {
+  width: 440px;
+  max-width: 100%;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 30px 70px -20px rgba(20, 20, 18, 0.4);
+  overflow: hidden;
+}
+.sheet-h { padding: 20px 22px 0; }
+.sheet-h h3 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.sheet-h p { margin: 6px 0 0; font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+.sheet-b { padding: 18px 22px 4px; display: flex; flex-direction: column; gap: 16px; }
+.sheet-f {
+  padding: 16px 22px;
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-base);
+}
+.fl {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+  display: block;
+}
+.pickrow { display: flex; gap: 7px; flex-wrap: wrap; }
+.pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.pick:hover { border-color: var(--border-strong); }
+.pick.is-on {
+  background: var(--accent-light);
+  border-color: var(--current-border);
+  color: var(--accent);
+  font-weight: 600;
+}
+.pick .em { display: flex; color: currentColor; }
+.hint { font-size: 12.5px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; }
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  white-space: nowrap;
 }
 
 /* ───────── Document rows ─────────
@@ -2034,97 +2192,21 @@ html, body {
   }
 }
 
-/* ───────── Editor chrome on narrow screens ─────────
-   The process strip is a fixed-height flex row. Below the sidebar breakpoint
-   its items no longer fit, and clipped flex items overlap rather than
-   truncate. The status text goes; the buttons are the point of the strip.
-   (The old full-width meta bar this used to also handle is gone — its
-   contents now sit inline above the title.) */
-@media (max-width: 860px) {
-  .ed2-processstrip {
-    padding: 0 12px;
-    gap: 8px;
-  }
-  .ed2-strip-status {
-    display: none;
-  }
+/* ───────── The AI panel, open ─────────
+   `.spark` and `.aip` (above) are the closed and open forms. This only adds
+   what the open panel's inner content needs — a height cap so a long
+   conversation scrolls inside the panel rather than running off the top of
+   the window, and a phone width. `dvh`, not `vh`: on mobile the browser
+   chrome retracts, and `vh` keeps measuring the tallest state, which is what
+   would let the panel overflow exactly when the viewport is shortest. */
+.aip {
+  max-height: min(560px, calc(100dvh - 46px));
 }
 
-/* ───────── The floating assistant ─────────
-   One per surface: Co-write in the editor, Ask in the viewer (see
-   `components/ai/FloatingAssistant.tsx`). It used to be two pills competing
-   for this corner, which is why the co-write launcher carried a 304px offset
-   to dodge the other one. With a single pill it simply sits bottom-right.
-   `--dock-bottom` is raised by the editor's process strip so the pill clears
-   it. */
-.assistant-dock {
-  position: fixed;
-  bottom: var(--dock-bottom, 24px);
-  right: 24px;
-  z-index: 100;
-}
-
-.assistant-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px 10px 12px;
-  background: var(--text-primary);
-  color: var(--bg-card);
-  border: 0;
-  border-radius: var(--r-pill);
-  box-shadow:
-    0 18px 36px -10px rgba(20, 20, 18, 0.32),
-    0 2px 6px rgba(20, 20, 18, 0.1);
-  cursor: pointer;
-  font-family: var(--font-sans);
-  font-size: 12.5px;
-  font-weight: 500;
-}
-
-.assistant-orb {
-  width: 22px;
-  height: 22px;
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  color: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-}
-
-.assistant-kbd {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  opacity: 0.62;
-  padding: 0 5px;
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  margin-left: 4px;
-}
-
-.assistant-panel {
-  width: 360px;
-  /* Grows upward from `--dock-bottom`, so the room above it is the viewport
-     less that offset. `dvh`, not `vh`: on mobile the browser chrome retracts,
-     and `vh` keeps measuring the tallest state, which is what lets the panel
-     run off the top exactly when the viewport is shortest. */
-  max-height: min(560px, calc(100dvh - var(--dock-bottom, 24px) - 24px));
-  background: var(--bg-card);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-modal);
-  box-shadow:
-    0 24px 48px -12px rgba(20, 20, 18, 0.22),
-    0 4px 12px rgba(20, 20, 18, 0.08);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-@media (max-width: 420px) {
-  .assistant-panel {
+@media (max-width: 440px) {
+  .aip {
     width: calc(100vw - 32px);
     right: 16px;
   }
+  .spark { right: 16px; }
 }

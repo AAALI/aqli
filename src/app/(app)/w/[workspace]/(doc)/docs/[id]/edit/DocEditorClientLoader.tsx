@@ -16,28 +16,22 @@ import type React from "react";
  */
 const DocEditorClient = dynamic(() => import("./DocEditorClient"), {
   ssr: false,
+  // The skeleton is the paper column at its real measure — a title bar and
+  // three text bars, in the place the words will appear. Never a spinner over
+  // the writing surface (§4).
   loading: () => (
-    <div
-      aria-hidden
-      style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        padding: "40px 56px",
-      }}
-    >
-      {[40, 100, 92, 96, 60].map((w, i) => (
-        <div
-          key={i}
-          style={{
-            height: i === 0 ? 34 : 13,
-            width: `${w}%`,
-            borderRadius: 4,
-            background: "var(--bg-card)",
-          }}
-        />
-      ))}
+    <div aria-hidden className="doc-scroll">
+      <div className="doc-col">
+        <div style={{ height: 40, width: "62%", borderRadius: 5, background: "var(--bg-sidebar)" }} />
+        <div style={{ marginTop: 34, display: "flex", flexDirection: "column", gap: 14 }}>
+          {[100, 96, 74].map((w, i) => (
+            <div
+              key={i}
+              style={{ height: 14, width: `${w}%`, borderRadius: 4, background: "var(--bg-sidebar)" }}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   ),
 });
