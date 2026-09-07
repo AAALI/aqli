@@ -12,7 +12,6 @@ import {
   IconLink,
   IconChevLeft,
   IconFolder,
-  IconRobot,
   IconUsers,
 } from "@/components/aqli/icons";
 import AccountMenu from "./AccountMenu";
@@ -30,12 +29,12 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You",
   const settingsBase = `${base}/settings`;
   const workspaceSlug = base.split("/").filter(Boolean).at(1) ?? "";
 
-  const agentLogHref = `/w/${workspaceSlug}/agent-log`;
-
   const nav = [
     { id: "general", href: settingsBase, icon: <IconGear />, label: "Workspace", exact: true },
     { id: "spaces", href: `${settingsBase}/spaces`, icon: <IconFolder />, label: "Spaces" },
-    { id: "keys", href: `${settingsBase}/keys`, icon: <IconKey />, label: "API keys" },
+    // "AI access" absorbs the deleted /agent-log: the per-key counts that page
+    // showed belong next to the keys they describe (§5.19).
+    { id: "keys", href: `${settingsBase}/keys`, icon: <IconKey />, label: "AI access" },
     { id: "members", href: `${settingsBase}/members`, icon: <IconUsers />, label: "Members" },
     { id: "integrations", href: `${settingsBase}/integrations`, icon: <IconLink />, label: "Integrations" },
     // Admins only: the page reports migrations, RLS state and row counts for
@@ -46,9 +45,6 @@ export default function SettingsSidebar({ base, workspaceName, userName = "You",
           { id: "health", href: `${settingsBase}/health`, icon: <IconPulse />, label: "Health" },
         ]
       : []),
-    // Same destination and same name as the workspace sidebar's entry, so the
-    // two navigations do not disagree about what the screen is called.
-    { id: "agents", href: agentLogHref, icon: <IconRobot />, label: "AI activity" },
   ];
 
   const navOpen = useMobileNav();

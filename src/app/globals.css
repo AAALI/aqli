@@ -136,21 +136,21 @@ html, body {
   overflow: hidden;
 }
 
-/* ── Sidebar ── */
+/* ── Sidebar (v3 §2) ── */
 .sb {
-  width: 240px;
-  flex: 0 0 240px;
+  width: 232px;
+  flex: 0 0 232px;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  padding: 16px 0 12px;
+  padding: 18px 0 10px;
 }
 .sb-head {
-  padding: 4px 16px 14px;
+  padding: 0 16px 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
 .sb-brand {
   display: flex;
@@ -160,17 +160,17 @@ html, body {
 }
 .sb-brand-word {
   font-size: 16px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   font-weight: 500;
   color: var(--text-primary);
 }
 .sb-workspace {
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-size: 10.5px;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--text-muted);
-  font-weight: 500;
-  padding-left: 2px;
+  font-weight: 600;
+  padding-left: 1px;
 }
 .sb-nav {
   padding: 8px 8px 0;
@@ -199,16 +199,39 @@ html, body {
   align-items: center;
   justify-content: center;
 }
+/* The space slot. A line icon and a chosen emoji occupy the same 18×16 box,
+   so a workspace that mixes the two still lines up. */
 .sb-item .sb-emoji {
   width: 18px;
+  height: 16px;
+  flex: 0 0 18px;
   font-size: 14px;
+  line-height: 16px;
   text-align: center;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   filter: saturate(0.85);
+}
+.sb-item.is-active .sb-emoji { color: var(--accent); }
+/* Right-aligned trailing cells: a mono keycap (⌘K) or a mono count. */
+.sb-item .sb-key {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+.sb-item .sb-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
 }
 .sb-item.is-active {
   background: rgba(15, 110, 86, 0.08);
   color: var(--accent);
-  font-weight: 500;
+  font-weight: 600;
 }
 .dark .sb-item.is-active {
   background: rgba(29, 158, 117, 0.14);
@@ -222,19 +245,19 @@ html, body {
   background: rgba(255, 255, 255, 0.035);
 }
 .sb-section-label {
-  padding: 16px 18px 6px;
+  padding: 20px 18px 6px;
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 700;
 }
 .sb-newspace {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 7px 10px;
-  margin: 4px 8px 0;
+  margin: 2px 8px 0;
   font-size: 13px;
   color: var(--text-muted);
   cursor: pointer;
@@ -257,7 +280,7 @@ html, body {
   gap: 10px;
 }
 .sb-foot .avatar {
-  width: 28px; height: 28px;
+  width: 26px; height: 26px;
   border-radius: 999px;
   background: linear-gradient(135deg, #C9C7BE, #8A8980);
   color: var(--bg-card);
@@ -268,7 +291,7 @@ html, body {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; line-height: 1.15;
 }
-.sb-foot .meta .n { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+.sb-foot .meta .n { font-size: 13px; color: var(--text-primary); font-weight: 600; }
 .sb-foot .meta .w { font-size: 11px; color: var(--text-muted); }
 .sb-foot .gear {
   color: var(--text-muted); cursor: pointer; padding: 4px;

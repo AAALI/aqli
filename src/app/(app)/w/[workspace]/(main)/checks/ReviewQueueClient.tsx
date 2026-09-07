@@ -112,13 +112,13 @@ export default function ReviewQueueClient({
         <div className="page-col">
           <PageHeader
             eyebrow="Review"
-            title="Review queue"
+            title="Checks"
             sub="Nothing is published in a reviewed space until someone here approves it."
           />
           <EmptyState
             tone="clear"
             icon={<IconCheck size={20} sw={2.2} />}
-            title="Review queue is clear"
+            title="Nothing waiting on you"
           >
             No changes are waiting for review.
           </EmptyState>
@@ -132,7 +132,7 @@ export default function ReviewQueueClient({
       <div className="page-col">
       <PageHeader
         eyebrow="Review"
-        title="Review queue"
+        title="Checks"
         sub={`${waiting} ${waiting === 1 ? "item is" : "items are"} waiting on you. Nothing is published until you approve it.`}
       />
 

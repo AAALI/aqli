@@ -177,7 +177,7 @@ export default function CommandPalette({
           tone: "accent",
           title: `Create a new doc`,
           subtitle: `Start a draft in ${firstSpace.name}`,
-          run: () => go(`${base}/s/${firstSpace.slug}/new`),
+          run: () => go(`${base}/write?space=${firstSpace.slug}`),
         });
       }
       return out;
@@ -205,7 +205,7 @@ export default function CommandPalette({
       title: "Create new doc…",
       subtitle: "Pick a type and template",
       shortcut: ["C"],
-      run: () => go(firstSpace ? `${base}/s/${firstSpace.slug}/new` : base),
+      run: () => go(firstSpace ? `${base}/write?space=${firstSpace.slug}` : `${base}/write`),
     });
     out.push({
       id: "invite",

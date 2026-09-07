@@ -34,7 +34,7 @@ export default async function SpacePage({
   // already use with a flat list under a new name.
   const hasTree = tree.some((d) => d.parent_doc_id !== null);
   const base = `/w/${workspace.slug}`;
-  const newHref = `${base}/s/${space.slug}/new`;
+  const newHref = `${base}/write?space=${space.slug}`;
 
   return (
     <>

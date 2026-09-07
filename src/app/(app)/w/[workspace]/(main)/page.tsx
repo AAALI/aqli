@@ -70,7 +70,7 @@ export default async function WorkspaceHome({
     "there";
   const firstName = fullName.split(" ")[0];
   const firstSpace = spaces[0];
-  const newDocHref = firstSpace ? `${base}/s/${firstSpace.slug}/new` : base;
+  const newDocHref = firstSpace ? `${base}/write?space=${firstSpace.slug}` : `${base}/write`;
 
   // Brand-new workspace — keep the clean-slate welcome.
   if (recentDocs.length === 0) {
@@ -78,7 +78,7 @@ export default async function WorkspaceHome({
       <>
         <AppTopBar base={base} crumbs={[{ label: "Home" }]} />
         <div className="content">
-          <EmptyWorkspace firstSpaceHref={firstSpace ? `${base}/s/${firstSpace.slug}` : base} />
+          <EmptyWorkspace firstSpaceHref={firstSpace ? `${base}/s/${firstSpace.slug}` : base} writeHref={newDocHref} />
         </div>
       </>
     );
@@ -171,7 +171,7 @@ export default async function WorkspaceHome({
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {proposalCount > 0 && (
                   <Link
-                    href={`${base}/review`}
+                    href={`${base}/checks`}
                     className="card"
                     style={{
                       display: "flex",
@@ -583,7 +583,7 @@ function SectionHead({
   );
 }
 
-function EmptyWorkspace({ firstSpaceHref }: { firstSpaceHref: string }) {
+function EmptyWorkspace({ firstSpaceHref, writeHref }: { firstSpaceHref: string; writeHref: string }) {
   return (
     <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ maxWidth: 520 }}>
@@ -591,7 +591,7 @@ function EmptyWorkspace({ firstSpaceHref }: { firstSpaceHref: string }) {
           title="A clean slate"
           action={
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <Link href={`${firstSpaceHref}/new`} className="btn btn-primary" style={{ height: 38, padding: "0 18px" }}>
+              <Link href={writeHref} className="btn btn-primary" style={{ height: 38, padding: "0 18px" }}>
                 <IconPlus size={14} /> Write your first doc
               </Link>
               <Link href={firstSpaceHref} className="btn btn-secondary" style={{ height: 38, padding: "0 16px" }}>

@@ -111,7 +111,7 @@ function GitHubConfig({
       {/* 25b policy hero — the one decision this page exists for. */}
       <SettingsCard
         title="Auto-approve policy"
-        sub="A merged PR was already reviewed in GitHub, so Aqli publishes its doc directly as Approved — live context for agents immediately. Turn this off to route PR-sourced docs through the Review Queue instead."
+        sub="A merged PR was already reviewed in GitHub, so Aqli publishes its doc straight away — live context for agents immediately. Turn this off to send PR-sourced docs to Checks instead."
         action={connected ? <AutoApprovePolicyToggle workspaceId={workspaceId} enabled={autoApprove} /> : undefined}
       >
         {stats && (
@@ -134,7 +134,7 @@ function GitHubConfig({
             />
           </div>
         )}
-        <ReadOnlyRow label="Matched PR" value={`Patch the linked doc's What's implemented section${autoApprove ? " and approve it (live context immediately)." : " and send it to the Review Queue."}`} />
+        <ReadOnlyRow label="Matched PR" value={`Patch the linked doc's What's implemented section${autoApprove ? " and publish it (live context immediately)." : " and send it to Checks."}`} />
         <ReadOnlyRow label="Unmatched PR" value={`Create a new Fix Note in the default destination space${autoApprove ? " and approve it." : " for review."}`} />
       </SettingsCard>
 

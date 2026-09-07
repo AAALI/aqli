@@ -125,7 +125,7 @@ export default function NotificationsButton({ base }: { base: string }) {
           </div>
 
           <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "flex-end", fontSize: 12 }}>
-            <Link href={`${base}/review`} onClick={() => setOpen(false)} style={{ color: "var(--accent)", fontWeight: 500, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <Link href={`${base}/checks`} onClick={() => setOpen(false)} style={{ color: "var(--accent)", fontWeight: 500, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
               See review queue <IconArrowUpRight size={11} sw={1.8} />
             </Link>
           </div>

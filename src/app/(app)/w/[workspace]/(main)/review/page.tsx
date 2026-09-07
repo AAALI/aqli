@@ -1,30 +1,17 @@
-import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
-import { getPendingReviewDocs, getOpenProposals } from "@/lib/supabase/review";
-import AppTopBar from "@/components/layout/AppTopBar";
-import ReviewQueueClient from "./ReviewQueueClient";
+import { permanentRedirect } from "next/navigation";
 
-export default async function ReviewQueuePage({
+/**
+ * `/review` is retired (v3 §5.19). The job moved to Checks — same work, human
+ * words, top-level instead of buried under a "Workflow" group.
+ *
+ * A redirect rather than a 404 because the old path is linked from
+ * notification emails and webhooks already sent.
+ */
+export default async function RetiredReviewQueue({
   params,
 }: {
   params: Promise<{ workspace: string }>;
 }) {
-  const { workspace: wsSlug } = await params;
-  const workspace = await getWorkspaceBySlug(wsSlug);
-  const base = `/w/${workspace.slug}`;
-  const [proposals, docs] = await Promise.all([
-    getOpenProposals(workspace.id),
-    getPendingReviewDocs(workspace.id),
-  ]);
-
-  return (
-    <>
-      <AppTopBar base={base} crumbs={[{ label: "Review Queue" }]} />
-      <ReviewQueueClient
-        proposals={proposals}
-        docs={docs}
-        workspaceId={workspace.id}
-        workspaceSlug={workspace.slug}
-      />
-    </>
-  );
+  const { workspace } = await params;
+  permanentRedirect(`/w/${workspace}/checks`);
 }
