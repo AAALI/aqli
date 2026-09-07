@@ -2,7 +2,7 @@
 
 A playbook for the migration itself: what to do, in what order, and — said
 plainly — which parts Aqli does not do yet. It is written for the person
-running the move, not for a contributor. `ROADMAP.md` is where the product is
+running the move, not for a contributor. `docs/roadmap.md` is where the product is
 going; this is how you get a team across today.
 
 Aqli's own bet is worth naming up front, because it changes what "migrated"
