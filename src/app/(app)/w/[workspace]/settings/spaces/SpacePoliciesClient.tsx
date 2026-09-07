@@ -294,7 +294,7 @@ export default function SpacePoliciesClient({
 
                 <div style={{ justifySelf: "end", display: "flex", alignItems: "center", gap: 10 }}>
                   {saved === space.id && (
-                    <span style={{ fontSize: 12, color: "var(--approved-text)" }}>Saved</span>
+                    <span style={{ fontSize: 12, color: "var(--ok-text)" }}>Saved</span>
                   )}
                   <select
                     value={space.review_policy}

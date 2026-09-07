@@ -428,8 +428,6 @@ function DrawFromSection({
                 }}
               >
                 <span>{r.doc_title}</span>
-                <span>·</span>
-                <span style={{ color: "var(--approved-text)" }}>Approved</span>
               </div>
               <p className="draw-excerpt">{r.excerpt}</p>
               <div
@@ -635,7 +633,7 @@ function HintLine({
     >
       <span
         style={{
-          color: level === "ok" ? "var(--approved-text)" : "var(--review-text)",
+          color: level === "ok" ? "var(--ok-text)" : "var(--warn-text)",
           marginTop: 2,
         }}
       >

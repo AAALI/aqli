@@ -253,7 +253,7 @@ function InviteRowView({ inv, link, onRevoke }: { inv: InviteRow; link: string; 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 96px", gap: 16, alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--border)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-        <span style={{ width: 32, height: 32, borderRadius: 999, background: "var(--review-bg)", color: "var(--review-text)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 32px" }}><IconClock size={15} /></span>
+        <span style={{ width: 32, height: 32, borderRadius: 999, background: "var(--warn-bg)", color: "var(--warn-text)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 32px" }}><IconClock size={15} /></span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inv.email}</span>
       </div>
       <div><RoleChip role={inv.role} /></div>
@@ -273,7 +273,7 @@ function RoleChip({ role }: { role: Role }) {
   const palette: Record<Role, { bg: string; color: string; border: string }> = {
     admin: { bg: "var(--accent-light)", color: "var(--accent)", border: "rgba(15,110,86,0.25)" },
     editor: { bg: "var(--bg-sidebar)", color: "var(--text-secondary)", border: "var(--border)" },
-    viewer: { bg: "var(--draft-bg)", color: "var(--draft-text)", border: "var(--draft-border)" },
+    viewer: { bg: "var(--unver-bg)", color: "var(--unver-text)", border: "var(--unver-border)" },
   };
   const p = palette[role];
   return (

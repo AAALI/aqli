@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { StatusBadge, TypeBadge } from "@/components/aqli/badges";
+import { TypeBadge } from "@/components/aqli/badges";
+import Status from "./Status";
 import { IconDots, IconRobot } from "@/components/aqli/icons";
-import { typeLabel, statusLabel } from "@/lib/doc-display";
+import { typeLabel } from "@/lib/doc-display";
+import { isPublished } from "@/lib/doc-status";
 import { formatRelative, avatarColor } from "@/lib/utils";
 import type { OwnerInfo } from "@/lib/supabase/owners";
 import type { DocWithSpace } from "@/types/doc";
@@ -37,7 +39,7 @@ export default function DocCard({
       <div style={{ fontSize: 14.5, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.005em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {doc.title}
       </div>
-      <StatusBadge status={statusLabel(doc.status)} />
+      {isPublished(doc.status) ? <Status doc={doc} /> : <span />}
       <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-secondary)", fontSize: 13 }}>
         {isAgent ? (
           <>

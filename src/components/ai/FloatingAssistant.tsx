@@ -408,7 +408,7 @@ function CowriteAssistant({
               maxWidth: "92%",
               padding: "10px 12px",
               background: "var(--accent-light)",
-              border: "1px solid var(--approved-border)",
+              border: "1px solid var(--ok-border)",
               borderRadius: "14px 14px 14px 4px",
               fontSize: 13,
               lineHeight: 1.55,

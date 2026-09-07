@@ -93,7 +93,7 @@ export default function AgentLogClient({
               <span
                 style={{
                   flex: "0 0 28px", width: 28, height: 28, borderRadius: 6,
-                  background: "var(--review-bg)", color: "var(--review-text)", border: "1px solid var(--review-border)",
+                  background: "var(--warn-bg)", color: "var(--warn-text)", border: "1px solid var(--warn-border)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}
               >

@@ -197,7 +197,7 @@ export default function InviteClient() {
               </span>
             </AuthField>
             {error && <p style={{ margin: 0, fontSize: 13, color: "#993C1D" }}>{error}</p>}
-            {notice && <p style={{ margin: 0, fontSize: 13, color: "var(--approved-text)" }}>{notice}</p>}
+            {notice && <p style={{ margin: 0, fontSize: 13, color: "var(--ok-text)" }}>{notice}</p>}
             <button type="submit" disabled={busy} className="btn btn-primary" style={{ width: "100%", height: 40, justifyContent: "center", marginTop: 6, gap: 6 }}>
               <span>{busy ? "Joining…" : `Join ${ws}`}</span>
               {!busy && <IconArrowUpRight size={13} sw={1.8} />}

@@ -545,7 +545,7 @@ function PrimMockDoc() {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-        <Pill bg="var(--approved-bg)" color="var(--approved-text)" border="var(--approved-border)">
+        <Pill bg="var(--ok-bg)" color="var(--ok-text)" border="var(--ok-border)">
           Approved
         </Pill>
         <span style={{ fontSize: 10.5, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>v4</span>
@@ -625,10 +625,10 @@ function PrimMockAgent() {
         <span style={{ color: "var(--text-secondary)" }}>aqli.app/api/context \</span>
       </div>
       <div style={{ paddingLeft: 12, color: "var(--text-secondary)" }}>
-        -H <span style={{ color: "var(--review-text)" }}>&quot;Authorization: Bearer aqli_live_8a3f…&quot;</span>
+        -H <span style={{ color: "var(--warn-text)" }}>&quot;Authorization: Bearer aqli_live_8a3f…&quot;</span>
       </div>
       <div style={{ paddingLeft: 12, color: "var(--text-secondary)" }}>
-        -G --data-urlencode <span style={{ color: "var(--review-text)" }}>&quot;q=payout retry&quot;</span>
+        -G --data-urlencode <span style={{ color: "var(--warn-text)" }}>&quot;q=payout retry&quot;</span>
       </div>
       <div
         style={{
@@ -685,7 +685,7 @@ function PrimMockReview() {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        <Pill bg="var(--review-bg)" color="var(--review-text)" border="var(--review-border)">
+        <Pill bg="var(--warn-bg)" color="var(--warn-text)" border="var(--warn-border)">
           Review
         </Pill>
         <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>+8 / −2</span>
@@ -706,7 +706,7 @@ function PrimMockReview() {
           flexDirection: "column",
         }}
       >
-        <span style={{ color: "var(--approved-text)" }}>+ Retry on any 5xx that isn&apos;t 501</span>
+        <span style={{ color: "var(--ok-text)" }}>+ Retry on any 5xx that isn&apos;t 501</span>
         <span style={{ color: "#993C1D" }}>− Retry only on 408 timeouts</span>
       </div>
       <div style={{ display: "flex", gap: 6, marginTop: 4 }}>

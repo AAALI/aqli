@@ -14,12 +14,12 @@ import {
 
 const TINTS: Record<Notification["tint"], { bg: string; color: string; border: string }> = {
   agent: { bg: "var(--agent-tint)", color: "var(--agent-icon)", border: "var(--agent-border)" },
-  ok: { bg: "var(--approved-bg)", color: "var(--approved-text)", border: "var(--approved-border)" },
-  review: { bg: "var(--review-bg)", color: "var(--review-text)", border: "var(--review-border)" },
-  stale: { bg: "var(--stale-bg)", color: "var(--stale-text)", border: "var(--stale-border)" },
+  ok: { bg: "var(--ok-bg)", color: "var(--ok-text)", border: "var(--ok-border)" },
+  review: { bg: "var(--warn-bg)", color: "var(--warn-text)", border: "var(--warn-border)" },
+  stale: { bg: "var(--danger-bg)", color: "var(--danger-text)", border: "var(--danger-border)" },
   // Being named is the one row here addressed to you personally, so it takes
   // the accent rather than a status colour.
-  mention: { bg: "var(--accent-light)", color: "var(--accent)", border: "var(--approved-border)" },
+  mention: { bg: "var(--accent-light)", color: "var(--accent)", border: "var(--ok-border)" },
 };
 
 function tintIcon(n: Notification) {

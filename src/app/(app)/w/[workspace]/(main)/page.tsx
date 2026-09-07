@@ -146,9 +146,9 @@ export default async function WorkspaceHome({
                       alignItems: "center",
                       gap: 5,
                       padding: "3px 8px",
-                      background: "var(--approved-bg)",
-                      color: "var(--approved-text)",
-                      border: "1px solid var(--approved-border)",
+                      background: "var(--ok-bg)",
+                      color: "var(--ok-text)",
+                      border: "1px solid var(--ok-border)",
                       borderRadius: 999,
                       fontSize: 11,
                       fontWeight: 500,
@@ -180,7 +180,7 @@ export default async function WorkspaceHome({
                       padding: "14px 18px",
                       textDecoration: "none",
                       color: "inherit",
-                      borderLeft: "3px solid var(--review-text)",
+                      borderLeft: "3px solid var(--warn-text)",
                     }}
                   >
                     <span style={{ fontSize: 14.5, fontWeight: 500 }}>
@@ -359,7 +359,7 @@ function AttentionRow({
     kind === "review" && doc.author_type === "agent"
       ? { border: "var(--agent-border)", bg: "var(--agent-tint)", icon: <IconRobot size={14} /> }
       : kind === "stale"
-        ? { border: "var(--stale-border)", bg: "var(--stale-bg)", icon: <IconWarn size={14} /> }
+        ? { border: "var(--danger-border)", bg: "var(--danger-bg)", icon: <IconWarn size={14} /> }
         : { border: "var(--border-strong)", bg: "var(--bg-card)", icon: <IconCheckCircle size={14} sw={1.8} /> };
 
   const days = daysSinceReview(doc);
@@ -491,9 +491,9 @@ function FeedRow({ base, e }: { base: string; e: FeedActivity }) {
                 borderRadius: 5,
                 fontSize: 10.5,
                 fontWeight: 500,
-                background: "var(--approved-bg)",
-                color: "var(--approved-text)",
-                border: "1px solid var(--approved-border)",
+                background: "var(--ok-bg)",
+                color: "var(--ok-text)",
+                border: "1px solid var(--ok-border)",
               }}
             >
               <IconGitMerge size={10} /> Auto-approved
@@ -530,9 +530,9 @@ function FeedIcon({
           width: 22,
           height: 22,
           borderRadius: 999,
-          background: "var(--approved-bg)",
-          border: "1px solid var(--approved-border)",
-          color: "var(--approved-text)",
+          background: "var(--ok-bg)",
+          border: "1px solid var(--ok-border)",
+          color: "var(--ok-text)",
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",

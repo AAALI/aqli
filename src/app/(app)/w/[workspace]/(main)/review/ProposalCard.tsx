@@ -56,7 +56,7 @@ export default function ProposalCard({
   return (
     <div
       className="card"
-      style={{ overflow: "hidden", borderLeft: "3px solid var(--review-text)" }}
+      style={{ overflow: "hidden", borderLeft: "3px solid var(--warn-text)" }}
     >
       <div
         style={{
@@ -86,8 +86,8 @@ export default function ProposalCard({
                   fontWeight: 500,
                   padding: "2px 8px",
                   borderRadius: 999,
-                  background: "var(--review-bg)",
-                  color: "var(--review-text)",
+                  background: "var(--warn-bg)",
+                  color: "var(--warn-text)",
                 }}
               >
                 {isNew ? "New document" : "Change"}
@@ -155,8 +155,8 @@ export default function ProposalCard({
             </span>
           ) : (
             <span>
-              <span style={{ color: "var(--approved-text)" }}>+{stat.added}</span>{" "}
-              <span style={{ color: "var(--stale-text)" }}>−{stat.removed}</span>
+              <span style={{ color: "var(--ok-text)" }}>+{stat.added}</span>{" "}
+              <span style={{ color: "var(--danger-text)" }}>−{stat.removed}</span>
             </span>
           )}
           {author && (
@@ -210,15 +210,15 @@ export default function ProposalCard({
                         whiteSpace: "pre-wrap",
                         background:
                           line.op === "add"
-                            ? "var(--approved-bg)"
+                            ? "var(--ok-bg)"
                             : line.op === "remove"
-                              ? "var(--stale-bg)"
+                              ? "var(--danger-bg)"
                               : "transparent",
                         color:
                           line.op === "add"
-                            ? "var(--approved-text)"
+                            ? "var(--ok-text)"
                             : line.op === "remove"
-                              ? "var(--stale-text)"
+                              ? "var(--danger-text)"
                               : "var(--text-secondary)",
                       }}
                     >
@@ -233,8 +233,8 @@ export default function ProposalCard({
           <div
             style={{
               fontSize: 12.5,
-              color: "var(--stale-text)",
-              background: "var(--stale-bg)",
+              color: "var(--danger-text)",
+              background: "var(--danger-bg)",
               padding: "8px 10px",
               borderRadius: 6,
             }}
@@ -282,7 +282,7 @@ export default function ProposalCard({
         <div
           style={{
             borderTop: "1px solid var(--border)",
-            background: "var(--stale-bg)",
+            background: "var(--danger-bg)",
             padding: 16,
           }}
         >
@@ -290,7 +290,7 @@ export default function ProposalCard({
             style={{
               fontSize: 12.5,
               fontWeight: 500,
-              color: "var(--stale-text)",
+              color: "var(--danger-text)",
               marginBottom: 8,
             }}
           >
@@ -323,7 +323,7 @@ export default function ProposalCard({
                 setNote("");
               }}
               className="btn btn-ghost btn-ghost-danger"
-              style={{ background: "var(--stale-bg)" }}
+              style={{ background: "var(--danger-bg)" }}
             >
               Confirm Rejection
             </button>

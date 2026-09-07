@@ -199,7 +199,7 @@ export default function GitHubRepoPicker({
         <button type="button" className="btn btn-primary" style={{ width: "fit-content" }} onClick={save} disabled={saving || loading}>
           {saving ? "Saving…" : "Save repositories"}
         </button>
-        {saved && <span style={{ fontSize: 12.5, color: saved.startsWith("Saved") ? "var(--approved-text)" : "#993C1D" }}>{saved}</span>}
+        {saved && <span style={{ fontSize: 12.5, color: saved.startsWith("Saved") ? "var(--ok-text)" : "#993C1D" }}>{saved}</span>}
       </div>
     </div>
   );

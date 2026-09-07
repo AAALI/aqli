@@ -43,8 +43,8 @@ export default function WorkspaceError({
             width: 38,
             height: 38,
             borderRadius: 10,
-            background: "var(--stale-bg, #fef9c3)",
-            color: "var(--stale-border, #a16207)",
+            background: "var(--danger-bg, #fef9c3)",
+            color: "var(--danger-border, #a16207)",
             marginBottom: 18,
           }}
         >

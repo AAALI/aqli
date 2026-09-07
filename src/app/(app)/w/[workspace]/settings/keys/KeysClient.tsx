@@ -473,9 +473,9 @@ function RevealModal({ name, secret, agentBase, mcpUrl, onClose }: { name: strin
   }
   return (
     <div style={{ ...MODAL_SHELL, width: 540 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "var(--review-bg)", border: "1px solid var(--review-border)", borderRadius: 8 }}>
-        <span style={{ color: "var(--review-text)", display: "flex" }}><IconWarn size={18} /></span>
-        <div style={{ flex: 1, fontSize: 13, color: "var(--review-text)", lineHeight: 1.5 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "var(--warn-bg)", border: "1px solid var(--warn-border)", borderRadius: 8 }}>
+        <span style={{ color: "var(--warn-text)", display: "flex" }}><IconWarn size={18} /></span>
+        <div style={{ flex: 1, fontSize: 13, color: "var(--warn-text)", lineHeight: 1.5 }}>
           <strong style={{ fontWeight: 600 }}>Save this key now.</strong> This is the only time the full key will be shown. Store it in your password manager or secrets vault.
         </div>
       </div>

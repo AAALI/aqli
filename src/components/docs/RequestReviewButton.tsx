@@ -73,7 +73,7 @@ export default function RequestReviewButton({ docId }: { docId: string }) {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
                 Doc moves from <strong style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Draft</strong> to{" "}
-                <strong style={{ color: "var(--review-text)", fontWeight: 500 }}>In Review</strong>.
+                <strong style={{ color: "var(--warn-text)", fontWeight: 500 }}>In Review</strong>.
               </span>
               <div style={{ display: "flex", gap: 8 }}>
                 <button className="btn btn-ghost" onClick={() => setOpen(false)}>Cancel</button>

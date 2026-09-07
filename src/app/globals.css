@@ -21,26 +21,33 @@
   --accent-hover: #0B5A46;
   --accent-light: #E1F5EE;
 
-  /* Status: Draft */
-  --draft-bg: #F2F1ED;
-  --draft-text: #6B6A64;
-  --draft-border: #E5E4DF;
-  /* Status: Review */
-  --review-bg: #FAEEDA;
-  --review-text: #854F0B;
-  --review-border: #FAC775;
-  /* Status: Approved */
-  --approved-bg: #E1F5EE;
-  --approved-text: #0F6E56;
-  --approved-border: #9FE1CB;
-  /* Status: Stale */
-  --stale-bg: #FAECE7;
-  --stale-text: #993C1D;
-  --stale-border: #F5C4B3;
-  /* Status: Archived */
-  --archived-bg: #F2F1ED;
-  --archived-text: #9E9D96;
-  --archived-border: #E5E4DF;
+  /* ── The one status system: Current · Ageing · Unverified ──
+     One question — is this still true? — with three answers, rendered by the
+     single `<Status>` component and by nothing else. Unverified's dot is a
+     ring, not a fill, so the most consequential state reads without colour. */
+  --current-bg: #E1F5EE;
+  --current-text: #0F6E56;
+  --current-border: #9FE1CB;
+  --ageing-bg: #FAEEDA;
+  --ageing-text: #854F0B;
+  --ageing-border: #FAC775;
+  --ageing-dot: #D99B2B;
+  --unver-bg: #F2F1ED;
+  --unver-text: #6B6A64;
+  --unver-border: #E5E4DF;
+
+  /* Generic semantic colours. The status triad above is *only* for doc state;
+     a saved-settings tick or a connection warning is not a doc status and must
+     not borrow its tokens. Same values, honest names. */
+  --ok-bg: #E1F5EE;
+  --ok-text: #0F6E56;
+  --ok-border: #9FE1CB;
+  --warn-bg: #FAEEDA;
+  --warn-text: #854F0B;
+  --warn-border: #FAC775;
+  --danger-bg: #FAECE7;
+  --danger-text: #993C1D;
+  --danger-border: #F5C4B3;
 
   /* Agent indicator */
   --agent-border: #FAC775;
@@ -73,21 +80,26 @@
   --accent-hover: #25B384;
   --accent-light: #04342C;
 
-  --draft-bg: #2A2A27;
-  --draft-text: #8A8980;
-  --draft-border: #36352F;
-  --review-bg: #3A2C12;
-  --review-text: #FAC775;
-  --review-border: #6E5320;
-  --approved-bg: #04342C;
-  --approved-text: #6DD3AE;
-  --approved-border: #0F6E56;
-  --stale-bg: #3A1F14;
-  --stale-text: #F5A788;
-  --stale-border: #6E3520;
-  --archived-bg: #2A2A27;
-  --archived-text: #6B6A64;
-  --archived-border: #36352F;
+  --current-bg: #04342C;
+  --current-text: #6DD3AE;
+  --current-border: #0F6E56;
+  --ageing-bg: #3A2C12;
+  --ageing-text: #FAC775;
+  --ageing-border: #6E5320;
+  --ageing-dot: #D99B2B;
+  --unver-bg: #2A2A27;
+  --unver-text: #8A8980;
+  --unver-border: #36352F;
+
+  --ok-bg: #04342C;
+  --ok-text: #6DD3AE;
+  --ok-border: #0F6E56;
+  --warn-bg: #3A2C12;
+  --warn-text: #FAC775;
+  --warn-border: #6E5320;
+  --danger-bg: #3A1F14;
+  --danger-text: #F5A788;
+  --danger-border: #6E3520;
 
   --agent-border: #B97A1F;
   --agent-tint: #2A1F0E;
@@ -412,11 +424,52 @@ html, body {
 .badge .dot {
   width: 6px; height: 6px; border-radius: 999px; background: currentColor;
 }
-.badge-draft { background: var(--draft-bg); color: var(--draft-text); border-color: var(--draft-border); }
-.badge-review { background: var(--review-bg); color: var(--review-text); border-color: var(--review-border); }
-.badge-approved { background: var(--approved-bg); color: var(--approved-text); border-color: var(--approved-border); }
-.badge-stale { background: var(--stale-bg); color: var(--stale-text); border-color: var(--stale-border); }
-.badge-archived { background: var(--archived-bg); color: var(--archived-text); border-color: var(--archived-border); }
+
+/* ───────── The one status system ─────────
+   Current · Ageing · Unverified. Rendered by `components/docs/Status.tsx` and
+   by nothing else, so a doc's state looks identical in a list, in search, in
+   the sidebar, on a space page, on the phone and in history.
+
+   `.tl` is the pill; `.dot` is the bare dot for dense rows. Unverified is a
+   ring in both forms — filled green means confirmed, filled amber means going
+   stale, hollow means never confirmed. That is the whole grammar, and it is
+   the non-colour cue for the state that matters most. */
+.tl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 21px;
+  padding: 0 8px 0 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tl i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  display: block;
+  flex: 0 0 6px;
+}
+.tl-current { background: var(--current-bg); color: var(--current-text); border-color: var(--current-border); }
+.tl-ageing { background: var(--ageing-bg); color: var(--ageing-text); border-color: var(--ageing-border); }
+.tl-unverified { background: var(--unver-bg); color: var(--unver-text); border-color: var(--unver-border); }
+.tl-unverified i { background: none; box-shadow: inset 0 0 0 1.5px currentColor; }
+
+.sdot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  display: inline-block;
+  flex: 0 0 7px;
+}
+.sdot-current { background: var(--current-text); }
+.sdot-ageing { background: var(--ageing-dot); }
+.sdot-unverified { background: none; box-shadow: inset 0 0 0 1.5px var(--text-muted); }
 
 .badge-type {
   background: var(--bg-card);

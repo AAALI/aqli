@@ -49,6 +49,9 @@ export default async function WorkspaceLayout({
           type: d.type,
           status: d.status,
           space_id: d.space_id,
+          updated_at: d.updated_at,
+          last_reviewed_at: d.last_reviewed_at,
+          frontmatter: d.frontmatter,
         }))}
       />
       <AqliChatWidget workspaceId={workspace.id} workspaceSlug={workspace.slug} />

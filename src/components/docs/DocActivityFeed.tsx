@@ -68,8 +68,8 @@ export default function DocActivityFeed({ docId }: { docId: string }) {
                       flex: "0 0 18px", width: 18, height: 18, marginTop: 1,
                       borderRadius: 999, display: "inline-flex", alignItems: "center", justifyContent: "center",
                       fontSize: 10,
-                      background: a.actor_type === "agent" ? "var(--review-bg)" : "var(--bg-base)",
-                      color: a.actor_type === "agent" ? "var(--review-text)" : "var(--text-muted)",
+                      background: a.actor_type === "agent" ? "var(--warn-bg)" : "var(--bg-base)",
+                      color: a.actor_type === "agent" ? "var(--warn-text)" : "var(--text-muted)",
                       border: "1px solid var(--border)",
                     }}
                   >

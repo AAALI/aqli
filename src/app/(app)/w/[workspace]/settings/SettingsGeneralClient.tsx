@@ -120,7 +120,7 @@ export default function SettingsGeneralClient({
                 <span style={{ fontSize: 12.5, color: "#993C1D" }}>{error}</span>
               )}
               {saved && (
-                <span style={{ fontSize: 12.5, color: "var(--approved-text)" }}>Saved</span>
+                <span style={{ fontSize: 12.5, color: "var(--ok-text)" }}>Saved</span>
               )}
               <button
                 type="submit"

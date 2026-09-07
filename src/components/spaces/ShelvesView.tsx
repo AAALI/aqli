@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { StatusBadge, TypeBadge } from "@/components/aqli/badges";
+import { TypeBadge } from "@/components/aqli/badges";
+import Status from "@/components/docs/Status";
 import { IconChevRight } from "@/components/aqli/icons";
-import { typeLabel, statusLabel } from "@/lib/doc-display";
+import { typeLabel } from "@/lib/doc-display";
+import { isPublished } from "@/lib/doc-status";
 import { formatRelative } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
 
@@ -163,11 +165,11 @@ function ShelfDocRow({ base, doc }: { base: string; doc: DocWithSpace }) {
         >
           {doc.title}
         </span>
-        <span style={{ fontSize: 11.5, color: isStale ? "var(--stale-text)" : "var(--text-muted)" }}>
+        <span style={{ fontSize: 11.5, color: isStale ? "var(--danger-text)" : "var(--text-muted)" }}>
           {doc.last_reviewed_at ? `verified ${formatRelative(doc.last_reviewed_at)}` : "not verified"}
         </span>
       </div>
-      <StatusBadge status={statusLabel(doc.status)} />
+      {isPublished(doc.status) && <Status doc={doc} />}
       <span style={{ color: "var(--text-muted)" }}>
         <IconChevRight size={14} />
       </span>

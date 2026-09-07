@@ -4,8 +4,10 @@ import { formatDate, avatarColor } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
 
 /**
- * The line under a doc title that states where the doc came from. Three modes,
- * derived from real doc fields:
+ * The line under a doc title that states where the doc came from — and only
+ * that. Provenance is not status: an agent- or PR-authored doc is attributed
+ * here and in history, but carries no special chip and no special state (§3.6).
+ * Three modes, derived from real doc fields:
  *   · pr     — created/updated by a merged PR (frontmatter.source_pr_url)
  *   · agent  — drafted by an agent (author_type === "agent")
  *   · human  — drafted by a teammate
@@ -46,32 +48,16 @@ export default function ProvenanceBar({
           <IconArrowUpRight size={11} />
         </a>
         <Sep />
-        {/* A PR-sourced doc can sit in review when auto-approve is off. */}
-        {doc.status === "approved" ? (
-          <span style={{ color: "var(--approved-text)", fontWeight: 500 }}>
-            Auto-approved
-          </span>
-        ) : (
-          <span style={{ color: "var(--review-text)", fontWeight: 500 }}>
-            Awaiting review
-          </span>
-        )}
-        <Sep />
         <span>{formatDate(doc.created_at)}</span>
       </Bar>
     );
   }
 
   if (doc.author_type === "agent") {
-    const awaiting = doc.status === "draft" || doc.status === "review";
     return (
       <Bar>
         <span>Drafted by</span>
         <AgentChip label={doc.agent_id ?? "Agent"} />
-        <Sep />
-        <span style={{ color: awaiting ? "var(--review-text)" : "var(--text-secondary)" }}>
-          {awaiting ? "Awaiting review" : "Approved"}
-        </span>
         <Sep />
         <span>{formatDate(doc.created_at)}</span>
       </Bar>
@@ -89,12 +75,6 @@ export default function ProvenanceBar({
           {ownerName ?? "Team member"}
         </span>
       </span>
-      {doc.status === "approved" && (
-        <>
-          <Sep />
-          <span style={{ color: "var(--approved-text)", fontWeight: 500 }}>Approved</span>
-        </>
-      )}
       <Sep />
       <span>{formatDate(doc.created_at)}</span>
     </Bar>

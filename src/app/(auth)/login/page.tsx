@@ -82,7 +82,7 @@ function LoginForm() {
           <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 28, letterSpacing: "-0.015em" }}>Sign in</h1>
           <p style={{ margin: 0, fontSize: 13.5, color: "var(--text-secondary)" }}>Use your workspace email.</p>
           {confirmed && (
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--approved-text)" }}>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ok-text)" }}>
               Email confirmed — sign in to continue setting up.
             </p>
           )}

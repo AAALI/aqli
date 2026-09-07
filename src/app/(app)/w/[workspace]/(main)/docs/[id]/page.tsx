@@ -77,9 +77,6 @@ export default async function DocViewPage({
   const base = `/w/${wsSlug}`;
   const version = versions.length || 1;
   const prUrl = doc.frontmatter?.source_pr_url;
-  // "Auto-approved" is a claim about status, not just origin — a PR-sourced
-  // doc routed to review (auto-approve off) must not carry the chip.
-  const isAutoApproved = Boolean(prUrl) && doc.status === "approved";
   const canEdit = role === "admin" || role === "editor";
 
   // Freshness is measured against the doc's own cadence, not one global 90-day
@@ -169,7 +166,7 @@ export default async function DocViewPage({
       <div className="main-body" style={{ position: "relative" }}>
         <div id="doc-scroll" className="doc-scroll">
           <article id="doc-article" className="doc-col">
-            <DocMetaRow doc={doc} version={version} autoApproved={isAutoApproved} />
+            <DocMetaRow doc={doc} version={version} />
 
             <h1
               style={{
@@ -197,10 +194,10 @@ export default async function DocViewPage({
               frontmatter={doc.frontmatter}
               canEdit={canEdit}
               prSource={
-                isAutoApproved
+                prUrl
                   ? {
                       repo: doc.frontmatter?.source_repo ?? null,
-                      prNumber: prUrl?.match(/\/pull\/(\d+)/)?.[1] ?? null,
+                      prNumber: prUrl.match(/\/pull\/(\d+)/)?.[1] ?? null,
                     }
                   : null
               }

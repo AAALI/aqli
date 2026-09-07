@@ -76,7 +76,7 @@ export default function AutoApprovePolicyToggle({
           }}
         />
       </button>
-      <span style={{ fontSize: 12.5, color: enabled ? "var(--approved-text)" : "var(--review-text)", fontWeight: 500 }}>
+      <span style={{ fontSize: 12.5, color: enabled ? "var(--ok-text)" : "var(--warn-text)", fontWeight: 500 }}>
         {busy ? "Saving…" : enabled ? "On — merged PRs publish directly" : "Off — merged PRs go to review"}
       </span>
       {error && <span style={{ fontSize: 12, color: "#993C1D" }}>{error}</span>}

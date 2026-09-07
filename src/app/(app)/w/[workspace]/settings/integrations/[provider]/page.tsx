@@ -70,7 +70,7 @@ export default async function IntegrationDetailPage({
             const showSuccess = status === "connected" && connected;
             const showFailure = status !== "connected" || !connected;
             return (
-              <div style={{ marginBottom: 18, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: showSuccess ? "var(--approved-bg)" : "var(--bg-sidebar)", color: showSuccess ? "var(--approved-text)" : "var(--text-secondary)", fontSize: 13 }}>
+              <div style={{ marginBottom: 18, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: showSuccess ? "var(--ok-bg)" : "var(--bg-sidebar)", color: showSuccess ? "var(--ok-text)" : "var(--text-secondary)", fontSize: 13 }}>
                 {showSuccess ? "Connection saved." : showFailure ? "Connection was not completed." : ""}
               </div>
             );

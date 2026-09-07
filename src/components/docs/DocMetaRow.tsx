@@ -1,6 +1,7 @@
-import { AutoApprovedChip, TypeBadge } from "@/components/aqli/badges";
-import DocStatusControl from "@/components/docs/DocStatusControl";
+import { TypeBadge } from "@/components/aqli/badges";
+import Status from "@/components/docs/Status";
 import { typeLabel } from "@/lib/doc-display";
+import { isPublished } from "@/lib/doc-status";
 import type { DocWithSpace } from "@/types/doc";
 
 /**
@@ -9,18 +10,16 @@ import type { DocWithSpace } from "@/types/doc";
  * This is document data, not app chrome, so it sits with the document rather
  * than in a band under the top bar. It replaces the editor's full-width
  * `TYPE · STATUS · OWNER · v1 · Last reviewed` strip, and is the single place
- * either surface states the doc's status — the top bar carries save state, the
- * editor's bottom strip restates this same badge, and nothing else does.
+ * either surface states the doc's status, and it states it read-only: nothing
+ * in v3 sets a status from a dropdown. State is a consequence of publishing,
+ * confirming and editing.
  */
 export default function DocMetaRow({
   doc,
   version,
-  autoApproved = false,
 }: {
   doc: DocWithSpace;
   version: number;
-  /** Entered as Approved through the GitHub auto-approve path. */
-  autoApproved?: boolean;
 }) {
   return (
     <div
@@ -34,8 +33,7 @@ export default function DocMetaRow({
       }}
     >
       <TypeBadge type={typeLabel(doc.type)} />
-      {autoApproved && <AutoApprovedChip />}
-      <DocStatusControl docId={doc.id} status={doc.status} />
+      {isPublished(doc.status) && <Status doc={doc} />}
       <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
         v{version}
         {doc.space ? ` · ${doc.space.name}` : ""}

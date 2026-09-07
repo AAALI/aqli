@@ -95,7 +95,7 @@ export default function Sidebar({
           <span className="sb-icon"><IconCheck /></span>
           <span>Review Queue</span>
           {reviewCount > 0 && (
-            <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--review-text)", background: "var(--review-bg)", border: "1px solid var(--review-border)", padding: "0 6px", borderRadius: 999, lineHeight: "16px", height: 16 }}>
+            <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--warn-text)", background: "var(--warn-bg)", border: "1px solid var(--warn-border)", padding: "0 6px", borderRadius: 999, lineHeight: "16px", height: 16 }}>
               {reviewCount}
             </span>
           )}
@@ -104,7 +104,7 @@ export default function Sidebar({
           <span className="sb-icon"><IconClock /></span>
           <span>Needs updating</span>
           {staleCount > 0 && (
-            <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--stale-text)", background: "var(--stale-bg)", border: "1px solid var(--stale-border)", padding: "0 6px", borderRadius: 999, lineHeight: "16px", height: 16 }}>
+            <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--danger-text)", background: "var(--danger-bg)", border: "1px solid var(--danger-border)", padding: "0 6px", borderRadius: 999, lineHeight: "16px", height: 16 }}>
               {staleCount}
             </span>
           )}

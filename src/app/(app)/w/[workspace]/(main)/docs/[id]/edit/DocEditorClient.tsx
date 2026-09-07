@@ -421,11 +421,11 @@ export default function DocEditorClient({
                   gap: 12,
                   marginBottom: 18,
                   padding: "10px 14px",
-                  background: "var(--review-bg)",
-                  border: "1px solid var(--review-border)",
+                  background: "var(--warn-bg)",
+                  border: "1px solid var(--warn-border)",
                   borderRadius: 8,
                   fontSize: 13,
-                  color: "var(--review-text)",
+                  color: "var(--warn-text)",
                 }}
               >
                 <span style={{ flex: 1 }}>{images.error}</span>

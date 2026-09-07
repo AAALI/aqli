@@ -12,14 +12,22 @@ import {
   IconGear,
   IconLogOut,
 } from "@/components/aqli/icons";
-import { typeLabel, statusLabel } from "@/lib/doc-display";
+import { typeLabel } from "@/lib/doc-display";
+import Status from "@/components/docs/Status";
+import { STATE_LABEL, docState, isPublished } from "@/lib/doc-status";
+import type { DocStatus } from "@/types/doc";
+import type { VerifyCadence } from "@/lib/verify-cadence";
 
 type DocLite = {
   id: string;
   title: string;
   type: string;
-  status: string;
+  status: DocStatus;
   space_id: string | null;
+  /** The palette leads a doc with the same status dot every other surface uses. */
+  updated_at: string;
+  last_reviewed_at: string | null;
+  frontmatter: { verify_cadence?: VerifyCadence } | null;
 };
 type SpaceLite = { id: string; name: string; slug: string; icon: string };
 
@@ -141,9 +149,9 @@ export default function CommandPalette({
           id: `doc-${d.id}`,
           kind: "doc",
           group: "Docs",
-          icon: <TypeGlyph type={d.type} />,
+          icon: <DocLead doc={d} />,
           title: d.title,
-          subtitle: [spaceName(d.space_id), statusLabel(d.status)].filter(Boolean).join(" · "),
+          subtitle: docSubtitle(d, spaceName(d.space_id)),
           shortcut: ["↵"],
           run: () => go(`${base}/docs/${d.id}`),
         });
@@ -181,9 +189,9 @@ export default function CommandPalette({
         id: `recent-${d.id}`,
         kind: "doc",
         group: "Recent",
-        icon: <TypeGlyph type={d.type} />,
+        icon: <DocLead doc={d} />,
         title: d.title,
-        subtitle: [spaceName(d.space_id), statusLabel(d.status)].filter(Boolean).join(" · "),
+        subtitle: docSubtitle(d, spaceName(d.space_id)),
         run: () => go(`${base}/docs/${d.id}`),
       });
     }
@@ -560,6 +568,22 @@ function Row({
       )}
     </div>
   );
+}
+
+/**
+ * A doc's leading cell: the same status dot the lists and the phone use, so a
+ * doc looks the same in the palette as it does everywhere else. An unpublished
+ * draft has no state, so it falls back to its type initials.
+ */
+function DocLead({ doc }: { doc: DocLite }) {
+  if (!isPublished(doc.status)) return <TypeGlyph type={doc.type} />;
+  return <Status doc={doc} form="dot" />;
+}
+
+function docSubtitle(doc: DocLite, space: string | null): string {
+  return [space, isPublished(doc.status) ? STATE_LABEL[docState(doc)] : "Your draft · nobody can see it but you"]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function TypeGlyph({ type }: { type: string }) {

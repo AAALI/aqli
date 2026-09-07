@@ -152,7 +152,7 @@ export default function HistoryClient({
                     }}
                   >
                     <div style={{ position: "relative", display: "flex", justifyContent: "center", paddingTop: 4 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 999, background: "var(--bg-card)", border: `2px solid ${i === 0 ? "var(--approved-text)" : "var(--text-muted)"}`, boxShadow: sel ? "0 0 0 4px rgba(15,110,86,0.15)" : "none", zIndex: 1 }} />
+                      <span style={{ width: 10, height: 10, borderRadius: 999, background: "var(--bg-card)", border: `2px solid ${i === 0 ? "var(--ok-text)" : "var(--text-muted)"}`, boxShadow: sel ? "0 0 0 4px rgba(15,110,86,0.15)" : "none", zIndex: 1 }} />
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -195,7 +195,7 @@ export default function HistoryClient({
                 </span>
                 <div style={{ flex: 1 }} />
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 14, fontSize: 12 }}>
-                  <span style={{ color: "var(--approved-text)", fontFamily: "var(--font-mono)" }}>+{added}</span>
+                  <span style={{ color: "var(--ok-text)", fontFamily: "var(--font-mono)" }}>+{added}</span>
                   <span style={{ color: "#993C1D", fontFamily: "var(--font-mono)" }}>−{removed}</span>
                 </div>
                 {!isCurrent && (
@@ -217,7 +217,7 @@ export default function HistoryClient({
                         padding: "1px 12px",
                         margin: "0 -12px",
                         background: r.op === "add" ? "rgba(15,110,86,0.08)" : r.op === "remove" ? "rgba(153,60,29,0.08)" : "transparent",
-                        color: r.op === "add" ? "var(--approved-text)" : r.op === "remove" ? "#993C1D" : "var(--text-secondary)",
+                        color: r.op === "add" ? "var(--ok-text)" : r.op === "remove" ? "#993C1D" : "var(--text-secondary)",
                         borderLeft: `3px solid ${r.op === "add" ? "var(--accent)" : r.op === "remove" ? "#993C1D" : "transparent"}`,
                         whiteSpace: "pre-wrap",
                         wordBreak: "break-word",

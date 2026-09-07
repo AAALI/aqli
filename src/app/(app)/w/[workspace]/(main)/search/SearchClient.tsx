@@ -4,11 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AppTopBar from "@/components/layout/AppTopBar";
-import { StatusBadge, TypeBadge } from "@/components/aqli/badges";
+import { TypeBadge } from "@/components/aqli/badges";
+import Status from "@/components/docs/Status";
 import { PageHeader, EmptyState } from "@/components/aqli/page";
 import { IconSearch, IconSparkle, IconArrowUpRight, IconRobot, IconChevRight } from "@/components/aqli/icons";
-import { typeLabel, statusLabel } from "@/lib/doc-display";
+import { typeLabel } from "@/lib/doc-display";
+import { isPublished } from "@/lib/doc-status";
 import type { DocStatus, DocType } from "@/types/doc";
+import type { VerifyCadence } from "@/lib/verify-cadence";
 
 type Result = {
   id: string;
@@ -20,6 +23,8 @@ type Result = {
   parent?: { id: string; title: string } | null;
   author_type?: "human" | "agent";
   updated_at: string;
+  last_reviewed_at: string | null;
+  frontmatter: { verify_cadence?: VerifyCadence } | null;
   body_text: string | null;
 };
 
@@ -245,7 +250,7 @@ export default function SearchClient({
                       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5 }}>
                         <TypeBadge type={typeLabel(r.type)} />
                         <span style={{ color: "var(--text-muted)" }}>·</span>
-                        <StatusBadge status={statusLabel(r.status)} />
+                        {isPublished(r.status) && <Status doc={r} />}
                         {isAgent && (
                           <>
                             <span style={{ color: "var(--text-muted)" }}>·</span>
@@ -257,7 +262,7 @@ export default function SearchClient({
                         <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--text-secondary)" }}>
                           {pre}
                           {match && (
-                            <mark style={{ background: "var(--review-bg)", color: "var(--review-text)", padding: "1px 3px", borderRadius: 3, fontWeight: 500 }}>{match}</mark>
+                            <mark style={{ background: "var(--warn-bg)", color: "var(--warn-text)", padding: "1px 3px", borderRadius: 3, fontWeight: 500 }}>{match}</mark>
                           )}
                           {post}
                         </div>

@@ -108,7 +108,7 @@ export default function GitHubTokenForm({
       </p>
 
       {error && (
-        <span style={{ fontSize: 12, color: "var(--stale-text)", lineHeight: 1.5 }}>{error}</span>
+        <span style={{ fontSize: 12, color: "var(--danger-text)", lineHeight: 1.5 }}>{error}</span>
       )}
 
       <div style={{ display: "flex", gap: 8 }}>

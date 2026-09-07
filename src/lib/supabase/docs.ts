@@ -61,13 +61,17 @@ export type TreeDoc = {
   parent_doc_id: string | null;
   position: number;
   updated_at: string;
+  last_reviewed_at: string | null;
+  frontmatter: DocFrontmatter | null;
 };
 
 export async function getSpaceTree(workspaceId: string, spaceId: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("docs")
-    .select("id, title, type, status, parent_doc_id, position, updated_at")
+    .select(
+      "id, title, type, status, parent_doc_id, position, updated_at, last_reviewed_at, frontmatter",
+    )
     .eq("workspace_id", workspaceId)
     .eq("space_id", spaceId)
     .order("position", { ascending: true })
@@ -478,7 +482,9 @@ export async function searchDocs(workspaceId: string, query: string) {
     // "Parental leave" means something different under Benefits than under
     // Policies, and search is where people meet a page with no surroundings.
     .select(
-      "id, title, type, status, space_id, updated_at, body_text, parent_doc_id, parent:docs!docs_parent_doc_id_fkey(id, title)",
+      // `last_reviewed_at` + `frontmatter` come along because every surface a
+      // doc appears on renders the same status dot, and `docState` needs both.
+      "id, title, type, status, space_id, updated_at, last_reviewed_at, frontmatter, body_text, parent_doc_id, parent:docs!docs_parent_doc_id_fkey(id, title)",
     )
     .eq("workspace_id", workspaceId)
     .textSearch("search_vector", query, { type: "websearch" })

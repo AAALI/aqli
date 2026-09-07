@@ -106,7 +106,7 @@ function IntegrationCard({
       <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.005em" }}>{item.name}</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, height: 22, padding: "0 8px", borderRadius: 6, background: connected ? "var(--approved-bg)" : "var(--bg-sidebar)", color: connected ? "var(--approved-text)" : "var(--text-muted)", border: `1px solid ${connected ? "var(--approved-border)" : "var(--border)"}`, fontSize: 11.5, fontWeight: 500 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, height: 22, padding: "0 8px", borderRadius: 6, background: connected ? "var(--ok-bg)" : "var(--bg-sidebar)", color: connected ? "var(--ok-text)" : "var(--text-muted)", border: `1px solid ${connected ? "var(--ok-border)" : "var(--border)"}`, fontSize: 11.5, fontWeight: 500 }}>
             <span style={{ width: 6, height: 6, borderRadius: 999, background: "currentColor" }} />
             {connected ? "Connected" : connection?.status ?? "Not connected"}
           </span>

@@ -161,7 +161,7 @@ export default function ReviewQueueClient({
             <div
               key={doc.id}
               className="card"
-              style={{ overflow: "hidden", borderLeft: "3px solid var(--review-text)" }}
+              style={{ overflow: "hidden", borderLeft: "3px solid var(--warn-text)" }}
             >
               <div style={{ padding: "20px 24px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
@@ -237,8 +237,8 @@ export default function ReviewQueueClient({
               </div>
 
               {dialog?.type === "reject" && dialog.docId === doc.id && (
-                <div style={{ borderTop: "1px solid var(--border)", background: "var(--stale-bg)", padding: 16 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--stale-text)", marginBottom: 8 }}>
+                <div style={{ borderTop: "1px solid var(--border)", background: "var(--danger-bg)", padding: 16 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--danger-text)", marginBottom: 8 }}>
                     Reason for rejection
                   </div>
                   <textarea
@@ -252,7 +252,7 @@ export default function ReviewQueueClient({
                     <button
                       onClick={() => act(doc.id, "reject", { reason })}
                       className="btn btn-ghost btn-ghost-danger"
-                      style={{ background: "var(--stale-bg)" }}
+                      style={{ background: "var(--danger-bg)" }}
                     >
                       Confirm Rejection
                     </button>
@@ -262,8 +262,8 @@ export default function ReviewQueueClient({
               )}
 
               {dialog?.type === "changes" && dialog.docId === doc.id && (
-                <div style={{ borderTop: "1px solid var(--border)", background: "var(--review-bg)", padding: 16 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--review-text)", marginBottom: 8 }}>
+                <div style={{ borderTop: "1px solid var(--border)", background: "var(--warn-bg)", padding: 16 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--warn-text)", marginBottom: 8 }}>
                     What needs to change?
                   </div>
                   <textarea

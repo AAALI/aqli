@@ -46,7 +46,7 @@ export default function LinearPreviewPanel({ url }: { url: string }) {
           {preview && (
             <>
               <span>·</span>
-              <span style={{ color: "var(--review-text)", fontWeight: 500 }}>{preview.status}</span>
+              <span style={{ color: "var(--warn-text)", fontWeight: 500 }}>{preview.status}</span>
             </>
           )}
           {!preview && !loading && <span>· open in Linear</span>}

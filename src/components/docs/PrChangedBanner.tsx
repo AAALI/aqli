@@ -29,17 +29,17 @@ export default function PrChangedBanner({
         gap: 10,
         fontSize: 12.5,
         padding: "8px 12px",
-        background: "var(--approved-bg)",
-        border: "1px solid var(--approved-border)",
+        background: "var(--ok-bg)",
+        border: "1px solid var(--ok-border)",
         borderRadius: 8,
-        color: "var(--approved-text)",
+        color: "var(--ok-text)",
       }}
     >
       <span style={{ display: "inline-flex" }}>
         <IconGitMerge size={14} />
       </span>
       <span style={{ color: "var(--text-secondary)" }}>
-        <span style={{ color: "var(--approved-text)", fontWeight: 500 }}>
+        <span style={{ color: "var(--ok-text)", fontWeight: 500 }}>
           What this PR changed
         </span>
         {" — "}
@@ -60,7 +60,7 @@ export default function PrChangedBanner({
           display: "inline-flex",
           alignItems: "center",
           gap: 4,
-          color: "var(--approved-text)",
+          color: "var(--ok-text)",
           fontWeight: 500,
           textDecoration: "none",
           whiteSpace: "nowrap",

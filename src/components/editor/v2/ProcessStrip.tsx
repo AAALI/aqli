@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RequestReviewButton from "@/components/docs/RequestReviewButton";
-import { StatusBadge } from "@/components/aqli/badges";
+import Status from "@/components/docs/Status";
 import { IconHistory } from "@/components/aqli/icons";
 import { DOC_TYPES, type DocType, type DocWithSpace } from "@/types/doc";
-import { statusLabel, typeLabel } from "@/lib/doc-display";
+import { typeLabel } from "@/lib/doc-display";
+import { isPublished } from "@/lib/doc-status";
 import type { Space } from "@/types/space";
 
 /** "Sara", "Sara and Amir", "Sara, Amir and 2 others". */
@@ -56,7 +57,7 @@ export default function ProcessStrip({
     <div className="pstrip ed2-processstrip">
       {/* The same status fact as the meta row above the title, in the place
           you act on it. Nothing else on this strip repeats. */}
-      <StatusBadge status={statusLabel(doc.status)} />
+      {isPublished(doc.status) && <Status doc={doc} />}
       {ownerName && (
         <>
           <span className="ed2-strip-status">·</span>
