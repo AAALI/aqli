@@ -2292,6 +2292,22 @@ html, body {
   font-weight: 600;
 }
 .pick .em { display: flex; color: currentColor; }
+/* Text input (v3 §2): 38px, 7px radius; focus is the accent border plus a
+   3px accent-light ring — the one focus treatment in the product (§8). */
+.inp {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--bg-card);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.inp:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+.inp.lg { height: 46px; font-size: 16px; }
+.inp::placeholder { color: var(--text-muted); }
 .hint { font-size: 12.5px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; }
 .kbd {
   font-family: var(--font-mono);

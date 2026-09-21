@@ -76,6 +76,9 @@ export async function POST(req: NextRequest, { params }: Params) {
       author_id: user.id,
       body: `Asked ${checkers.map((cid) => formatMention(cid, byId.get(cid)!.name)).join(" and ")} to check this.`,
       comment_type: "review_request",
+      // Who is being waited on. The trust line, Home and Checks all read
+      // this array; the body is only its human-readable form.
+      mentions: checkers,
     });
   }
 

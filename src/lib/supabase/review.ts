@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from "./server";
-import { scoped, mergeProposal, rejectProposal } from "@/lib/db";
+import { mergeProposal, rejectProposal } from "@/lib/db";
 import { logActivity } from "./activity";
 import type { DocWithSpace } from "@/types/doc";
 import type { ProposalWithContext } from "@/types/proposal";
@@ -108,7 +108,8 @@ export async function rejectProposalWithNote(
  *
  * Kept alongside the proposal queue rather than dropped: these are real
  * documents waiting on a real person, and hiding them the day the queue moved
- * to `proposals` would strand them silently. Nothing creates new ones.
+ * to `proposals` would strand them silently. Publishing with checkers
+ * named creates them now: that is how "waiting on Sara" is stored.
  */
 export async function getPendingReviewDocs(
   workspaceId: string,
@@ -135,85 +136,8 @@ export async function getReviewCount(workspaceId: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function approveDoc(
-  docId: string,
-  reviewerId: string,
-  reviewerName: string,
-  workspaceId: string,
-): Promise<void> {
-  // Callers must have verified the reviewer's membership; the scoped client's
-  // workspace predicate makes a doc-id/workspace mismatch a no-op rather than a
-  // cross-tenant write.
-  await scoped(workspaceId)
-    .from("docs")
-    .update({ status: "approved", last_reviewed_at: new Date().toISOString() })
-    .eq("id", docId);
 
-  await logActivity({
-    docId,
-    workspaceId,
-    actorType: "human",
-    actorId: reviewerId,
-    actorName: reviewerName,
-    action: "approved",
-    metadata: { from_status: "review", to_status: "approved" },
-  });
-}
 
-export async function rejectDoc(
-  docId: string,
-  reviewerId: string,
-  reviewerName: string,
-  workspaceId: string,
-  reason: string,
-): Promise<void> {
-  const supabase = scoped(workspaceId);
-  // Rejected docs return to draft — the agent can revise and re-request review.
-  await supabase.from("docs").update({ status: "draft" }).eq("id", docId);
-
-  await supabase.from("doc_comments").insert({
-    doc_id: docId,
-    author_id: reviewerId,
-    body: reason,
-    comment_type: "rejection",
-  });
-
-  await logActivity({
-    docId,
-    workspaceId,
-    actorType: "human",
-    actorId: reviewerId,
-    actorName: reviewerName,
-    action: "rejected",
-    metadata: { reason, from_status: "review", to_status: "draft" },
-  });
-}
-
-export async function requestChanges(
-  docId: string,
-  reviewerId: string,
-  reviewerName: string,
-  workspaceId: string,
-  note: string,
-): Promise<void> {
-  // Status stays 'review' — it stays in the queue but with a note attached.
-  await scoped(workspaceId).from("doc_comments").insert({
-    doc_id: docId,
-    author_id: reviewerId,
-    body: note,
-    comment_type: "change_request",
-  });
-
-  await logActivity({
-    docId,
-    workspaceId,
-    actorType: "human",
-    actorId: reviewerId,
-    actorName: reviewerName,
-    action: "changes_requested",
-    metadata: { note },
-  });
-}
 
 // The reader for these rows lives in `lib/supabase/comments.ts` now, where the
 // review trail and ordinary comments are one thread. It reads through RLS
