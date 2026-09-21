@@ -1,30 +1,31 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import AppTopBar from "@/components/layout/AppTopBar";
-import { IconEye, IconHistory } from "@/components/aqli/icons";
-import { EmptyState } from "@/components/aqli/page";
+import { IconChevRight, IconRobot } from "@/components/aqli/icons";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
-import { formatRelative, formatDate } from "@/lib/utils";
-import { diffLines } from "@/lib/merge/diff";
+import { avatarColor, formatRelative } from "@/lib/utils";
+import { diffLines, type DiffLine } from "@/lib/merge/diff";
 
-type V = {
+export type VersionView = {
   id: string;
-  version_number: number;
-  change_type: string;
-  created_at: string;
+  n: number;
+  total: number;
+  label: string;
+  who: string;
+  byAgent: boolean;
+  at: string;
+  prose: string;
   body_md: string;
+  before: string | null;
 };
 
-const CHANGE_LABEL: Record<string, string> = {
-  created: "Created",
-  edit: "Edited",
-  agent_edit: "Edited by an agent",
-  status_change: "Status changed",
-};
-
+/**
+ * History (frame 16): the versions on the left, the change on the right in
+ * the doc's own serif at 17px — removals struck through, additions tinted
+ * the Current green, everything around them as it reads in the doc.
+ */
 export default function HistoryClient({
   workspaceSlug,
   docId,
@@ -32,32 +33,28 @@ export default function HistoryClient({
   spaceName,
   spaceSlug,
   versions,
+  initial,
+  canRestore,
 }: {
   workspaceSlug: string;
   docId: string;
   docTitle: string;
   spaceName: string | null;
   spaceSlug: string | null;
-  versions: V[];
+  versions: VersionView[];
+  initial: string | null;
+  canRestore: boolean;
 }) {
   const router = useRouter();
   const base = `/w/${workspaceSlug}`;
-  const [selectedId, setSelectedId] = useState<string | null>(versions[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    (initial && versions.some((v) => v.id === initial) ? initial : versions[0]?.id) ?? null,
+  );
   const [busy, setBusy] = useState(false);
+  const selected = versions.find((v) => v.id === selectedId) ?? null;
+  const isLatest = selected?.id === versions[0]?.id;
 
-  const selectedIdx = versions.findIndex((v) => v.id === selectedId);
-  const selected = selectedIdx >= 0 ? versions[selectedIdx] : null;
-  // Predecessor = the next-older version (versions are sorted newest-first)
-  const previous = selectedIdx >= 0 ? versions[selectedIdx + 1] : undefined;
-
-  const rows = useMemo(() => {
-    if (!selected) return [];
-    return diffLines(previous?.body_md ?? "", selected.body_md);
-  }, [selected, previous]);
-
-  const added = rows.filter((r) => r.op === "add").length;
-  const removed = rows.filter((r) => r.op === "remove").length;
-  const isCurrent = selectedIdx === 0;
+  const blocks = useMemo(() => (selected ? toBlocks(diffLines(selected.before ?? "", selected.body_md)) : []), [selected]);
 
   async function restore() {
     if (!selected) return;
@@ -66,10 +63,7 @@ export default function HistoryClient({
       await fetch(`/api/docs/${docId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          body_md: selected.body_md,
-          body_json: markdownToTiptap(selected.body_md),
-        }),
+        body: JSON.stringify({ body_md: selected.body_md, body_json: markdownToTiptap(selected.body_md) }),
       });
       router.push(`${base}/docs/${docId}`);
       router.refresh();
@@ -78,167 +72,143 @@ export default function HistoryClient({
     }
   }
 
-  const crumbs = spaceSlug
-    ? [
-        { label: spaceName ?? "Space", href: `${base}/s/${spaceSlug}` },
-        { label: docTitle, href: `${base}/docs/${docId}` },
-        { label: "Version history" },
-      ]
-    : [{ label: docTitle, href: `${base}/docs/${docId}` }, { label: "Version history" }];
-
   return (
     <>
-      {/* One top bar. The doc title is in the breadcrumb, the version count is
-          on the timeline, and which versions are being compared is stated
-          above the diff — so the 56px context strip that restated all three
-          has gone. */}
-      <AppTopBar
-        base={base}
-        crumbs={crumbs}
-        actions={
-          <Link href={`${base}/docs/${docId}`} className="btn btn-ghost" style={{ gap: 6 }}>
-            <IconEye size={13} />
-            <span>Read</span>
-          </Link>
-        }
-      />
+      <div className="tb">
+        <nav className="tb-crumb" aria-label="Breadcrumb">
+          {spaceSlug && (
+            <>
+              <Link href={`${base}/s/${spaceSlug}`}>{spaceName}</Link>
+              <span className="crumb-sep"><IconChevRight size={12} /></span>
+            </>
+          )}
+          <Link href={`${base}/docs/${docId}`}>{docTitle}</Link>
+          <span className="crumb-sep"><IconChevRight size={12} /></span>
+          <span className="crumb-cur">History</span>
+        </nav>
+        <div className="tb-spacer" />
+        <Link href={`${base}/docs/${docId}`} className="btn btn-ghost">
+          Back to the doc
+        </Link>
+      </div>
 
       <div className="main-body">
-        {/* Timeline */}
-        <aside style={{ width: 340, flex: "0 0 340px", borderRight: "1px solid var(--border)", background: "var(--bg-card)", overflow: "auto", padding: "20px 0 0" }}>
-          <div
-            style={{
-              padding: "0 20px 12px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-            }}
-          >
-            <span className="rail-label">Timeline</span>
-            {versions.length > 0 && (
-              <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
-                {versions.length}
-              </span>
-            )}
-          </div>
+        <aside className="hist-list" aria-label="Versions">
           {versions.length === 0 ? (
-            <div className="rail-empty" style={{ padding: "0 20px" }}>
-              No revisions yet. One is recorded every time a change is merged.
-            </div>
+            <p className="rail-empty" style={{ padding: "0 12px" }}>
+              No versions yet. One is kept every time a change is merged.
+            </p>
           ) : (
-            <div style={{ position: "relative", padding: "0 0 24px 0" }}>
-              <div style={{ position: "absolute", left: 36, top: 8, bottom: 36, width: 1, background: "var(--border)" }} />
-              {versions.map((v, i) => {
-                const sel = v.id === selectedId;
-                return (
-                  <button
-                    key={v.id}
-                    onClick={() => setSelectedId(v.id)}
+            versions.map((v) => (
+              <button
+                type="button"
+                key={v.id}
+                className={`bl hist-i${v.id === selectedId ? " is-on" : ""}`}
+                aria-current={v.id === selectedId}
+                onClick={() => setSelectedId(v.id)}
+              >
+                <b>
+                  v{v.n} · {v.label}
+                </b>
+                <span>
+                  <span
+                    className="avatar"
+                    aria-hidden
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "36px 1fr",
-                      gap: 14,
-                      alignItems: "start",
-                      padding: "10px 20px 10px 0",
-                      width: "100%",
-                      textAlign: "left",
-                      background: sel ? "var(--bg-sidebar)" : "transparent",
-                      borderRight: `2px solid ${sel ? "var(--accent)" : "transparent"}`,
-                      border: "none",
-                      borderLeft: "none",
-                      cursor: "pointer",
-                      fontFamily: "var(--font-sans)",
+                      width: 20,
+                      height: 20,
+                      flexBasis: 20,
+                      fontSize: 9,
+                      ...(v.byAgent
+                        ? { background: "var(--unver-bg)", color: "var(--text-secondary)", border: "1px solid var(--border)" }
+                        : { background: avatarColor(v.who) }),
                     }}
                   >
-                    <div style={{ position: "relative", display: "flex", justifyContent: "center", paddingTop: 4 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 999, background: "var(--bg-card)", border: `2px solid ${i === 0 ? "var(--ok-text)" : "var(--text-muted)"}`, boxShadow: sel ? "0 0 0 4px rgba(15,110,86,0.15)" : "none", zIndex: 1 }} />
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--text-muted)", fontWeight: 500 }}>v{v.version_number}</span>
-                        {i === 0 && (
-                          <span style={{ fontSize: 10, color: "var(--accent)", padding: "0 6px", height: 16, borderRadius: 3, background: "var(--accent-light)", border: "1px solid rgba(15,110,86,0.25)", display: "inline-flex", alignItems: "center", letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 600 }}>
-                            current
-                          </span>
-                        )}
-                        <span style={{ flex: 1 }} />
-                        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{formatRelative(v.created_at)}</span>
-                      </div>
-                      <div style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 500, letterSpacing: "-0.005em" }}>
-                        {CHANGE_LABEL[v.change_type] ?? v.change_type}
-                      </div>
-                      <div style={{ fontSize: 11.5, color: "var(--text-secondary)" }}>{formatDate(v.created_at)}</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    {v.byAgent ? <IconRobot size={11} /> : v.who.charAt(0).toUpperCase()}
+                  </span>
+                  {v.who} · {formatRelative(v.at)}
+                </span>
+              </button>
+            ))
           )}
         </aside>
 
-        {/* Diff */}
-        <div style={{ flex: 1, overflow: "hidden", padding: "28px 32px", display: "flex", flexDirection: "column", gap: 16 }}>
-          {selected ? (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {previous && (
-                  <>
-                    <span style={{ padding: "4px 10px", borderRadius: 6, background: "var(--bg-sidebar)", border: "1px solid var(--border)", fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-                      v{previous.version_number}
-                    </span>
-                    <span style={{ color: "var(--text-muted)" }}>→</span>
-                  </>
-                )}
-                <span style={{ padding: "4px 10px", borderRadius: 6, background: "var(--accent-light)", border: "1px solid rgba(15,110,86,0.25)", fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--accent)", fontWeight: 500 }}>
-                  v{selected.version_number}{isCurrent ? " · current" : ""}
-                </span>
-                <div style={{ flex: 1 }} />
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 14, fontSize: 12 }}>
-                  <span style={{ color: "var(--ok-text)", fontFamily: "var(--font-mono)" }}>+{added}</span>
-                  <span style={{ color: "#993C1D", fontFamily: "var(--font-mono)" }}>−{removed}</span>
-                </div>
-                {!isCurrent && (
-                  <button className="btn btn-secondary" style={{ marginLeft: 8 }} onClick={restore} disabled={busy}>
-                    <IconHistory size={13} />
-                    <span>{busy ? "Restoring…" : `Restore v${selected.version_number}`}</span>
-                  </button>
-                )}
+        <div className="doc-scroll">
+          {selected && (
+            <article className="doc-col" style={{ paddingTop: 36, maxWidth: 660 }}>
+              <p className="ob-eb" style={{ margin: 0 }}>
+                Version {selected.n} of {selected.total} · {formatRelative(selected.at)}
+              </p>
+              <h1 className="dt" style={{ fontSize: 30, marginTop: 8 }}>
+                {selected.label}
+              </h1>
+              <p style={{ margin: "12px 0 0", fontSize: 13.5, color: "var(--text-secondary)" }}>{selected.prose}</p>
+
+              <div className="dbody hist-diff" style={{ marginTop: 28, fontSize: 17 }}>
+                {blocks.map((b, i) => (
+                  <Block key={i} block={b} />
+                ))}
               </div>
 
-              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, overflow: "auto", flex: 1, padding: "20px 24px", fontFamily: "var(--font-mono)", fontSize: 12.5, lineHeight: 1.7, color: "var(--text-primary)" }}>
-                {rows.length === 0 ? (
-                  <div style={{ color: "var(--text-muted)" }}>No textual changes in this version.</div>
-                ) : (
-                  rows.map((r, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        padding: "1px 12px",
-                        margin: "0 -12px",
-                        background: r.op === "add" ? "rgba(15,110,86,0.08)" : r.op === "remove" ? "rgba(153,60,29,0.08)" : "transparent",
-                        color: r.op === "add" ? "var(--ok-text)" : r.op === "remove" ? "#993C1D" : "var(--text-secondary)",
-                        borderLeft: `3px solid ${r.op === "add" ? "var(--accent)" : r.op === "remove" ? "#993C1D" : "transparent"}`,
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {(r.op === "add" ? "+ " : r.op === "remove" ? "- " : "  ") + (r.text || " ")}
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          ) : (
-            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <EmptyState title="Nothing to compare yet">
-                A revision is recorded every time a change is merged. Once there are
-                two, the diff between them shows up here.
-              </EmptyState>
-            </div>
+              {canRestore && !isLatest && (
+                <div style={{ marginTop: 32, display: "flex", gap: 9 }}>
+                  <button type="button" className="btn btn-secondary" disabled={busy} onClick={restore}>
+                    {busy ? "Restoring…" : "Restore this version"}
+                  </button>
+                </div>
+              )}
+            </article>
           )}
         </div>
       </div>
     </>
   );
+}
+
+type Segment = { op: "context" | "add" | "remove"; text: string };
+type BlockT = { kind: "h2" | "h3" | "p"; segments: Segment[] };
+
+/**
+ * Group diff lines into the blocks they belong to, so a changed sentence
+ * reads inside its paragraph rather than as a line in a patch. Unchanged
+ * stretches far from any change are dropped to keep the eye on the change.
+ */
+function toBlocks(lines: DiffLine[]): BlockT[] {
+  const near = new Array(lines.length).fill(false);
+  lines.forEach((l, i) => {
+    if (l.op === "context") return;
+    for (let j = Math.max(0, i - 3); j <= Math.min(lines.length - 1, i + 3); j++) near[j] = true;
+  });
+  const out: BlockT[] = [];
+  let para: Segment[] = [];
+  const flush = () => {
+    if (para.length) out.push({ kind: "p", segments: para });
+    para = [];
+  };
+  lines.forEach((l, i) => {
+    const heading = l.text.match(/^(#{1,3})\s+(.+)$/);
+    const keep = near[i] || heading;
+    if (!l.text.trim()) return flush();
+    if (!keep) return;
+    if (heading) {
+      flush();
+      out.push({ kind: heading[1].length >= 3 ? "h3" : "h2", segments: [{ op: l.op, text: heading[2] }] });
+      return;
+    }
+    para.push({ op: l.op, text: l.text.replace(/^\s*(?:[-*+]|\d+\.)\s+/, "• ") });
+  });
+  flush();
+  return out;
+}
+
+function Block({ block }: { block: BlockT }) {
+  const inner = block.segments.map((s, i) => (
+    <span key={i}>
+      {i > 0 && " "}
+      <span className={s.op === "add" ? "d-add" : s.op === "remove" ? "d-rem" : undefined}>{s.text.replace(/[*_`]/g, "")}</span>
+    </span>
+  ));
+  if (block.kind === "h2") return <h2 style={{ fontSize: 20 }}>{inner}</h2>;
+  if (block.kind === "h3") return <h3>{inner}</h3>;
+  return <p>{inner}</p>;
 }

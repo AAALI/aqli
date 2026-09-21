@@ -811,6 +811,17 @@ html, body {
   text-transform: uppercase;
   color: var(--text-muted);
 }
+/* History (frame 16): versions left, the change right. */
+.hist-list { width: 290px; flex: 0 0 290px; border-right: 1px solid var(--border); padding: 18px 14px; overflow: auto; }
+.hist-i { width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 11px 12px; cursor: pointer; font-family: var(--font-sans); border-bottom: 0; }
+.hist-i:hover { background: rgba(0, 0, 0, 0.025); }
+.hist-i.is-on { background: var(--accent-light); }
+.d-rem { background: #FBE3E1; color: #8A2A22; text-decoration: line-through; padding: 1px 3px; border-radius: 3px; }
+.d-add { background: var(--current-bg); color: var(--current-text); padding: 1px 3px; border-radius: 3px; }
+.dark .d-rem { background: #3A1F1C; color: #F5A788; }
+.ob-eb { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+@media (max-width: 767px) { .hist-list { display: none; } }
+
 /* Space page: health bar and shelves. */
 .meter { display: flex; height: 6px; border-radius: 999px; overflow: hidden; background: var(--border); width: 220px; }
 .meter i { display: block; }
