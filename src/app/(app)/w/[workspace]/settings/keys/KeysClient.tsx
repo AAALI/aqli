@@ -2,17 +2,11 @@
 
 import { useState, type ReactNode } from "react";
 import {
-  IconRobot,
-  IconPlus,
-  IconBook,
-  IconArrowUpRight,
   IconKey,
   IconCheck,
   IconWarn,
-  IconTrash,
 } from "@/components/aqli/icons";
-import { SettingsHeader, StatCell, FormField } from "@/components/settings/primitives";
-import { EmptyState } from "@/components/aqli/page";
+import { FormField } from "@/components/settings/primitives";
 import { DEFAULT_AGENT_SCOPES } from "@/lib/agent-scopes";
 import type { AgentScope } from "@/lib/merge/disposition";
 
@@ -23,6 +17,10 @@ type KeyRowData = {
   last_used_at: string | null;
   created_at: string;
   scopes: AgentScope[];
+  /** Docs this key has written — what the deleted /agent-log used to count. */
+  wrote?: number;
+  /** Used in the last month. Decided on the server, where the clock is. */
+  active?: boolean;
 };
 
 /**
@@ -39,13 +37,13 @@ const SCOPE_OPTIONS: { value: AgentScope; label: string; description: string }[]
   {
     value: "propose",
     label: "Propose",
-    description: "Submit changes to the review queue for a human to approve.",
+    description: "Send drafts to Checks for a person to confirm.",
   },
   {
     value: "write",
     label: "Write directly",
     description:
-      "Changes merge without review — unless the space reviews everything.",
+      "Changes publish without a check — unless the space checks everything.",
   },
 ];
 
@@ -110,9 +108,6 @@ const chipStyle: React.CSSProperties = {
 
 type Modal = null | "new" | "reveal";
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
 function fmtWhen(iso: string | null): string {
   if (!iso) return "Never used";
   return "Last used " + new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -123,11 +118,14 @@ export default function KeysClient({
   appUrl,
   canManage,
   initialKeys,
+  rules,
 }: {
   workspaceId: string;
   appUrl: string;
   canManage: boolean;
   initialKeys: KeyRowData[];
+  /** The Rules section, rendered on the server. */
+  rules?: ReactNode;
 }) {
   const [keys, setKeys] = useState<KeyRowData[]>(initialKeys);
   const [modal, setModal] = useState<Modal>(null);
@@ -223,75 +221,52 @@ export default function KeysClient({
   }
 
   return (
-    <div className="content" style={{ padding: "32px 44px", position: "relative", overflow: dim ? "hidden" : "auto" }}>
-      <div style={{ maxWidth: 920, margin: "0 auto", opacity: dim ? 0.4 : 1 }}>
-        <SettingsHeader
-          title="API keys"
-          sub="Each key lets one agent read approved context and write in this workspace. What a key may do is set per key below; whether a change needs review also depends on the space's policy."
-          action={
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              {/* A failed scope toggle happens outside the modal, so the
-                  message has to live here rather than only inside it. */}
-              {error && !dim && (
-                <span style={{ fontSize: 12.5, color: "#993C1D" }}>{error}</span>
-              )}
-              {canManage ? (
-                <button className="btn btn-primary" onClick={openNew}>
-                  <IconPlus size={14} sw={2} />
-                  <span>New API key</span>
-                </button>
-              ) : null}
-            </div>
-          }
-        />
+    <div className="wrap" style={{ position: "relative", overflow: dim ? "hidden" : "auto" }}>
+      <div style={{ maxWidth: 700, opacity: dim ? 0.4 : 1 }}>
+        <h1 className="h1">AI access</h1>
+        <p className="h1s" style={{ maxWidth: 520 }}>
+          Agents read your published docs for context and write drafts back. Nothing they write counts as
+          true until a person confirms it.
+        </p>
+        {error && !dim && (
+          <p role="alert" style={{ margin: "12px 0 0", fontSize: 12.5, color: "var(--ageing-text)" }}>{error}</p>
+        )}
 
-        {/* Agent API base URL */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 22, overflow: "hidden" }}>
-          <StatCell label="Active keys" value={String(keys.length)} />
-          <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)" }}>Agent API base URL</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text-primary)", wordBreak: "break-all" }}>{agentBase}</span>
+        <section className="sect">
+          <div className="sect-h">
+            <h2>Connected</h2>
+            {canManage && (
+              <button type="button" className="sect-a" style={{ background: "none", border: 0, cursor: "pointer", fontFamily: "inherit" }} onClick={openNew}>
+                ＋ New key
+              </button>
+            )}
           </div>
-        </div>
-
-        {keys.length === 0 ? (
-          <EmptyState title="No API keys yet">
-            {canManage
-              ? "Create one to connect Claude Code, Cursor, or any agent to this workspace."
-              : "Ask a workspace admin to create one."}
-          </EmptyState>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {keys.map((k) => (
+          {keys.length === 0 ? (
+            <p className="h1s" style={{ margin: 0 }}>
+              {canManage
+                ? "No agents yet. A key lets Claude Code, Cursor or any MCP client read this workspace and write drafts into Checks."
+                : "No agents yet. Ask a workspace admin to create a key."}
+            </p>
+          ) : (
+            keys.map((k) => (
               <KeyRow
                 key={k.id}
                 k={k}
                 canManage={canManage}
                 scopeBusy={scopeBusy === k.id}
                 onScopeToggle={(scope, next) =>
-                  setScopes(
-                    k,
-                    next ? [...k.scopes, scope] : k.scopes.filter((s) => s !== scope),
-                  )
+                  setScopes(k, next ? [...k.scopes, scope] : k.scopes.filter((s) => s !== scope))
                 }
                 onRevoke={() => revoke(k.id, k.name)}
               />
-            ))}
-          </div>
-        )}
+            ))
+          )}
+          <p className="hint" style={{ marginTop: 14 }}>
+            Agents connect over MCP at <span className="kbd">{mcpUrl}</span> with a bearer key.
+          </p>
+        </section>
 
-        <div style={{ marginTop: 28, padding: "16px 20px", background: "var(--bg-sidebar)", border: "1px solid var(--border)", borderRadius: 10, display: "flex", alignItems: "center", gap: 14 }}>
-          <span style={{ width: 28, height: 28, borderRadius: 6, background: "var(--bg-card)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)" }}>
-            <IconBook size={14} />
-          </span>
-          <div style={{ flex: 1, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-            Assistants connect over MCP at{" "}
-            <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{mcpUrl}</strong>, or call the REST API at{" "}
-            <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{agentBase}</strong> — both with{" "}
-            <code style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, background: "var(--bg-card)", padding: "1px 6px", borderRadius: 4 }}>Authorization: Bearer aqli_…</code>, to read approved context and submit drafts for review.
-          </div>
-          <span style={{ color: "var(--text-secondary)", display: "flex" }}><IconArrowUpRight size={14} /></span>
-        </div>
+        {rules}
       </div>
 
       {dim && (
@@ -331,36 +306,41 @@ function KeyRow({
   onScopeToggle: (scope: AgentScope, next: boolean) => void;
   onRevoke: () => void;
 }) {
+  const active = Boolean(k.active);
+  const meta = [
+    scopeWords(k.scopes),
+    k.wrote ? `wrote ${k.wrote} doc${k.wrote === 1 ? "" : "s"}` : null,
+    k.last_used_at ? `last used ${fmtWhen(k.last_used_at)}` : "never used",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 180px 90px", gap: 16, alignItems: "center", padding: "18px 20px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10 }}>
-      <span style={{ width: 36, height: 36, borderRadius: 8, background: "var(--agent-tint)", border: "1px solid var(--agent-border)", color: "var(--agent-icon)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <IconRobot size={18} />
-      </span>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.005em" }}>{k.name}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12.5, color: "var(--text-muted)" }}>
-          <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>{k.key_prefix}</span>
-          <span>·</span>
-          <span>Created {fmtDate(k.created_at)}</span>
-        </div>
-        <ScopeChips
-          scopes={k.scopes}
-          editable={canManage}
-          busy={scopeBusy}
-          onToggle={onScopeToggle}
-        />
+    <div className="keyrow">
+      <div style={{ minWidth: 0 }}>
+        <b style={{ fontFamily: "var(--font-serif)", fontSize: 16.5, fontWeight: 500 }}>{k.name}</b>
+        <p style={{ margin: "3px 0 0", fontSize: 12.5, color: "var(--text-muted)" }}>{meta}</p>
+        {canManage && (
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <ScopeChips scopes={k.scopes} editable busy={scopeBusy} onToggle={onScopeToggle} />
+            <button type="button" className="btn btn-sm btn-ghost btn-ghost-danger" onClick={onRevoke}>
+              Revoke
+            </button>
+          </div>
+        )}
       </div>
-      <div style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>{fmtWhen(k.last_used_at)}</div>
-      {canManage ? (
-        <button className="btn btn-ghost btn-ghost-danger" style={{ justifySelf: "end" }} onClick={onRevoke}>
-          <IconTrash size={13} />
-          <span>Revoke</span>
-        </button>
-      ) : (
-        <span />
-      )}
+      <span className="kbd" style={{ fontSize: 11 }}>{k.key_prefix}···</span>
+      <span className={`tl ${active ? "tl-current" : "tl-unverified"}`}>
+        <i aria-hidden />
+        {active ? "Active" : "Idle"}
+      </span>
     </div>
   );
+}
+
+function scopeWords(scopes: AgentScope[]): string {
+  if (scopes.includes("write")) return "Reads, drafts and publishes";
+  if (scopes.includes("propose")) return "Reads and drafts";
+  return "Reads";
 }
 
 const MODAL_SHELL: React.CSSProperties = {
@@ -418,7 +398,7 @@ function NewKeyModal({
       </FormField>
       <FormField
         label="What this agent may do"
-        hint="Every key can read approved context. Without “write directly”, an agent's changes wait in the review queue."
+        hint="Every key can read published docs. Without “write directly”, an agent's drafts wait in Checks."
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 2 }}>
           {SCOPE_OPTIONS.map((opt) => {

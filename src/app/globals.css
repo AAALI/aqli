@@ -811,6 +811,32 @@ html, body {
   text-transform: uppercase;
   color: var(--text-muted);
 }
+/* Settings rows and switches (frames 10, 17, 18). */
+.keyrow { display: grid; grid-template-columns: 1fr auto auto; gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.keyrow:last-child { border-bottom: 0; }
+.sw { width: 38px; height: 22px; border-radius: 999px; background: var(--accent); position: relative; flex: 0 0 38px; border: 0; cursor: pointer; padding: 0; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 18px; width: 18px; height: 18px; border-radius: 999px; background: #fff; transition: left 120ms ease-out; }
+.sw.off { background: var(--border-strong); }
+.sw.off::after { left: 2px; }
+.sw:disabled { opacity: 0.5; cursor: default; }
+.sw:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-light); }
+
+/* A small action menu (the ⋯ on a People row). */
+.menu {
+  position: absolute; right: 0; top: 36px; z-index: 20; min-width: 190px;
+  background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 10px;
+  box-shadow: 0 16px 40px -12px rgba(20, 20, 18, 0.26); padding: 6px;
+  animation: overlayIn 130ms ease-out;
+}
+.menu button {
+  display: block; width: 100%; text-align: left; padding: 7px 9px; border: 0; background: none;
+  border-radius: 6px; font-family: var(--font-sans); font-size: 13px; color: var(--text-primary); cursor: pointer;
+}
+.menu button:hover { background: var(--bg-sidebar); }
+
+/* Settings nav (frame 10): narrower than the workspace sidebar, no header. */
+.set-nav.sb { width: 206px; flex: 0 0 206px; padding: 22px 10px; }
+
 /* History (frame 16): versions left, the change right. */
 .hist-list { width: 290px; flex: 0 0 290px; border-right: 1px solid var(--border); padding: 18px 14px; overflow: auto; }
 .hist-i { width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 11px 12px; cursor: pointer; font-family: var(--font-sans); border-bottom: 0; }

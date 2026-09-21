@@ -5,12 +5,6 @@ import { useRouter } from "next/navigation";
 import { SettingsHeader, SettingsCard, FormField } from "@/components/settings/primitives";
 import type { Workspace } from "@/types/workspace";
 
-const STALE_OPTIONS = [
-  { label: "30 days", value: 30 },
-  { label: "60 days", value: 60 },
-  { label: "90 days", value: 90 },
-  { label: "180 days", value: 180 },
-];
 
 const inputStyle: React.CSSProperties = {
   display: "flex",
@@ -60,7 +54,9 @@ export default function SettingsGeneralClient({
 
   const [name, setName] = useState(workspace.name);
   const [slug, setSlug] = useState(workspace.slug);
-  const [staleDays, setStaleDays] = useState(settings.stale_days ?? 90);
+  // Carried through on save so an existing value is not lost. Nothing reads
+  // it: how long a doc stays Current is its own cadence (lib/verify-cadence).
+  const staleDays = settings.stale_days ?? 90;
   const [openaiKey, setOpenaiKey] = useState(settings.openai_key ?? "");
 
   const [saving, setSaving] = useState(false);
@@ -159,30 +155,6 @@ export default function SettingsGeneralClient({
         </FormField>
       </SettingsCard>
 
-      <SettingsCard title="Defaults" sub="How new docs and agent output start out.">
-        <FormField label="Default doc status for human authors">
-          <div style={{ ...selectStyle, background: "var(--bg-base)", fontSize: 13.5, color: "var(--text-muted)" }}>
-            Draft <span style={{ fontSize: 11.5, marginLeft: 6 }}>(fixed — humans start in draft)</span>
-          </div>
-        </FormField>
-        <FormField label="Default doc status for agent authors" hint="Agent output starts as a draft until a human approves it.">
-          <div style={{ ...selectStyle, background: "var(--bg-base)", fontSize: 13.5, color: "var(--text-muted)" }}>
-            Draft <span style={{ fontSize: 11.5, marginLeft: 6 }}>(fixed — agents start in draft)</span>
-          </div>
-        </FormField>
-        <FormField label="Verification window" hint="Approved docs not re-verified within this window show up under Needs updating.">
-          <select
-            value={staleDays}
-            onChange={(e) => setStaleDays(Number(e.target.value))}
-            disabled={!isAdmin}
-            style={selectStyle}
-          >
-            {STALE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </FormField>
-      </SettingsCard>
 
       <SettingsCard title="AI provider" sub="Embeddings and AI features use this key. Your key is stored encrypted and never logged.">
         <FormField label="OpenAI API key" hint="Used for embeddings and AI question answering. Leave blank to disable AI features.">

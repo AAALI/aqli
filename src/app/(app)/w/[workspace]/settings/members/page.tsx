@@ -19,10 +19,15 @@ export default async function SettingsMembersPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [role, members] = await Promise.all([
+  const [role, members, { data: owned }] = await Promise.all([
     getMyRole(workspace.id),
     listWorkspaceMembers(workspace.id),
+    supabase.from("docs").select("owner_id").eq("workspace_id", workspace.id).neq("status", "draft"),
   ]);
+  const owns = new Map<string, number>();
+  for (const d of (owned ?? []) as { owner_id: string | null }[]) {
+    if (d.owner_id) owns.set(d.owner_id, (owns.get(d.owner_id) ?? 0) + 1);
+  }
   const isAdmin = role === "admin";
 
   // Pending invitations are admin-only (RLS returns nothing otherwise).
@@ -33,15 +38,14 @@ export default async function SettingsMembersPage({
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-      <AppTopBar base={base} crumbs={[{ label: "Settings", href: `${base}/settings` }, { label: "Members" }]} />
+    <>
+      <AppTopBar crumbs={[{ label: "Settings", href: `${base}/settings` }, { label: "People" }]} />
       <MembersClient
         workspaceId={workspace.id}
-        workspaceName={workspace.name}
         appUrl={appUrl}
         canManage={isAdmin}
         currentUserId={user?.id ?? null}
-        initialMembers={members}
+        initialMembers={members.map((m) => ({ ...m, owns: owns.get(m.user_id) ?? 0 }))}
         initialInvitations={invitations.map((i) => ({
           id: i.id,
           email: i.email,
@@ -49,8 +53,13 @@ export default async function SettingsMembersPage({
           token: i.token,
           created_at: i.created_at,
           expires_at: i.expires_at,
+          expiresInDays: daysUntil(i.expires_at),
         }))}
       />
-    </div>
+    </>
   );
+}
+
+function daysUntil(iso: string): number {
+  return Math.max(0, Math.ceil((Date.parse(iso) - Date.now()) / 86_400_000));
 }

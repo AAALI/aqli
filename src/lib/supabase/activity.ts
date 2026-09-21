@@ -111,20 +111,5 @@ export async function getDocActivity(
   return (data ?? []) as DocActivity[];
 }
 
-export async function getWorkspaceAgentActivity(
-  workspaceId: string,
-  limit = 100,
-): Promise<DocActivityWithDoc[]> {
-  const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase
-    .from("doc_activity")
-    .select("*, doc:docs(id, title, type, status, space_id)")
-    .eq("workspace_id", workspaceId)
-    .eq("actor_type", "agent")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return (data ?? []) as DocActivityWithDoc[];
-}
 
 

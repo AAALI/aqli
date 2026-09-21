@@ -110,16 +110,16 @@ function GitHubConfig({
     <>
       {/* 25b policy hero — the one decision this page exists for. */}
       <SettingsCard
-        title="Auto-approve policy"
+        title="Docs from merged pull requests publish themselves"
         sub="A merged PR was already reviewed in GitHub, so Aqli publishes its doc straight away — live context for agents immediately. Turn this off to send PR-sourced docs to Checks instead."
         action={connected ? <AutoApprovePolicyToggle workspaceId={workspaceId} enabled={autoApprove} /> : undefined}
       >
         {stats && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
             <StatCell
-              label="Auto-approved this quarter"
+              label="Published from PRs this quarter"
               value={String(stats.autoApprovedThisQuarter)}
-              hint="doc updates published without a second review"
+              hint="doc updates published without a second check"
             />
             <StatCell
               label="Docs touched this quarter"
@@ -135,7 +135,7 @@ function GitHubConfig({
           </div>
         )}
         <ReadOnlyRow label="Matched PR" value={`Patch the linked doc's What's implemented section${autoApprove ? " and publish it (live context immediately)." : " and send it to Checks."}`} />
-        <ReadOnlyRow label="Unmatched PR" value={`Create a new Fix Note in the default destination space${autoApprove ? " and approve it." : " for review."}`} />
+        <ReadOnlyRow label="Unmatched PR" value={`Create a new Fix Note in the default destination space${autoApprove ? " and publish it." : " and send it to Checks."}`} />
       </SettingsCard>
 
       <SettingsCard title="Connection" sub="Use a GitHub account with access to the repositories Aqli should watch.">

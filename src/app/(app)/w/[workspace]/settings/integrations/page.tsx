@@ -1,138 +1,140 @@
 import Link from "next/link";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { listIntegrationConnections } from "@/lib/supabase/integration-connections";
+import { getGitHubPolicyStats } from "@/lib/supabase/github-stats";
+import { getSpaces } from "@/lib/supabase/spaces";
+import { isAutoApproveEnabled } from "@/lib/integrations/source/policy";
 import AppTopBar from "@/components/layout/AppTopBar";
-import { SettingsHeader, StatCell } from "@/components/settings/primitives";
 import { providerLogo } from "@/components/settings/BrandLogos";
-import { IconArrowUpRight, IconBook } from "@/components/aqli/icons";
-import type { IntegrationConnection, IntegrationProvider } from "@/types/integration";
+import { formatRelative } from "@/lib/utils";
+import type { IntegrationConnection } from "@/types/integration";
 
-const ITEMS: {
-  id: IntegrationProvider;
-  name: string;
-  desc: string;
-}[] = [
-  {
-    id: "linear",
-    name: "Linear",
-    desc: "Connect project and issue context. Aqli prefers Linear links when deciding which doc a merged PR should update.",
-  },
-  {
-    id: "github",
-    name: "GitHub",
-    desc: "Watch merged pull requests, update linked docs, or create focused Fix Notes when no Linear ticket exists.",
-  },
-];
-
-export default async function SettingsIntegrationsPage({
-  params,
-}: {
-  params: Promise<{ workspace: string }>;
-}) {
+/**
+ * Settings · Integrations (v3 §5.18, frame 18). Was a provider grid. Each
+ * connection now says what it actually writes into the workspace — the thing
+ * an admin needs to know — rather than only that it is available.
+ */
+export default async function SettingsIntegrationsPage({ params }: { params: Promise<{ workspace: string }> }) {
   const { workspace: wsSlug } = await params;
   const workspace = await getWorkspaceBySlug(wsSlug);
   // Let auth/DB failures surface — silently rendering "no integrations"
   // misleads admins during outages or permission regressions.
-  const connections = await listIntegrationConnections(workspace.id);
+  const [connections, spaces] = await Promise.all([
+    listIntegrationConnections(workspace.id),
+    getSpaces(workspace.id).catch(() => []),
+  ]);
   const base = `/w/${workspace.slug}`;
-  const settingsBase = `${base}/settings`;
-  const connected = connections.filter((connection) => connection.status === "connected").length;
-  // Pick the connection whose last_event_at is the most recent so the stat
-  // shows the newest webhook event (not just the first row with a timestamp).
-  const last = connections
-    .filter((connection) => connection.last_event_at)
-    .reduce<IntegrationConnection | undefined>((latest, connection) => {
-      if (!latest) return connection;
-      const a = connection.last_event_at ? Date.parse(connection.last_event_at) : 0;
-      const b = latest.last_event_at ? Date.parse(latest.last_event_at) : 0;
-      return a > b ? connection : latest;
-    }, undefined);
+  const s = `${base}/settings`;
+  const github = connections.find((c) => c.provider === "github" && c.status === "connected");
+  const linear = connections.find((c) => c.provider === "linear" && c.status === "connected");
+  const stats = github ? await getGitHubPolicyStats(workspace.id).catch(() => null) : null;
+  const spaceName = (id: string | null | undefined) => spaces.find((sp) => sp.id === id)?.name ?? "Engineering";
+
+  const available = [
+    ...(!github ? [{ href: `${s}/integrations/github`, name: "GitHub", line: "Write a fix note into a space every time a PR merges." }] : []),
+    ...(!linear ? [{ href: `${s}/integrations/linear`, name: "Linear", line: "Match merged PRs to the doc their issue belongs to." }] : []),
+    { href: `${s}/import`, name: "Notion", line: "One-way import, links and headings intact." },
+    { href: `${s}/import`, name: "Confluence", line: "One-way import, per space." },
+  ];
 
   return (
     <>
-      <AppTopBar base={base} crumbs={[{ label: "Settings", href: settingsBase }, { label: "Integrations" }]} />
-      <div className="content" style={{ padding: "32px 44px" }}>
-        <div style={{ maxWidth: 920, margin: "0 auto" }}>
-          <SettingsHeader
-            title="Integrations"
-            sub="Connect Aqli to source systems. Integrations are workspace-scoped and keep agent-authored knowledge in review until a human approves it."
-          />
+      <AppTopBar crumbs={[{ label: "Settings", href: s }, { label: "Integrations" }]} />
+      <div className="wrap">
+        <div style={{ maxWidth: 700 }}>
+          <h1 className="h1">Integrations</h1>
+          <p className="h1s">Each one is a source of truth Aqli can watch. Nothing writes to your docs without saying so on the page.</p>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 26, overflow: "hidden" }}>
-            <StatCell label="Connected" value={String(connected)} />
-            <StatCell label="Available" value="2" hint="GitHub + Linear" />
-            <StatCell label="Most recent event" value={last ? providerName(last.provider) : "None"} hint={last?.last_event_at ? new Date(last.last_event_at).toLocaleString() : "No webhook events yet"} last />
-          </div>
+          {(github || linear) && (
+            <section className="sect">
+              <div className="sect-h"><h2>Connected</h2></div>
+              {github && (
+                <Connection
+                  logo={providerLogo("github", 34)}
+                  name="GitHub"
+                  href={`${s}/integrations/github`}
+                  says={
+                    <>
+                      Watching {repoCount(github)} repo{repoCount(github) === 1 ? "" : "s"}. When a PR merges, Aqli writes a fix note into{" "}
+                      <b style={{ fontWeight: 600 }}>{spaceName(github.default_space_id)}</b>{" "}
+                      {isAutoApproveEnabled(github) ? "and publishes it under whoever merged it." : "and sends it to Checks."}
+                    </>
+                  }
+                  numbers={[
+                    stats ? `${stats.docsTouchedThisQuarter} doc${stats.docsTouchedThisQuarter === 1 ? "" : "s"} written this quarter` : null,
+                    stats?.medianLatencyMs ? `median ${Math.round(stats.medianLatencyMs / 1000)}s from merge to doc` : null,
+                    github.last_event_at ? `last one ${formatRelative(github.last_event_at)}` : null,
+                  ]}
+                  error={github.last_error}
+                />
+              )}
+              {linear && (
+                <Connection
+                  logo={providerLogo("linear", 34)}
+                  name="Linear"
+                  href={`${s}/integrations/linear`}
+                  says={<>Reads issues and projects so a merged PR updates the doc its issue belongs to, instead of starting a new one.</>}
+                  numbers={[linear.last_event_at ? `last used ${formatRelative(linear.last_event_at)}` : null]}
+                  error={linear.last_error}
+                />
+              )}
+            </section>
+          )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {ITEMS.map((item) => (
-              <IntegrationCard
-                key={item.id}
-                item={item}
-                connection={connections.find((connection) => connection.provider === item.id)}
-                settingsBase={settingsBase}
-              />
-            ))}
-          </div>
-
-          <div style={{ marginTop: 28, padding: "16px 20px", background: "var(--bg-sidebar)", border: "1px solid var(--border)", borderRadius: 10, display: "flex", alignItems: "center", gap: 14 }}>
-            <span style={{ width: 28, height: 28, borderRadius: 6, background: "var(--bg-card)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)" }}>
-              <IconBook size={14} />
-            </span>
-            <div style={{ flex: 1, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-              GitHub PR events create review docs when they cannot be matched to a Linear-linked doc. Approved docs remain the only trusted context for agents.
+          <section className="sect">
+            <div className="sect-h"><h2>Available</h2></div>
+            <div className="grid3">
+              {available.map((a) => (
+                <Link key={a.name} href={a.href} className="tpl">
+                  <b>{a.name}</b>
+                  <span>{a.line}</span>
+                </Link>
+              ))}
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </>
   );
 }
 
-function IntegrationCard({
-  item,
-  connection,
-  settingsBase,
+function Connection({
+  logo,
+  name,
+  href,
+  says,
+  numbers,
+  error,
 }: {
-  item: { id: IntegrationProvider; name: string; desc: string };
-  connection?: IntegrationConnection;
-  settingsBase: string;
+  logo: React.ReactNode;
+  name: string;
+  href: string;
+  says: React.ReactNode;
+  numbers: (string | null)[];
+  error: string | null | undefined;
 }) {
-  const connected = connection?.status === "connected";
-  const detailHref = `${settingsBase}/integrations/${item.id}`;
+  const facts = numbers.filter(Boolean).join(" · ");
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "44px 1fr auto", gap: 18, alignItems: "center", padding: "20px 22px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10 }}>
-      {providerLogo(item.id, 36)}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.005em" }}>{item.name}</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, height: 22, padding: "0 8px", borderRadius: 6, background: connected ? "var(--ok-bg)" : "var(--bg-sidebar)", color: connected ? "var(--ok-text)" : "var(--text-muted)", border: `1px solid ${connected ? "var(--ok-border)" : "var(--border)"}`, fontSize: 11.5, fontWeight: 500 }}>
-            <span style={{ width: 6, height: 6, borderRadius: 999, background: "currentColor" }} />
-            {connected ? "Connected" : connection?.status ?? "Not connected"}
-          </span>
-        </div>
-        <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{item.desc}</div>
-        <div style={{ fontSize: 12, color: connection?.last_error ? "#993C1D" : "var(--text-muted)", marginTop: 2 }}>
-          {connection?.last_error ?? connectionMeta(connection)}
-        </div>
+    <div className="card" style={{ display: "flex", gap: 15, alignItems: "flex-start", padding: "18px 20px", marginTop: 12 }}>
+      <span style={{ display: "flex", flex: "0 0 34px" }}>{logo}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <b style={{ fontFamily: "var(--font-serif)", fontSize: 17, fontWeight: 500 }}>{name}</b>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>{says}</p>
+        {(facts || error) && (
+          <p style={{ margin: "9px 0 0", fontSize: 12.5, color: error ? "var(--ageing-text)" : "var(--text-muted)" }}>{error ?? facts}</p>
+        )}
       </div>
-      <Link href={detailHref} className={connected ? "btn btn-secondary" : "btn btn-primary"}>
-        <span>{connected ? "Configure" : "Connect"}</span>
-        {!connected && <IconArrowUpRight size={12} />}
-      </Link>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7, alignItems: "flex-end" }}>
+        <span className={`tl ${error ? "tl-ageing" : "tl-current"}`}>
+          <i aria-hidden />
+          {error ? "Needs a look" : "Active"}
+        </span>
+        <Link href={href} className="btn btn-sm btn-ghost">Configure</Link>
+      </div>
     </div>
   );
 }
 
-function providerName(provider: string) {
-  return provider === "github" ? "GitHub" : "Linear";
-}
-
-function connectionMeta(connection?: IntegrationConnection) {
-  if (!connection) return "Use Composio managed OAuth. Tokens are stored in Composio, not Aqli.";
-  if (connection.provider === "github") {
-    const repos = Array.isArray(connection.metadata.repositories) ? connection.metadata.repositories.length : 0;
-    return repos ? `${repos} repo${repos === 1 ? "" : "s"} watched for merged PRs.` : "Connected. Add a repo on the GitHub integration page.";
-  }
-  return "Connected. Linear context will be used when PRs mention an issue key.";
+function repoCount(c: IntegrationConnection): number {
+  return Array.isArray(c.metadata?.repositories) ? c.metadata.repositories.length : 0;
 }

@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconPlus, IconMail, IconTrash, IconLink, IconCheck, IconClock } from "@/components/aqli/icons";
-import { SettingsHeader } from "@/components/settings/primitives";
-import { avatarColor } from "@/lib/utils";
+import { IconX } from "@/components/aqli/icons";
+import { avatarColor, formatRelative } from "@/lib/utils";
 import type { Role, WorkspaceMember } from "@/types/invitation";
 
 type InviteRow = {
@@ -14,20 +13,23 @@ type InviteRow = {
   token: string;
   created_at: string;
   expires_at: string;
+  /** Days until it lapses — decided on the server, where the clock is. */
+  expiresInDays: number;
 };
 
-const ROLE_LABEL: Record<Role, string> = { admin: "Admin", editor: "Editor", viewer: "Viewer" };
+type MemberView = WorkspaceMember & { owns: number };
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-function initialOf(email: string): string {
-  return (email.trim()[0] ?? "?").toUpperCase();
-}
+const ROLE_LABEL: Record<Role, string> = { admin: "Admin", editor: "Member", viewer: "Reader" };
+const COUNT = ["No one", "One person", "Two people", "Three people", "Four people", "Five people", "Six people", "Seven people", "Eight people", "Nine people", "Ten people"];
 
+/**
+ * Settings · People (v3 §5.17, frame 17). Members and pending invites in one
+ * list, because to a human they are the same thing: people in the workspace,
+ * some of whom have not arrived yet. Inviting is a row at the top, not a
+ * separate screen.
+ */
 export default function MembersClient({
   workspaceId,
-  workspaceName,
   appUrl,
   canManage,
   currentUserId,
@@ -35,399 +37,193 @@ export default function MembersClient({
   initialInvitations,
 }: {
   workspaceId: string;
-  workspaceName: string;
   appUrl: string;
   canManage: boolean;
   currentUserId: string | null;
-  initialMembers: WorkspaceMember[];
+  initialMembers: MemberView[];
   initialInvitations: InviteRow[];
 }) {
   const router = useRouter();
-  const [members, setMembers] = useState<WorkspaceMember[]>(initialMembers);
-  const [invites, setInvites] = useState<InviteRow[]>(initialInvitations);
-  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [menu, setMenu] = useState<string | null>(null);
 
   const origin = appUrl || (typeof window !== "undefined" ? window.location.origin : "");
-  const inviteLink = (token: string) => `${origin}/invite?token=${token}`;
+  const linkFor = (token: string) => `${origin}/invite?token=${token}`;
+  const members = initialMembers;
+  const invites = initialInvitations;
+  const people = members.length;
+  const sub = `${COUNT[people] ?? `${people} people`}${invites.length ? `, ${invites.length === 1 ? "one" : invites.length} pending` : ""}. Anyone can write; admins can confirm docs, change settings and invite.`;
 
-  const counts = useMemo(() => {
-    const c = { all: members.length, admin: 0, editor: 0, viewer: 0 };
-    for (const m of members) c[m.role]++;
-    return c;
-  }, [members]);
-
-  function onCreated(inv: InviteRow) {
-    setInvites((prev) => [inv, ...prev]);
-  }
-
-  async function revokeInvite(id: string) {
-    if (!window.confirm("Revoke this invitation? The link will stop working immediately.")) return;
-    const res = await fetch(`/api/invitations/${id}`, { method: "DELETE" });
-    if (res.ok) setInvites((prev) => prev.filter((i) => i.id !== id));
-  }
-
-  async function changeRole(userId: string, role: Role) {
-    setBusyId(userId);
-    try {
-      const res = await fetch(`/api/members/${userId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspace_id: workspaceId, role }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "Could not change role");
-      setMembers((prev) => prev.map((m) => (m.user_id === userId ? { ...m, role } : m)));
-      router.refresh();
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : "Could not change role");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function removeMember(m: WorkspaceMember) {
-    if (!window.confirm(`Remove ${m.email} from ${workspaceName}? They lose access immediately.`)) return;
-    setBusyId(m.user_id);
-    try {
-      const res = await fetch(
-        `/api/members/${m.user_id}?workspace_id=${encodeURIComponent(workspaceId)}`,
-        { method: "DELETE" },
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "Could not remove member");
-      setMembers((prev) => prev.filter((x) => x.user_id !== m.user_id));
-      router.refresh();
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : "Could not remove member");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  return (
-    <div className="content" style={{ padding: "32px 44px", position: "relative", overflow: open ? "hidden" : "auto" }}>
-      <div style={{ maxWidth: 920, margin: "0 auto", opacity: open ? 0.4 : 1 }}>
-        <SettingsHeader
-          title="Members"
-          sub={`Admins manage members, settings, and API keys; editors read, write, and review docs; viewers are read-only.`}
-          action={
-            canManage ? (
-              <button className="btn btn-primary" onClick={() => setOpen(true)}>
-                <IconPlus size={14} sw={2} />
-                <span>Invite member</span>
-              </button>
-            ) : null
-          }
-        />
-
-        <div className="fpills" style={{ marginBottom: 18 }}>
-          <button className="fpill is-active">All · {counts.all}</button>
-          <button className="fpill">Admins · {counts.admin}</button>
-          <button className="fpill">Editors · {counts.editor}</button>
-          <button className="fpill">Viewers · {counts.viewer}</button>
-          {canManage && <button className="fpill">Pending · {invites.length}</button>}
-        </div>
-
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: canManage ? "1fr 140px 170px 100px" : "1fr 120px 200px", gap: 16, padding: "12px 20px", background: "var(--bg-sidebar)", borderBottom: "1px solid var(--border)", fontSize: 10.5, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-            <span>Member</span>
-            <span>Role</span>
-            <span>Joined</span>
-            {canManage && <span />}
-          </div>
-          {members.map((m) => (
-            <MemberRow
-              key={m.user_id}
-              m={m}
-              isYou={m.user_id === currentUserId}
-              canManage={canManage}
-              busy={busyId === m.user_id}
-              onChangeRole={(role) => changeRole(m.user_id, role)}
-              onRemove={() => removeMember(m)}
-            />
-          ))}
-        </div>
-
-        {canManage && invites.length > 0 && (
-          <>
-            <div style={{ margin: "28px 0 12px", fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-              Pending invitations
-            </div>
-            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
-              {invites.map((inv) => (
-                <InviteRowView
-                  key={inv.id}
-                  inv={inv}
-                  link={inviteLink(inv.token)}
-                  onRevoke={() => revokeInvite(inv.id)}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      {open && (
-        <>
-          <div style={{ position: "absolute", inset: 0, background: "rgba(20,20,18,0.32)", zIndex: 50 }} onClick={() => setOpen(false)} />
-          <InviteModal
-            workspaceId={workspaceId}
-            workspaceName={workspaceName}
-            inviteLink={inviteLink}
-            onClose={() => setOpen(false)}
-            onCreated={onCreated}
-            afterClose={() => router.refresh()}
-          />
-        </>
-      )}
-    </div>
-  );
-}
-
-function MemberRow({
-  m,
-  isYou,
-  canManage,
-  busy,
-  onChangeRole,
-  onRemove,
-}: {
-  m: WorkspaceMember;
-  isYou: boolean;
-  canManage: boolean;
-  busy: boolean;
-  onChangeRole: (role: Role) => void;
-  onRemove: () => void;
-}) {
-  // Own row stays read-only: self-demotion locks you out of this very page,
-  // and the last-admin guard lives in the RPC for everyone else.
-  const editable = canManage && !isYou;
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: canManage ? "1fr 140px 170px 100px" : "1fr 120px 200px", gap: 16, alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--border)", opacity: busy ? 0.55 : 1 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-        <span style={{ width: 32, height: 32, borderRadius: 999, background: avatarColor(m.email), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, flex: "0 0 32px" }}>{initialOf(m.email)}</span>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {m.email}
-          {isYou && <span style={{ marginLeft: 8, fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>You</span>}
-        </span>
-      </div>
-      <div>
-        {editable ? (
-          <select
-            value={m.role}
-            disabled={busy}
-            onChange={(e) => onChangeRole(e.target.value as Role)}
-            style={{ height: 26, padding: "0 6px", background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 12, color: "var(--text-primary)", fontFamily: "inherit", cursor: busy ? "wait" : "pointer" }}
-          >
-            {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
-              <option key={r} value={r}>{ROLE_LABEL[r]}</option>
-            ))}
-          </select>
-        ) : (
-          <RoleChip role={m.role} />
-        )}
-      </div>
-      <div style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>{fmtDate(m.created_at)}</div>
-      {canManage && (
-        <div style={{ justifySelf: "end" }}>
-          {editable && (
-            <button className="btn btn-ghost btn-ghost-danger" disabled={busy} onClick={onRemove}>
-              <IconTrash size={13} />
-              <span>Remove</span>
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InviteRowView({ inv, link, onRevoke }: { inv: InviteRow; link: string; onRevoke: () => void }) {
-  const [copied, setCopied] = useState(false);
-  function copy() {
-    navigator.clipboard?.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 96px", gap: 16, alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--border)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-        <span style={{ width: 32, height: 32, borderRadius: 999, background: "var(--warn-bg)", color: "var(--warn-text)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 32px" }}><IconClock size={15} /></span>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inv.email}</span>
-      </div>
-      <div><RoleChip role={inv.role} /></div>
-      <button className="btn btn-ghost" onClick={copy} style={{ justifySelf: "start" }}>
-        {copied ? <IconCheck size={13} sw={2.2} /> : <IconLink size={13} />}
-        <span>{copied ? "Copied" : "Copy link"}</span>
-      </button>
-      <button className="btn btn-ghost btn-ghost-danger" style={{ justifySelf: "end" }} onClick={onRevoke}>
-        <IconTrash size={13} />
-        <span>Revoke</span>
-      </button>
-    </div>
-  );
-}
-
-function RoleChip({ role }: { role: Role }) {
-  const palette: Record<Role, { bg: string; color: string; border: string }> = {
-    admin: { bg: "var(--accent-light)", color: "var(--accent)", border: "rgba(15,110,86,0.25)" },
-    editor: { bg: "var(--bg-sidebar)", color: "var(--text-secondary)", border: "var(--border)" },
-    viewer: { bg: "var(--unver-bg)", color: "var(--unver-text)", border: "var(--unver-border)" },
-  };
-  const p = palette[role];
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", height: 22, padding: "0 8px", borderRadius: 6, background: p.bg, color: p.color, border: `1px solid ${p.border}`, fontSize: 11.5, fontWeight: 500 }}>
-      {ROLE_LABEL[role]}
-    </span>
-  );
-}
-
-const MODAL_SHELL: React.CSSProperties = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  background: "var(--bg-card)",
-  border: "1px solid var(--border)",
-  borderRadius: 12,
-  boxShadow: "0 18px 48px -12px rgba(20,20,18,0.32), 0 2px 6px rgba(20,20,18,0.06)",
-  padding: "24px 26px",
-  zIndex: 51,
-  maxHeight: "calc(100% - 64px)",
-  display: "flex",
-  flexDirection: "column",
-  gap: 18,
-  overflow: "auto",
-};
-
-function InviteModal({
-  workspaceId,
-  workspaceName,
-  inviteLink,
-  onClose,
-  onCreated,
-  afterClose,
-}: {
-  workspaceId: string;
-  workspaceName: string;
-  inviteLink: (token: string) => string;
-  onClose: () => void;
-  onCreated: (inv: InviteRow) => void;
-  afterClose: () => void;
-}) {
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<Role>("editor");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [link, setLink] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-
-  async function send() {
+  async function invite(e: React.FormEvent) {
+    e.preventDefault();
     if (!email.trim()) return;
-    setBusy(true);
-    setError(null);
+    setSending(true);
+    setNotice(null);
     try {
       const res = await fetch("/api/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspace_id: workspaceId, email: email.trim(), role }),
+        body: JSON.stringify({ workspace_id: workspaceId, email: email.trim(), role: "editor" }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not create invitation");
-      const inv = data.invitation as InviteRow;
-      onCreated(inv);
-      setLink(inviteLink(inv.token));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      if (!res.ok) throw new Error(data.error ?? "Couldn't invite them.");
+      await navigator.clipboard?.writeText(linkFor(data.invitation.token)).catch(() => {});
+      setNotice({ tone: "ok", text: `Invited ${email.trim()}. Their link is on your clipboard.` });
+      setEmail("");
+      router.refresh();
+    } catch (err) {
+      setNotice({ tone: "error", text: err instanceof Error ? err.message : "Couldn't invite them." });
     } finally {
-      setBusy(false);
+      setSending(false);
     }
   }
 
-  function copy() {
-    if (!link) return;
-    navigator.clipboard?.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-
-  function close() {
-    onClose();
-    afterClose();
+  async function act(key: string, run: () => Promise<Response>) {
+    setBusyId(key);
+    setMenu(null);
+    try {
+      const res = await run();
+      if (!res.ok) {
+        const b = (await res.json().catch(() => null)) as { error?: string } | null;
+        setNotice({ tone: "error", text: b?.error ?? "That didn't go through." });
+      }
+      router.refresh();
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
-    <div style={{ ...MODAL_SHELL, width: 520 }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <h2 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 22, letterSpacing: "-0.01em", color: "var(--text-primary)" }}>Invite to {workspaceName}</h2>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-          {link
-            ? "Share this link with the person you invited. It expires in 7 days."
-            : "Generate an invite link, then send it to your teammate. The link is the secret — anyone with it can join."}
-        </p>
-      </div>
+    <div className="wrap">
+      <div style={{ maxWidth: 700 }}>
+        <h1 className="h1">People</h1>
+        <p className="h1s">{sub}</p>
 
-      {!link ? (
-        <>
-          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)" }}>Email address</span>
+        {canManage && (
+          <form onSubmit={invite} style={{ marginTop: 22, display: "flex", gap: 9 }}>
             <input
-              autoFocus
+              className="inp"
               type="email"
+              style={{ flex: 1 }}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && send()}
-              placeholder="teammate@company.com"
-              style={{ height: 40, padding: "0 12px", background: "var(--bg-base)", border: "1px solid var(--accent)", boxShadow: "0 0 0 3px rgba(15,110,86,0.12)", borderRadius: 8, fontSize: 13.5, color: "var(--text-primary)", fontFamily: "inherit", outline: "none" }}
+              placeholder="name@company.com — invite by email"
+              aria-label="Email to invite"
             />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)" }}>Role</span>
-            <div style={{ display: "flex", gap: 8 }}>
-              {(["admin", "editor", "viewer"] as Role[]).map((r) => {
-                const on = role === r;
-                const desc = r === "admin" ? "Settings, members, keys." : r === "editor" ? "Read, write, review." : "Read-only.";
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRole(r)}
-                    style={{ flex: 1, padding: "10px 12px", background: on ? "var(--accent-light)" : "var(--bg-base)", border: `1px solid ${on ? "rgba(15,110,86,0.3)" : "var(--border)"}`, borderRadius: 8, cursor: "pointer", display: "flex", flexDirection: "column", gap: 4, textAlign: "left", fontFamily: "inherit" }}
-                  >
-                    <span style={{ fontSize: 12.5, fontWeight: 500, color: on ? "var(--accent)" : "var(--text-primary)" }}>{ROLE_LABEL[r]}</span>
-                    <span style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.35 }}>{desc}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </label>
-          {error && <p style={{ margin: 0, fontSize: 13, color: "#993C1D" }}>{error}</p>}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-            <button className="btn btn-ghost" onClick={close}>Cancel</button>
-            <button className="btn btn-primary" onClick={send} disabled={busy || !email.trim()}>
-              <IconMail size={13} /><span>{busy ? "Creating…" : "Create invite link"}</span>
+            <button type="submit" className="btn btn-primary" style={{ height: 38 }} disabled={sending || !email.trim()}>
+              {sending ? "Sending…" : "Send invite"}
             </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ flex: 1, background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text-primary)", wordBreak: "break-all" }}>
-              {link}
+          </form>
+        )}
+        {notice && (
+          <p role={notice.tone === "error" ? "alert" : "status"} style={{ margin: "10px 0 0", fontSize: 12.5, color: notice.tone === "error" ? "var(--ageing-text)" : "var(--text-secondary)" }}>
+            {notice.text}
+          </p>
+        )}
+
+        <section className="sect">
+          <div className="sect-h"><h2>In the workspace</h2></div>
+          {members.map((m) => {
+            const you = m.user_id === currentUserId;
+            const name = m.full_name?.trim() || m.email.split("@")[0];
+            const editable = canManage && !you;
+            return (
+              <div key={m.user_id} className="keyrow" style={{ gridTemplateColumns: "auto 1fr auto auto", gap: 13, opacity: busyId === m.user_id ? 0.55 : 1 }}>
+                <span className="avatar" aria-hidden style={{ width: 26, height: 26, flexBasis: 26, fontSize: 10.5, background: avatarColor(name) }}>
+                  {name.charAt(0).toUpperCase()}
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <b style={{ fontSize: 14, fontWeight: 600 }}>{name}</b>
+                  {you && <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}> · you</span>}
+                  <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--text-muted)" }}>
+                    {m.email}
+                    {m.owns > 0 && ` · owns ${m.owns} doc${m.owns === 1 ? "" : "s"}`}
+                  </p>
+                </div>
+                <span className={`tl ${m.role === "admin" ? "tl-current" : "tl-unverified"}`}>
+                  <i aria-hidden />
+                  {ROLE_LABEL[m.role]}
+                </span>
+                <span style={{ position: "relative" }}>
+                  {editable ? (
+                    <button type="button" className="iconbtn" aria-label={`Change ${name}`} aria-expanded={menu === m.user_id} onClick={() => setMenu(menu === m.user_id ? null : m.user_id)}>
+                      ⋯
+                    </button>
+                  ) : (
+                    <span style={{ display: "inline-block", width: 32 }} />
+                  )}
+                  {menu === m.user_id && (
+                    <div className="menu" role="menu">
+                      {(Object.keys(ROLE_LABEL) as Role[])
+                        .filter((r) => r !== m.role)
+                        .map((r) => (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            key={r}
+                            onClick={() =>
+                              act(m.user_id, () =>
+                                fetch(`/api/members/${m.user_id}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ workspace_id: workspaceId, role: r }),
+                                }),
+                              )
+                            }
+                          >
+                            Make {ROLE_LABEL[r].toLowerCase()}
+                          </button>
+                        ))}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        style={{ color: "var(--danger-text)" }}
+                        onClick={() =>
+                          act(m.user_id, () =>
+                            fetch(`/api/members/${m.user_id}?workspace_id=${workspaceId}`, { method: "DELETE" }),
+                          )
+                        }
+                      >
+                        Remove from workspace
+                      </button>
+                    </div>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+
+          {invites.map((inv) => (
+            <div key={inv.id} className="keyrow" style={{ gridTemplateColumns: "auto 1fr auto auto", gap: 13, opacity: busyId === inv.id ? 0.55 : 1 }}>
+              <span className="avatar" aria-hidden style={{ width: 26, height: 26, flexBasis: 26, fontSize: 10.5, background: "var(--unver-bg)", color: "var(--text-muted)", border: "1px dashed var(--border-strong)" }}>
+                ?
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <b style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{inv.email}</b>
+                <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--text-muted)" }}>
+                  invited {formatRelative(inv.created_at)} · {inv.expiresInDays > 0 ? `expires in ${inv.expiresInDays}` : "expired"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary"
+                onClick={async () => {
+                  await navigator.clipboard?.writeText(linkFor(inv.token)).catch(() => {});
+                  setNotice({ tone: "ok", text: `${inv.email}'s invite link is on your clipboard.` });
+                }}
+              >
+                Copy link
+              </button>
+              <button type="button" className="iconbtn" aria-label={`Withdraw the invite to ${inv.email}`} onClick={() => act(inv.id, () => fetch(`/api/invitations/${inv.id}`, { method: "DELETE" }))}>
+                <IconX size={14} />
+              </button>
             </div>
-            <button className="btn btn-secondary" onClick={copy}>{copied ? "Copied" : "Copy"}</button>
-          </div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
-            Aqli doesn&apos;t send the email for you yet — paste this link into your own email or chat. The invitee sets a password and joins as <strong style={{ color: "var(--text-secondary)", fontWeight: 500 }}>{ROLE_LABEL[role]}</strong>.
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-            <button className="btn btn-primary" onClick={close}>
-              <IconCheck size={13} sw={2.2} /><span>Done</span>
-            </button>
-          </div>
-        </>
-      )}
+          ))}
+        </section>
+      </div>
     </div>
   );
 }
