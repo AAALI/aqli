@@ -356,14 +356,6 @@ html, body {
 }
 .tb-saved.is-error { color: var(--ageing-text); }
 .tb-saved.is-error i { background: var(--ageing-dot); }
-.tb-crumb .crumb-saved {
-  margin-left: 8px;
-  padding-left: 12px;
-  border-left: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--text-muted);
-  display: flex; align-items: center; gap: 6px;
-}
 .tb-spacer { flex: 1; }
 .tb-actions { display: flex; align-items: center; gap: 10px; }
 
@@ -410,9 +402,6 @@ html, body {
 .dark .btn-ghost:hover { background: rgba(255,255,255,0.04); }
 .btn-ghost-danger { color: #993C1D; }
 .btn-ghost-danger:hover { background: var(--danger-bg); }
-.btn-icon {
-  width: 32px; padding: 0; justify-content: center;
-}
 .btn:disabled { opacity: 0.45; cursor: default; }
 
 .iconbtn {
@@ -445,9 +434,6 @@ html, body {
 }
 .avatar-sm { width: 22px; height: 22px; font-size: 10px; flex-basis: 22px; }
 .avatar-lg { width: 36px; height: 36px; font-size: 13px; flex-basis: 36px; }
-.avatar-ali { background: linear-gradient(135deg, #2F7D62, #0F6E56); }
-.avatar-sara { background: linear-gradient(135deg, #C7754A, #993C1D); }
-.avatar-khalid { background: linear-gradient(135deg, #4A6FB5, #2C4A82); }
 
 /* Badges */
 .badge {
@@ -514,20 +500,6 @@ html, body {
 .sdot-ageing { background: var(--ageing-dot); }
 .sdot-unverified { background: none; box-shadow: inset 0 0 0 1.5px var(--text-muted); }
 
-.badge-type {
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-  font-weight: 500;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 0 7px;
-  height: 22px;
-}
-.dark .badge-type { background: rgba(255,255,255,0.03); }
-
 .tag {
   display: inline-flex;
   align-items: center;
@@ -539,31 +511,6 @@ html, body {
   color: var(--text-secondary);
   border: 1px solid var(--border);
 }
-
-/* Agent treatment */
-.agent-row {
-  border-left-width: 3px !important;
-  border-left-color: var(--agent-border) !important;
-  background: var(--agent-tint) !important;
-}
-.dark .agent-row {
-  background: rgba(250, 199, 117, 0.045) !important;
-}
-
-.agent-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 22px;
-  padding: 0 8px 0 6px;
-  border-radius: 6px;
-  background: var(--agent-tint);
-  border: 1px solid var(--agent-border);
-  color: var(--agent-icon);
-  font-size: 11.5px;
-  font-weight: 500;
-}
-.dark .agent-chip { background: rgba(250, 199, 117, 0.06); }
 
 .account-menu-item {
   display: flex;
@@ -617,36 +564,6 @@ html, body {
   min-width: 0;
   overflow-y: auto;
   padding: 32px 40px;
-}
-
-/* Filter pills */
-.fpills {
-  display: flex; align-items: center; gap: 6px;
-}
-.fpill {
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 999px;
-  display: inline-flex; align-items: center;
-  font-size: 12.5px;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid transparent;
-  cursor: pointer;
-  font-family: var(--font-sans);
-}
-.fpill:hover { background: rgba(0,0,0,0.035); color: var(--text-primary); }
-.dark .fpill:hover { background: rgba(255,255,255,0.035); }
-.fpill.is-active {
-  background: var(--accent-light);
-  color: var(--accent);
-  border-color: rgba(15, 110, 86, 0.18);
-  font-weight: 500;
-}
-.dark .fpill.is-active {
-  background: var(--accent-light);
-  color: #6DD3AE;
-  border-color: rgba(29,158,117,0.4);
 }
 
 /* Card */
@@ -767,7 +684,6 @@ html, body {
 .shelf { margin-top: 26px; }
 .shelf > h3 { margin: 0 0 4px; font-family: var(--font-serif); font-size: 18px; font-weight: 500; }
 .shelf > p { margin: 0 0 6px; font-size: 12.5px; color: var(--text-muted); }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .tpl {
   display: flex;
@@ -795,8 +711,7 @@ html, body {
 .empty h2 { margin: 0; font-family: var(--font-serif); font-size: 26px; font-weight: 400; letter-spacing: -0.015em; }
 .empty p { margin: 10px auto 0; max-width: 400px; font-size: 14px; line-height: 1.65; color: var(--text-secondary); }
 @media (max-width: 767px) {
-  .wrap { padding: 22px 16px 60px; }
-  .grid2, .grid3 { grid-template-columns: 1fr; }
+  .wrap { padding: 22px 16px 60px; }.grid3 { grid-template-columns: 1fr; }
   .row { grid-template-columns: auto 1fr; }
   .row > :last-child:not(:nth-child(2)) { grid-column: 2; justify-self: start; }
 }
@@ -1141,13 +1056,10 @@ button.ob-skip:hover { color: var(--text-secondary); }
   opacity: 0.55;
   pointer-events: none;
 }
-.dbody th, .dbody td { position: relative; }
-
-/* ───────── Screen headers and empty states ─────────
+.dbody th, .dbody td { position: relative; }/* ───────── Screen headers and empty states ─────────
    Shared by every full-page view (see `components/aqli/page.tsx`). Before
-   this, each screen sized and spaced its own title, so no two announced
-   themselves the same way. */
-.page-header {
+   this,
+each screen sized and spaced its own title {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -1161,19 +1073,7 @@ button.ob-skip:hover { color: var(--text-secondary); }
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-muted);
-}
-
-/* "Nothing here yet" — a slot inviting you to fill it. */
-.empty-slot {
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--r-modal);
-  padding: 48px 32px;
-  text-align: center;
-  background: var(--bg-card);
-}
-
-/* "Nothing left to do" — a resolved state, not an absence. */
-.empty-clear {
+}/* "Nothing left to do" — a resolved state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1182,49 +1082,15 @@ button.ob-skip:hover { color: var(--text-secondary); }
   padding: 72px 24px;
   text-align: center;
   color: var(--text-muted);
-}
-
-.empty-orb {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--r-pill);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent-light);
-  color: var(--accent);
-  margin-bottom: 4px;
-}
-
-/* Search: results beside the Aqli answer rail. The rail drops below the
-   results before it squeezes them, same rule as the doc rail. */
-.search-layout {
+}/* Search: results beside the Aqli answer rail. The rail drops below the
+   results before it squeezes them {
   display: flex;
   gap: 28px;
   align-items: flex-start;
 }
-.search-rail {
-  width: 380px;
-  flex: 0 0 380px;
-}
-@media (max-width: 1100px) {
-  .search-layout {
-    flex-direction: column;
-  }
-  .search-rail {
-    width: 100%;
-    flex: 1 1 auto;
-  }
-}
-
 /* The standard measure for a list-shaped screen. Wider than the 720px reading
-   column because rows carry metadata and actions, not prose. */
-.page-col {
+   column because rows carry metadata and actions {
   max-width: 960px;
-  margin: 0 auto;
-}
-.page-col-wide {
-  max-width: 1080px;
   margin: 0 auto;
 }
 
@@ -1384,36 +1250,16 @@ button.ob-skip:hover { color: var(--text-secondary); }
 
 
 
-@media (prefers-reduced-motion: reduce) {
-  .sb,
-  .sb-scrim {
+@media (prefers-reduced-motion: reduce) {.sb {
     transition: none;
   }
-}
-
-/* Home: the jump-back cards and the attention rows.
-   `auto-fit` rather than a fixed column count, so one, two or three cards all
-   lay out sensibly and a phone gets a single column without a media query. */
-.home-jumpcards {
+}/* Home: the jump-back cards and the attention rows.
+   `auto-fit` rather than a fixed column count,
+so one {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
-.home-attention-row {
-  grid-template-columns: 32px 1fr auto;
-}
 
-@media (max-width: 640px) {
-  /* The call to action drops below the text rather than being squeezed into a
-     column too narrow to read. */
-  .home-attention-row {
-    grid-template-columns: 32px 1fr;
-    gap: 10px 14px;
-  }
-  .home-attention-row > :last-child {
-    grid-column: 2;
-    justify-self: start;
-  }
-}
 
 /* ───────── Slash menu ─────────
    322px, anchored to the caret. The only thing the writing surface pops up,
@@ -1505,45 +1351,6 @@ button.ob-skip:hover { color: var(--text-secondary); }
   font-size: 12.5px;
   font-weight: 600;
 }
-.aip-b {
-  padding: 14px 15px;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  max-height: 280px;
-  overflow: auto;
-}
-.sug {
-  padding: 11px 12px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--bg-base);
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  font-family: var(--font-sans);
-}
-.sug:hover { border-color: var(--border-strong); }
-.sug b { font-size: 12.5px; font-weight: 600; display: block; margin-bottom: 4px; color: var(--text-primary); }
-.sug p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-secondary); }
-.aip-f {
-  padding: 11px 13px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-base);
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-.aip-f input {
-  flex: 1;
-  border: 0;
-  background: none;
-  outline: none;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  color: var(--text-primary);
-}
-.aip-f input::placeholder { color: var(--text-muted); }
 
 /* ───────── Sheet ─────────
    440px, over a scrim. Every process question the writing surface stopped
@@ -1715,13 +1522,10 @@ button.ob-skip:hover { color: var(--text-secondary); }
 }
 @media (prefers-reduced-motion: reduce) {
   .cmdk, .sheet, .aip, .slash, .rail { animation: none; }
-}
-
-/* ───────── Document rows ─────────
-   The row is a grid, and a grid item stretches to its track by default — which
-   turned the type and status pills into wide, mostly-empty boxes. Badges hug
-   their text everywhere else in the app; they should here too. */
-.doc-row > .badge {
+}/* ───────── Document rows ─────────
+   The row is a grid,
+and a grid item stretches to its track by default — which
+   turned the type and status pills into wide {
   justify-self: start;
 }
 

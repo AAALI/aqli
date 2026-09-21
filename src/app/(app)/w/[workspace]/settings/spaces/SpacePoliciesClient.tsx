@@ -27,19 +27,19 @@ const POLICIES: {
 }[] = [
   {
     value: "open",
-    label: "Open",
+    label: "Everyone",
     description:
       "Everything lands immediately. People and agents both write straight into the space.",
   },
   {
     value: "review_agents",
-    label: "Agents reviewed",
+    label: "Agents checked",
     description:
       "People write directly. Agent changes wait in Checks for a person to confirm, unless that agent's key carries the write scope.",
   },
   {
     value: "review_all",
-    label: "Everything reviewed",
+    label: "Everything checked",
     description:
       "Every change waits in Checks, including one made by a person. For policy, legal and compliance spaces.",
   },

@@ -29,7 +29,7 @@ type KeyRowData = {
  *
  * What `write` actually changes is decided by `decideDisposition` — it is the
  * difference between an agent's change queueing and merging, and only in a
- * space set to "Agents reviewed". In a "Everything reviewed" space it queues
+ * space set to "Agents checked". In an "Everything checked" space it queues
  * either way, which is why the description says "unless the space reviews
  * everything" rather than promising it lands.
  */

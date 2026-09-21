@@ -34,7 +34,7 @@ export default function TermsPage() {
           items={[
             "Provide accurate information and keep your credentials secure. You are responsible for activity under your account.",
             "Workspace admins control membership, roles, and API keys for their workspace.",
-            "Agent API keys are secrets. Anything an agent writes with your workspace's key is your workspace's responsibility — that is what the review queue is for.",
+            "Agent API keys are secrets. Anything an agent writes with your workspace's key is your workspace's responsibility — that is what Checks is for.",
           ]}
         />
       </LegalSection>
