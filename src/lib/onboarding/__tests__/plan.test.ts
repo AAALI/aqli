@@ -14,35 +14,47 @@ import {
   suggestSlug,
   toggleSpace,
   validateSlug,
+  workspaceNameFromEmail,
   type StepKey,
 } from "../plan";
 
 describe("steps", () => {
   it("walks forwards and backwards without falling off either end", () => {
     expect(nextStep("account")).toBe("workspace");
-    expect(nextStep("spaces")).toBe("assistant");
-    // The last step is the last step — there is no confirmation screen past it.
-    expect(nextStep("assistant")).toBe("assistant");
+    expect(nextStep("workspace")).toBe("spaces");
+    // Spaces is the last step — its primary action leaves for the editor.
+    expect(nextStep("spaces")).toBe("spaces");
     expect(prevStep("workspace")).toBe("account");
     expect(prevStep("account")).toBe("account");
   });
 
-  it("numbers every step, because none of them is pure ceremony", () => {
-    expect(stepEyebrow("account")).toBe("Step 1 of 4");
-    expect(stepEyebrow("assistant")).toBe("Step 4 of 4");
-    expect(NUMBERED_STEPS).toHaveLength(4);
+  it("is three steps, and says the last one is optional", () => {
+    expect(stepEyebrow("account")).toBe("Step 1 of 3");
+    expect(stepEyebrow("spaces")).toBe("Step 3 of 3 · optional");
+    expect(NUMBERED_STEPS).toHaveLength(3);
     expect(NUMBERED_STEPS).toEqual(ONBOARDING_STEPS);
   });
 
-  it("ends on the assistant step", () => {
-    expect(isFinalStep("assistant")).toBe(true);
-    expect(isFinalStep("spaces")).toBe(false);
-    // Every step is reachable from the first by walking forward.
+  it("ends on the spaces step — there is no AI-key step any more", () => {
+    expect(isFinalStep("spaces")).toBe(true);
+    expect(isFinalStep("workspace")).toBe(false);
     const walked: StepKey[] = ["account"];
     while (!isFinalStep(walked[walked.length - 1])) {
       walked.push(nextStep(walked[walked.length - 1]));
     }
-    expect(walked).toEqual(ONBOARDING_STEPS.map((s) => s.key));
+    expect(walked).toEqual(["account", "workspace", "spaces"]);
+  });
+});
+
+describe("workspaceNameFromEmail", () => {
+  it("pre-fills from the email domain", () => {
+    expect(workspaceNameFromEmail("ali@1989.studio")).toBe("1989 Studio");
+    expect(workspaceNameFromEmail("sara@acme-corp.com")).toBe("Acme Corp");
+    expect(workspaceNameFromEmail("k@tabadulat.co.uk")).toBe("Tabadulat");
+  });
+
+  it("does not name a company after a personal mailbox", () => {
+    expect(workspaceNameFromEmail("ali.abdi@gmail.com")).toBe("Ali's workspace");
   });
 });
 
@@ -129,8 +141,8 @@ describe("spaces", () => {
   it("creates only what is missing, with the right icon", () => {
     const out = spacesToCreate(["Company", "Sales", "Legal"], ["Company"], ["Legal"]);
     expect(out).toEqual([
-      { name: "Sales", slug: "sales", icon: "💼" },
-      { name: "Legal", slug: "legal", icon: "📁" },
+      { name: "Sales", slug: "sales", icon: "table" },
+      { name: "Legal", slug: "legal", icon: "folder" },
     ]);
   });
 

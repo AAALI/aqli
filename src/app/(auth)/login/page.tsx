@@ -4,8 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { AuthStage, AuthField, authInputStyle } from "@/components/auth/AuthShell";
-import { IconMail } from "@/components/aqli/icons";
+import { AuthStage } from "@/components/auth/AuthShell";
 import * as analytics from "@/lib/analytics";
 
 export default function LoginPage() {
@@ -60,53 +59,26 @@ function LoginForm() {
   }
 
   return (
-    <AuthStage
-      ornament={
-        <>
-          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)" }}>Welcome back</div>
-          <h2 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 38, lineHeight: 1.1, letterSpacing: "-0.015em", color: "var(--text-primary)", textWrap: "balance" }}>
-            The shared context layer for your team and its agents.
-          </h2>
-          <p style={{ margin: 0, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, maxWidth: 380 }}>
-            Sign in to pick up where you left off. Drafts, review queues, and agent activity are all where you left them.
-          </p>
-          <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 999, fontSize: 12, color: "var(--text-secondary)", width: "fit-content" }}>
-            <span style={{ width: 8, height: 8, borderRadius: 999, background: "var(--accent)" }} />
-            <span>Humans write. Agents read and write. You review.</span>
-          </div>
-        </>
-      }
-    >
-      <form onSubmit={login} style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 28, letterSpacing: "-0.015em" }}>Sign in</h1>
-          <p style={{ margin: 0, fontSize: 13.5, color: "var(--text-secondary)" }}>Use your workspace email.</p>
-          {confirmed && (
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ok-text)" }}>
-              Email confirmed — sign in to continue setting up.
-            </p>
-          )}
+    <AuthStage>
+      <form onSubmit={login}>
+        <p className="ob-eb">Welcome back</p>
+        <h1 className="ob-q">Sign in.</h1>
+        <p className="ob-s">
+          {confirmed ? "Email confirmed — sign in to finish setting up." : "Pick up where you left off."}
+        </p>
+        <div className="ob-f">
+          <input className="inp lg" type="email" autoComplete="email" placeholder="you@company.com" aria-label="Email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+          <input className="inp lg" type="password" autoComplete="current-password" placeholder="Password" aria-label="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AuthField label="Email">
-            <span style={authInputStyle()}>
-              <span style={{ color: "var(--text-muted)", display: "flex" }}><IconMail size={14} /></span>
-              <input type="email" placeholder="you@team.com" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "var(--text-primary)", fontFamily: "inherit" }} />
-            </span>
-          </AuthField>
-          <AuthField label="Password" trailing={<span style={{ fontSize: 11.5, color: "var(--accent)", fontWeight: 500, cursor: "pointer" }}>Forgot?</span>}>
-            <span style={authInputStyle()}>
-              <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "var(--text-primary)", fontFamily: "inherit" }} />
-            </span>
-          </AuthField>
-          {error && <p style={{ margin: 0, fontSize: 13, color: "#993C1D" }}>{error}</p>}
-          <button type="submit" disabled={busy} className="btn btn-primary" style={{ width: "100%", height: 40, justifyContent: "center", marginTop: 6 }}>
+        {error && <p className="ob-err" role="alert">{error}</p>}
+        <div className="ob-acts">
+          <button type="submit" disabled={busy} className="btn btn-primary btn-lg">
             {busy ? "Signing in…" : "Sign in"}
+            {!busy && <span className="kbd kbd-on-accent">⏎</span>}
           </button>
-        </div>
-        <div style={{ fontSize: 12.5, color: "var(--text-secondary)", textAlign: "center" }}>
-          New here?{" "}
-          <Link href="/signup" style={{ color: "var(--accent)", fontWeight: 500 }}>Create a workspace</Link>
+          <span className="ob-skip">
+            New here? <Link href="/signup" style={{ color: "var(--accent)", textDecoration: "none" }}>Create a workspace</Link>
+          </span>
         </div>
       </form>
     </AuthStage>

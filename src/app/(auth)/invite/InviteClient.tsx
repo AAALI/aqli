@@ -4,18 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { AuthStage, AuthField, authInputStyle } from "@/components/auth/AuthShell";
-import { IconMail, IconCheck, IconX, IconArrowUpRight } from "@/components/aqli/icons";
+import { AuthStage } from "@/components/auth/AuthShell";
 import type { InvitationDetails, Role } from "@/types/invitation";
 import * as analytics from "@/lib/analytics";
 
-const fieldInput: React.CSSProperties = { flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "var(--text-primary)", fontFamily: "inherit" };
-
-const ROLE_LABEL: Record<Role, string> = { admin: "Admin", editor: "Editor", viewer: "Viewer" };
-const ROLE_PERMS: Record<Role, string[]> = {
-  admin: ["Read and write docs in every Space", "Approve or request changes to any doc", "Manage members, settings, and API keys"],
-  editor: ["Read and write docs in every Space", "Approve or request changes to any doc", "Use AI search and Ask"],
-  viewer: ["Read every doc in the workspace", "Use AI search and Ask", "Cannot write or approve docs"],
+const ROLE_WORDS: Record<Role, string> = {
+  admin: "as an admin",
+  editor: "to write, publish and check docs",
+  viewer: "to read",
 };
 
 type Mode = "signup" | "signin";
@@ -125,97 +121,64 @@ export default function InviteClient() {
   const role = (details?.role ?? "editor") as Role;
 
   return (
-    <AuthStage
-      ornament={
+    <AuthStage>
+      {loading ? (
+        <p className="ob-s" style={{ margin: 0 }}>Opening your invitation…</p>
+      ) : loadError ? (
         <>
-          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)" }}>You&apos;ve been invited</div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, width: "fit-content" }}>
-            <span style={{ width: 44, height: 44, borderRadius: 12, background: "var(--accent-light)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-serif)", fontSize: 20 }}>{ws.trim()[0]?.toUpperCase() ?? "A"}</span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: 13.5, color: "var(--text-secondary)" }}>Join</span>
-              <span style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 400, letterSpacing: "-0.015em", color: "var(--text-primary)" }}>{ws}</span>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-              Your role: <span style={{ color: "var(--accent)" }}>{ROLE_LABEL[role]}</span>
-            </div>
-            {ROLE_PERMS[role].map((p, i) => (
-              <PermBullet key={i} text={p} muted={i === ROLE_PERMS[role].length - 1 && role === "viewer"} />
-            ))}
+          <h1 className="ob-q" style={{ marginTop: 0 }}>This invitation doesn&apos;t work any more.</h1>
+          <p className="ob-s">{loadError}</p>
+          <div className="ob-acts">
+            <Link href="/login" className="btn btn-secondary btn-lg">Go to sign in</Link>
           </div>
         </>
-      }
-    >
-      {loading ? (
-        <p style={{ margin: 0, fontSize: 14, color: "var(--text-secondary)" }}>Loading your invitation…</p>
-      ) : loadError ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 28, letterSpacing: "-0.015em" }}>Invitation unavailable</h1>
-          <p style={{ margin: 0, fontSize: 13.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>{loadError}</p>
-          <Link href="/login" className="btn btn-secondary" style={{ width: "fit-content" }}>Go to sign in</Link>
-        </div>
       ) : signedIn ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 28, letterSpacing: "-0.015em" }}>Join {ws}</h1>
-            <p style={{ margin: 0, fontSize: 13.5, color: "var(--text-secondary)" }}>Signed in as <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{email}</strong>.</p>
+        <>
+          <p className="ob-eb">You&apos;re invited</p>
+          <h1 className="ob-q">Join {ws}.</h1>
+          <p className="ob-s">
+            You&apos;ve been invited {ROLE_WORDS[role]}. Signed in as <b style={{ fontWeight: 600 }}>{email}</b>.
+          </p>
+          {error && <p className="ob-err" role="alert">{error}</p>}
+          <div className="ob-acts">
+            <button type="button" onClick={accept} disabled={busy} className="btn btn-primary btn-lg">
+              {busy ? "Joining…" : `Join ${ws}`}
+            </button>
           </div>
-          {error && <p style={{ margin: 0, fontSize: 13, color: "#993C1D" }}>{error}</p>}
-          <button onClick={accept} disabled={busy} className="btn btn-primary" style={{ width: "100%", height: 40, justifyContent: "center", gap: 6 }}>
-            <span>{busy ? "Joining…" : `Accept & join ${ws}`}</span>
-            {!busy && <IconArrowUpRight size={13} sw={1.8} />}
-          </button>
-        </div>
+        </>
       ) : (
-        <form onSubmit={authThenAccept} style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <h1 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 28, letterSpacing: "-0.015em" }}>Join {ws}</h1>
-            <p style={{ margin: 0, fontSize: 13.5, color: "var(--text-secondary)" }}>{mode === "signup" ? "Set a password to finish your account." : "Sign in to your existing account to join."}</p>
+        <form onSubmit={authThenAccept}>
+          <p className="ob-eb">You&apos;re invited</p>
+          <h1 className="ob-q">Join {ws}.</h1>
+          <p className="ob-s">
+            You&apos;ve been invited {ROLE_WORDS[role]}.{" "}
+            {mode === "signup" ? "Set a password and you're in." : "Sign in with your existing account."}
+          </p>
+          <div className="ob-f">
+            <input className="inp lg" type="email" aria-label="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input className="inp lg" type="password" aria-label="Password" placeholder="Password" autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
           </div>
-
-          <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg-sidebar)", border: "1px solid var(--border)", borderRadius: 8 }}>
-            {(["signup", "signin"] as Mode[]).map((m) => (
-              <button key={m} type="button" onClick={() => { setMode(m); setError(null); setNotice(null); }} style={{ flex: 1, height: 30, borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 500, fontFamily: "inherit", background: mode === m ? "var(--bg-card)" : "transparent", color: mode === m ? "var(--text-primary)" : "var(--text-muted)", boxShadow: mode === m ? "0 1px 2px rgba(20,20,18,0.08)" : "none" }}>
-                {m === "signup" ? "Create account" : "Sign in"}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AuthField label="Email">
-              <span style={authInputStyle()}>
-                <span style={{ color: "var(--text-muted)", display: "flex" }}><IconMail size={14} /></span>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={fieldInput} />
-              </span>
-            </AuthField>
-            <AuthField label="Password">
-              <span style={authInputStyle()}>
-                <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} style={fieldInput} />
-              </span>
-            </AuthField>
-            {error && <p style={{ margin: 0, fontSize: 13, color: "#993C1D" }}>{error}</p>}
-            {notice && <p style={{ margin: 0, fontSize: 13, color: "var(--ok-text)" }}>{notice}</p>}
-            <button type="submit" disabled={busy} className="btn btn-primary" style={{ width: "100%", height: 40, justifyContent: "center", marginTop: 6, gap: 6 }}>
-              <span>{busy ? "Joining…" : `Join ${ws}`}</span>
-              {!busy && <IconArrowUpRight size={13} sw={1.8} />}
+          {error && <p className="ob-err" role="alert">{error}</p>}
+          {notice && <p className="ob-note">{notice}</p>}
+          <div className="ob-acts">
+            <button type="submit" disabled={busy} className="btn btn-primary btn-lg">
+              {busy ? "Joining…" : `Join ${ws}`}
+              {!busy && <span className="kbd kbd-on-accent">⏎</span>}
+            </button>
+            <button
+              type="button"
+              className="ob-skip"
+              onClick={() => {
+                setMode(mode === "signup" ? "signin" : "signup");
+                setError(null);
+                setNotice(null);
+              }}
+            >
+              {mode === "signup" ? "Already have an account? Sign in" : "New to Aqli? Create an account"}
             </button>
           </div>
         </form>
       )}
     </AuthStage>
-  );
-}
-
-function PermBullet({ text, muted }: { text: string; muted?: boolean }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: muted ? "var(--text-muted)" : "var(--text-primary)", opacity: muted ? 0.7 : 1 }}>
-      <span style={{ width: 18, height: 18, borderRadius: 999, background: muted ? "var(--bg-card)" : "var(--accent-light)", color: muted ? "var(--text-muted)" : "var(--accent)", display: "inline-flex", alignItems: "center", justifyContent: "center", border: `1px solid ${muted ? "var(--border)" : "rgba(15,110,86,0.2)"}` }}>
-        {muted ? <IconX size={10} sw={2} /> : <IconCheck size={11} sw={2.4} />}
-      </span>
-      <span>{text}</span>
-    </div>
   );
 }
