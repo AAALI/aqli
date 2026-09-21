@@ -28,7 +28,7 @@ export default async function WorkspaceLayout({
   // strips the reason before a client error boundary can read it. Catch it on
   // the server, where the message still exists, and say what is missing.
   const shell = await loadOrDrift(() =>
-    Promise.all([getSpaces(workspace.id), getDocs(workspace.id, { limit: 6 })]),
+    Promise.all([getSpaces(workspace.id), getDocs(workspace.id, { limit: 12 })]),
   );
   if (!shell.ok) {
     return <SchemaBehind drift={shell.drift} healthHref={`/w/${slug}/settings/health`} />;
@@ -51,7 +51,9 @@ export default async function WorkspaceLayout({
           updated_at: d.updated_at,
           last_reviewed_at: d.last_reviewed_at,
           frontmatter: d.frontmatter,
+          owner_id: d.owner_id,
         }))}
+        currentUserId={user.id}
       />
     </div>
   );
