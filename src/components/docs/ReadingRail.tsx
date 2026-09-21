@@ -1,393 +1,194 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { typeLabel } from "@/lib/doc-display";
+import { IconX, IconChevRight } from "@/components/aqli/icons";
+import Status from "./Status";
 import { formatRelative } from "@/lib/utils";
-import { IconArrowUpRight, IconChat } from "@/components/aqli/icons";
 import type { Backlink } from "@/lib/supabase/docs";
 
-type Heading = { id: string; text: string; level: number };
-
-/** A comment reduced to what the rail shows. */
-export type DiscussionEntry = {
+/** One entry in the rail's History tab. */
+export type HistoryEntry = {
   id: string;
-  author: string | null;
-  excerpt: string;
-  createdAt: string;
+  label: string;
+  who: string;
+  at: string;
 };
 
-// The scroll container the reading column lives in (see the doc view page).
+type Tab = "outline" | "citedBy" | "history";
+type Heading = { text: string; sub: boolean; el: HTMLElement };
+
+/** The paper's scroll container and the rendered body (see the doc page). */
 const SCROLLER_ID = "doc-scroll";
-const COMMENTS_ID = "doc-comments";
-
-function RailLabel({ children }: { children: React.ReactNode }) {
-  return <div className="rail-label">{children}</div>;
-}
-
-function RailCount({ children }: { children: React.ReactNode }) {
-  return (
-    <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
-      {children}
-    </span>
-  );
-}
-
-/** Scroll the reading column to an element. */
-function jump(id: string) {
-  const el = document.getElementById(id);
-  const scroller = document.getElementById(SCROLLER_ID);
-  if (!el || !scroller) return;
-  const top =
-    el.getBoundingClientRect().top -
-    scroller.getBoundingClientRect().top +
-    scroller.scrollTop;
-  scroller.scrollTo({ top: Math.max(0, top - 16), behavior: "smooth" });
-}
+const BODY_ID = "doc-body";
 
 /**
- * The viewer's right rail: where this page sits, who points at it, and what
- * people are saying about it. Every block is backed by a query — the empty
- * states below only appear when the query genuinely came back with nothing.
+ * The reading rail (v3 §2, §4).
+ *
+ * **Ships closed on every doc.** Closed, it is a 40px strip with a vertical
+ * label; nothing about it asks to be opened. Open, it has three tabs —
+ * Outline, Cited by, History — and slides over the paper rather than squeezing
+ * the column, so the measure never changes under the reader.
+ *
+ * Deliberately not remembered across docs: the rail is something you open for
+ * a reason, and the next doc should arrive as quiet as this one did.
  */
 export default function ReadingRail({
   base,
+  docId,
   backlinks,
-  discussion,
-  discussionCount,
-  discussionFailed,
+  history,
 }: {
   base: string;
+  docId: string;
   backlinks: Backlink[];
-  discussion: DiscussionEntry[];
-  discussionCount: number;
-  /** The thread failed to load — distinct from "there are no comments". */
-  discussionFailed: boolean;
+  history: HistoryEntry[];
 }) {
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("outline");
+  const [headings, setHeadings] = useState<Heading[]>([]);
+  const [active, setActive] = useState(0);
+  const [minutes, setMinutes] = useState(1);
+
+  // The outline is built from the rendered `h2`/`h3`, in document order, at
+  // the moment the rail opens — the body renders client-side, so reading it
+  // any earlier would find nothing.
+  const buildOutline = useCallback(() => {
+    const body = document.getElementById(BODY_ID);
+    if (!body) return;
+    const found = Array.from(body.querySelectorAll<HTMLElement>("h2, h3")).map((el) => ({
+      text: el.textContent ?? "",
+      sub: el.tagName === "H3",
+      el,
+    }));
+    setHeadings(found.filter((h) => h.text.trim()));
+    setActive(0);
+    const words = body.textContent?.split(/\s+/).filter(Boolean).length ?? 0;
+    setMinutes(Math.max(1, Math.round(words / 230)));
+  }, []);
+
+  const openRail = useCallback(
+    (next: Tab = "outline") => {
+      buildOutline();
+      setTab(next);
+      setOpen(true);
+    },
+    [buildOutline],
+  );
+
+  // Esc closes the rail when it is the topmost thing open.
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !document.querySelector(".scrim")) setOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  function jump(i: number) {
+    const h = headings[i];
+    const scroller = document.getElementById(SCROLLER_ID);
+    if (!h || !scroller) return;
+    setActive(i);
+    const top =
+      h.el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+    scroller.scrollTo({ top: Math.max(0, top - 40), behavior: "smooth" });
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="rtab" aria-label="Open outline, citations and history" onClick={() => openRail()}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M4 6h16M4 12h10M4 18h13" />
+        </svg>
+        <span className="vlab">Outline</span>
+      </button>
+    );
+  }
+
   return (
-    <aside
-      className="doc-rail"
-      style={{
-        borderLeft: "1px solid var(--border)",
-        background: "var(--bg-card)",
-        overflowY: "auto",
-      }}
-    >
-      <OnThisPage />
-      <CitedBy base={base} backlinks={backlinks} />
-      <Discussion
-        entries={discussion}
-        total={discussionCount}
-        failed={discussionFailed}
-      />
+    <aside className="rail" aria-label="About this doc">
+      <div className="rail-tabs" role="tablist">
+        <button type="button" role="tab" aria-selected={tab === "outline"} className={`rt${tab === "outline" ? " is-on" : ""}`} onClick={() => setTab("outline")}>
+          Outline
+        </button>
+        <button type="button" role="tab" aria-selected={tab === "citedBy"} className={`rt${tab === "citedBy" ? " is-on" : ""}`} onClick={() => setTab("citedBy")}>
+          Cited by
+        </button>
+        <button type="button" role="tab" aria-selected={tab === "history"} className={`rt${tab === "history" ? " is-on" : ""}`} onClick={() => setTab("history")}>
+          History
+        </button>
+        <button type="button" className="rail-x" aria-label="Close" onClick={() => setOpen(false)}>
+          <IconX size={15} />
+        </button>
+      </div>
+
+      <div className="rail-body">
+        {tab === "outline" &&
+          (headings.length === 0 ? (
+            <p className="rail-empty">No headings yet.</p>
+          ) : (
+            <>
+              {headings.map((h, i) => (
+                <button
+                  type="button"
+                  key={i}
+                  className={`ol-i${h.sub ? " sub" : ""}${i === active ? " is-on" : ""}`}
+                  onClick={() => jump(i)}
+                >
+                  {h.text}
+                </button>
+              ))}
+              <div className="rail-foot">
+                {headings.length} section{headings.length === 1 ? "" : "s"} · about {minutes} min read
+              </div>
+            </>
+          ))}
+
+        {tab === "citedBy" &&
+          (backlinks.length === 0 ? (
+            <p className="rail-empty">No other doc cites this one yet.</p>
+          ) : (
+            backlinks.map((b) => <CitingDoc key={b.id} base={base} doc={b} />)
+          ))}
+
+        {tab === "history" && (
+          <>
+            {history.length === 0 ? (
+              <p className="rail-empty">No earlier versions.</p>
+            ) : (
+              history.slice(0, 6).map((h) => (
+                <Link key={h.id} href={`${base}/docs/${docId}/history?v=${h.id}`} className="bl">
+                  <b>{h.label}</b>
+                  <span>
+                    {h.who} · {formatRelative(h.at)}
+                  </span>
+                </Link>
+              ))
+            )}
+            <div className="rail-foot">
+              <Link href={`${base}/docs/${docId}/history`} style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                Every version, with what changed <IconChevRight size={12} />
+              </Link>
+            </div>
+          </>
+        )}
+      </div>
     </aside>
   );
 }
 
-// ── On this page ─────────────────────────────────────────────────────
-
-function OnThisPage() {
-  const [headings, setHeadings] = useState<Heading[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-
-  // Read headings out of the rendered body. The body renders asynchronously
-  // (the editor hydrates after mount), so observe it for changes too.
-  useEffect(() => {
-    const body = document.getElementById("doc-body");
-    if (!body) return;
-
-    const scan = () => {
-      const nodes = Array.from(body.querySelectorAll<HTMLElement>("h1, h2, h3"));
-      const next: Heading[] = nodes.map((node, i) => {
-        if (!node.id)
-          node.id = `h-${i}-${(node.textContent ?? "").slice(0, 24).replace(/\W+/g, "-")}`;
-        return {
-          id: node.id,
-          text: node.textContent || "Untitled section",
-          level: Number(node.tagName.slice(1)),
-        };
-      });
-      setHeadings((prev) =>
-        prev.length === next.length && prev.every((h, i) => h.id === next[i].id)
-          ? prev
-          : next,
-      );
-    };
-
-    scan();
-    const mo = new MutationObserver(scan);
-    mo.observe(body, { childList: true, subtree: true, characterData: true });
-    return () => mo.disconnect();
-  }, []);
-
-  // Track the section currently in view to highlight it in the outline.
-  useEffect(() => {
-    if (headings.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActiveId(visible[0].target.id);
-      },
-      {
-        root: document.getElementById(SCROLLER_ID),
-        rootMargin: "0px 0px -70% 0px",
-        threshold: 0,
-      },
-    );
-    headings.forEach((h) => {
-      const el = document.getElementById(h.id);
-      if (el) observer.observe(el);
-    });
-    return () => observer.disconnect();
-  }, [headings]);
-
+/** A doc that cites this one. Shared with the foot of the doc. */
+export function CitingDoc({ base, doc }: { base: string; doc: Backlink }) {
   return (
-    <div className="rail-block">
-      <RailLabel>On this page</RailLabel>
-      <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 8 }}>
-        {headings.length === 0 ? (
-          <div className="rail-empty" style={{ padding: "4px 8px" }}>
-            This doc runs straight through — no sections to jump between.
-          </div>
-        ) : (
-          headings.map((h) => (
-            <button
-              type="button"
-              key={h.id}
-              onClick={() => jump(h.id)}
-              className={`ol-item${h.id === activeId ? " cur" : ""}`}
-              style={{ paddingLeft: 8 + (h.level - 1) * 12 }}
-            >
-              <span className="ol-text">{h.text}</span>
-            </button>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Cited by ─────────────────────────────────────────────────────────
-
-function CitedBy({ base, backlinks }: { base: string; backlinks: Backlink[] }) {
-  const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? backlinks : backlinks.slice(0, 5);
-
-  return (
-    <div className="rail-block">
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 10,
-        }}
-      >
-        <RailLabel>Cited by</RailLabel>
-        {backlinks.length > 0 && <RailCount>{backlinks.length}</RailCount>}
-      </div>
-
-      {backlinks.length === 0 ? (
-        <div className="rail-empty">
-          Nothing cites this yet. It will show up here the moment another doc
-          quotes or links it.
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {visible.map((b) => (
-            <Link
-              key={b.id}
-              href={`${base}/docs/${b.id}`}
-              style={{ display: "flex", flexDirection: "column", gap: 3, textDecoration: "none" }}
-            >
-              <span
-                style={{
-                  fontSize: 13,
-                  lineHeight: 1.35,
-                  color: "var(--text-primary)",
-                  fontWeight: 500,
-                  letterSpacing: "-0.005em",
-                }}
-              >
-                {b.title}
-              </span>
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: 6,
-                  fontSize: 11.5,
-                  color: "var(--text-muted)",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  {typeLabel(b.type)}
-                </span>
-                {b.space && (
-                  <>
-                    <span>·</span>
-                    <span>{b.space.name}</span>
-                  </>
-                )}
-                {b.citesSection && (
-                  <>
-                    <span>·</span>
-                    <span>cites {b.citesSection}</span>
-                  </>
-                )}
-              </span>
-            </Link>
-          ))}
-          {backlinks.length > 5 && !showAll && (
-            <button
-              type="button"
-              onClick={() => setShowAll(true)}
-              style={{
-                textAlign: "left",
-                border: 0,
-                background: "transparent",
-                cursor: "pointer",
-                fontSize: 12,
-                color: "var(--accent)",
-                fontFamily: "var(--font-sans)",
-                padding: 0,
-                marginTop: 2,
-              }}
-            >
-              See all {backlinks.length} →
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Discussion ───────────────────────────────────────────────────────
-
-function Discussion({
-  entries,
-  total,
-  failed,
-}: {
-  entries: DiscussionEntry[];
-  total: number;
-  failed: boolean;
-}) {
-  return (
-    <div className="rail-block" style={{ paddingBottom: 24 }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 10,
-        }}
-      >
-        <RailLabel>Discussion</RailLabel>
-        {total > 0 && <RailCount>{total}</RailCount>}
-      </div>
-
-      {failed ? (
-        <div className="rail-empty">
-          Couldn&rsquo;t load the discussion. The thread is still on the page below.
-        </div>
-      ) : entries.length === 0 ? (
-        <div className="rail-empty" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <span>No one has asked anything about this doc yet.</span>
-          <button
-            type="button"
-            onClick={() => jump(COMMENTS_ID)}
-            style={{
-              alignSelf: "flex-start",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-              background: "transparent",
-              border: 0,
-              padding: 0,
-              fontSize: 12,
-              fontWeight: 500,
-              color: "var(--accent)",
-              fontFamily: "var(--font-sans)",
-              cursor: "pointer",
-            }}
-          >
-            <IconChat size={11} />
-            Start the thread
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {entries.map((e) => (
-            <div key={e.id} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              <span
-                style={{
-                  fontSize: 11.5,
-                  color: "var(--text-muted)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>
-                  {e.author ?? "Someone"}
-                </span>
-                <span>·</span>
-                <span suppressHydrationWarning>{formatRelative(e.createdAt)}</span>
-              </span>
-              <span
-                style={{
-                  fontSize: 12.5,
-                  lineHeight: 1.45,
-                  color: "var(--text-primary)",
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
-              >
-                {e.excerpt}
-              </span>
-            </div>
-          ))}
-
-          <button
-            type="button"
-            onClick={() => jump(COMMENTS_ID)}
-            style={{
-              alignSelf: "flex-start",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              background: "transparent",
-              border: 0,
-              padding: 0,
-              fontSize: 12,
-              fontWeight: 500,
-              color: "var(--accent)",
-              fontFamily: "var(--font-sans)",
-              cursor: "pointer",
-            }}
-          >
-            {total > entries.length
-              ? `Open all ${total} →`
-              : total === 1
-                ? "Open →"
-                : `Open ${total} →`}
-            <IconArrowUpRight size={10} />
-          </button>
-        </div>
-      )}
-    </div>
+    <Link href={`${base}/docs/${doc.id}`} className="bl">
+      <b>{doc.title}</b>
+      <span>
+        <Status doc={doc} form="dot" />
+        {doc.space?.name ?? "No space"}
+        {doc.citesSection ? ` · cites “${doc.citesSection}”` : ""}
+      </span>
+    </Link>
   );
 }

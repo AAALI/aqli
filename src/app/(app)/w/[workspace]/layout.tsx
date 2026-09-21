@@ -4,7 +4,6 @@ import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getSpaces } from "@/lib/supabase/spaces";
 import { getDocs } from "@/lib/supabase/docs";
 import CommandPalette from "@/components/cmdk/CommandPalette";
-import AqliChatWidget from "@/components/ai/AqliChatWidget";
 import SchemaBehind from "@/components/preflight/SchemaBehind";
 import { loadOrDrift } from "@/lib/preflight/drift";
 
@@ -54,7 +53,6 @@ export default async function WorkspaceLayout({
           frontmatter: d.frontmatter,
         }))}
       />
-      <AqliChatWidget workspaceId={workspace.id} workspaceSlug={workspace.slug} />
     </div>
   );
 }

@@ -442,6 +442,10 @@ export type Backlink = {
   space: { name: string; slug: string } | null;
   /** The heading in the citing doc that the citation sits under, if any. */
   citesSection: string | null;
+  /** For the status dot every citing doc carries. */
+  updated_at: string;
+  last_reviewed_at: string | null;
+  frontmatter: DocFrontmatter | null;
 };
 
 
@@ -455,7 +459,9 @@ export async function getBacklinks(docId: string, workspaceId: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("docs")
-    .select("id, title, type, status, body_md, space:spaces(name, slug)")
+    .select(
+      "id, title, type, status, body_md, updated_at, last_reviewed_at, frontmatter, space:spaces(name, slug)",
+    )
     .eq("workspace_id", workspaceId)
     .neq("id", docId)
     .ilike("body_md", `%/docs/${docId}%`)

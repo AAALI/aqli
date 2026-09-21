@@ -1,27 +1,22 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getDoc, getDocVersions, getBacklinks, getDocPath } from "@/lib/supabase/docs";
 import { getOwnerDirectory, ownerInfo } from "@/lib/supabase/owners";
 import { getDocCommentThread } from "@/lib/supabase/comments";
 import { listWorkspaceMembers, getMyRole } from "@/lib/supabase/members";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import AppTopBar from "@/components/layout/AppTopBar";
-import DownloadMarkdownButton from "@/components/docs/DownloadMarkdownButton";
-import RequestReviewButton from "@/components/docs/RequestReviewButton";
-import DocMetaRow from "@/components/docs/DocMetaRow";
-import ProvenanceBar from "@/components/docs/ProvenanceBar";
+import { getDocActivity } from "@/lib/supabase/activity";
 import TrustLine from "@/components/docs/TrustLine";
-import WhatChangedBanner from "@/components/docs/WhatChangedBanner";
-import ReadingRail, { type DiscussionEntry } from "@/components/docs/ReadingRail";
-import PrChangedBanner from "@/components/docs/PrChangedBanner";
+import ReadingRail, { CitingDoc, type HistoryEntry } from "@/components/docs/ReadingRail";
 import DocComments from "@/components/docs/DocComments";
 import DocAskAssistant from "@/components/docs/DocAskAssistant";
-import { getDocActivity } from "@/lib/supabase/activity";
 import DocBodyClient from "@/components/docs/DocBodyClient";
-import { IconEdit, IconHistory } from "@/components/aqli/icons";
-import { isReviewTrail } from "@/types/comment";
-import { toPlainText } from "@/lib/mentions";
-import { cadenceOf, isDocOverdue } from "@/lib/verify-cadence";
+import ShareButton from "@/components/docs/ShareButton";
+import { IconChevRight, IconEdit } from "@/components/aqli/icons";
+import CmdKButton from "@/components/cmdk/CmdKButton";
+import { isPublished } from "@/lib/doc-status";
+import { trustFor } from "@/lib/trust";
+import { formatRelative } from "@/lib/utils";
 
 type Loaded<T> = { data: T; failed: false } | { data: null; failed: true };
 
@@ -31,8 +26,7 @@ type Loaded<T> = { data: T; failed: false } | { data: null; failed: true };
  * A comment thread that failed to load must not arrive as an empty one: to a
  * reader "no comments yet" and "we could not fetch the comments" look
  * identical, and only one of them is true. It also should not take the
- * document down with it — the doc body is why the reader is here. So the
- * failure travels to the section that can show it and offer a retry.
+ * document down with it — the doc body is why the reader is here.
  */
 async function loadSection<T>(work: Promise<T>, what: string): Promise<Loaded<T>> {
   try {
@@ -43,6 +37,15 @@ async function loadSection<T>(work: Promise<T>, what: string): Promise<Loaded<T>
   }
 }
 
+/**
+ * The reading surface (v3 §5.6, frame 06).
+ *
+ * The same sheet of paper as the writing surface, with one line added under
+ * the title — the trust line — and `Cited by` at the foot. The rail beside it
+ * ships closed. That is the whole page: no metadata row, no provenance bar,
+ * no "what changed" banner, no request-review button. Provenance is said in
+ * words on the trust line; what changed lives in History, one tab away.
+ */
 export default async function DocViewPage({
   params,
 }: {
@@ -52,10 +55,15 @@ export default async function DocViewPage({
   const doc = await getDoc(id).catch(() => null);
   if (!doc) notFound();
 
+  const base = `/w/${wsSlug}`;
+  // An unpublished doc has no reading surface: a draft is a place you finish
+  // things in, and nobody but its author can see it (§3.2).
+  if (!isPublished(doc.status)) redirect(`${base}/docs/${doc.id}/edit`);
+
   const [versions, backlinks, owners, thread, members, role, activity, supabase] =
     await Promise.all([
-      getDocVersions(id),
-      getBacklinks(id, doc.workspace_id),
+      getDocVersions(id).catch(() => []),
+      getBacklinks(id, doc.workspace_id).catch(() => []),
       getOwnerDirectory(doc.workspace_id),
       loadSection(getDocCommentThread(doc.workspace_id, id), "the comment thread"),
       loadSection(listWorkspaceMembers(doc.workspace_id), "the member list"),
@@ -66,172 +74,110 @@ export default async function DocViewPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const ownerName = doc.owner_id
-    ? user?.id === doc.owner_id
-      ? ((user.user_metadata?.full_name as string | undefined) ??
-        owners[doc.owner_id]?.name ??
-        "You")
-      : (owners[doc.owner_id]?.name ?? "Team member")
-    : null;
-
-  const base = `/w/${wsSlug}`;
-  const version = versions.length || 1;
-  const prUrl = doc.frontmatter?.source_pr_url;
   const canEdit = role === "admin" || role === "editor";
+  const nameOf = (userId: string | null) =>
+    userId ? (userId === user?.id ? "you" : (owners[userId]?.name ?? "a teammate")) : null;
 
-  // Freshness is measured against the doc's own cadence, not one global 90-day
-  // rule. `isDocOverdue` is the same predicate the "Needs updating" list uses,
-  // so a doc cannot show a green trust line here and be flagged there.
-  const cadence = cadenceOf(doc.frontmatter?.verify_cadence);
-  const stale = isDocOverdue(doc);
+  // Who it is waiting on: the people named in the latest ask on the doc's own
+  // review trail. Only meaningful while the doc is actually waiting.
+  const comments = thread.data?.comments ?? [];
+  const lastAsk = [...comments].reverse().find((c) => c.comment_type === "review_request");
+  const waitingOn =
+    doc.status === "review" && lastAsk
+      ? lastAsk.mentions.map((uid) => ({ id: uid, name: owners[uid]?.name ?? "a teammate" }))
+      : [];
 
-  // Who last verified it. `last_reviewed_at` records when but not who, so the
-  // name comes from the activity log, which does.
-  const reviewerName =
-    activity.find((a) => a.action === "reviewed")?.actor_name ?? null;
+  // Who last stood behind it. `last_reviewed_at` records when but not who, so
+  // the name comes from the activity log. A PR merge confirms without a
+  // person, which the trust line says in its own words.
+  const checkEvent = activity.find((a) => a.action === "reviewed" || a.action === "approved");
+  const lastCheck = checkEvent
+    ? { name: checkEvent.actor_id === user?.id ? "you" : (checkEvent.actor_name ?? null), at: checkEvent.created_at }
+    : doc.last_reviewed_at
+      ? { name: null, at: doc.last_reviewed_at }
+      : null;
 
-  // 08c: the doc's latest PR merge event powers the "What this PR changed"
-  // banner. Only meaningful for PR-sourced docs.
-  const prEvent = prUrl
-    ? (activity.find((a) => a.metadata?.source === "github_pr") ?? null)
-    : null;
-  const historyHref = `${base}/docs/${doc.id}/history`;
+  const trust = trustFor({
+    doc,
+    authorName: nameOf(doc.owner_id),
+    lastCheck,
+    waitingOn,
+    viewerId: user?.id ?? null,
+    canEdit,
+    relative: formatRelative,
+  });
+
+  const history: HistoryEntry[] = versions.map((v) => ({
+    id: v.id,
+    label: `v${v.version_number} · ${v.version_number === 1 ? "First published" : v.change_type === "agent_edit" ? "Edited by an agent" : "Edited"}`,
+    who: nameOf(v.author_id) ?? "an agent",
+    at: v.created_at,
+  }));
+
   const spaceCrumb = doc.space
     ? { label: doc.space.name, href: `${base}/s/${doc.space.slug}` }
     : { label: "Home", href: base };
-
   // Sub-pages: the crumb trail is space › parent › … › this document, so a
   // reader who arrived from search knows which section they are standing in.
-  // An ancestor RLS hides is simply absent from the path rather than a gap.
-  const ancestors = doc.parent_doc_id
-    ? await getDocPath(doc.id).catch(() => [])
-    : [];
-
-  const changes =
-    versions.length > 1
-      ? versions.slice(0, 3).map((v) => ({
-          version_number: v.version_number,
-          change_type: v.change_type,
-          created_at: v.created_at,
-        }))
-      : [];
-
-  // What the rail's Discussion block shows: real reader comments, newest
-  // first, with the review trail left out — that is process, not conversation.
-  const readerComments = (thread.data?.comments ?? []).filter(
-    (c) => !isReviewTrail(c.comment_type),
-  );
-  const discussion: DiscussionEntry[] = readerComments
-    .slice(-3)
-    .reverse()
-    .map((c) => ({
-      id: c.id,
-      author: c.author_name,
-      excerpt: toPlainText(c.body, thread.data?.names ?? {}),
-      createdAt: c.created_at,
-    }));
+  const ancestors = doc.parent_doc_id ? await getDocPath(doc.id).catch(() => []) : [];
 
   return (
     <>
-      {/* One top bar. Type, status, owner and version used to be restated in a
-          full-width strip beneath it; they now sit inline with the document. */}
-      <AppTopBar
-        base={base}
-        crumbs={[
-          spaceCrumb,
-          ...ancestors.map((a) => ({ label: a.title, href: `${base}/docs/${a.id}` })),
-          { label: doc.title },
-        ]}
-        share
-        actions={
-          <>
-            <Link href={historyHref} className="btn btn-ghost" style={{ gap: 6 }}>
-              <IconHistory size={13} />
-              <span>History</span>
+      {/* Bare: the paper must not sit under a rule (§2). */}
+      <div className="tb bare">
+        <nav className="tb-crumb" aria-label="Breadcrumb">
+          <Link href={spaceCrumb.href}>{spaceCrumb.label}</Link>
+          {ancestors.map((a) => (
+            <span key={a.id} style={{ display: "contents" }}>
+              <span className="crumb-sep"><IconChevRight size={12} /></span>
+              <Link href={`${base}/docs/${a.id}`}>{a.title}</Link>
+            </span>
+          ))}
+          <span className="crumb-sep"><IconChevRight size={12} /></span>
+          <span className="crumb-cur">{doc.title}</span>
+        </nav>
+        <div className="tb-spacer" />
+        <div className="tb-actions">
+          {canEdit && (
+            <Link href={`${base}/docs/${doc.id}/edit`} className="btn btn-ghost">
+              <IconEdit size={14} />
+              Edit
             </Link>
-            <DownloadMarkdownButton doc={doc} />
-            <Link
-              href={`${base}/docs/${doc.id}/edit`}
-              className="btn btn-secondary"
-              style={{ gap: 6 }}
-            >
-              <IconEdit size={13} />
-              <span>Edit</span>
-            </Link>
-            {doc.status === "draft" && <RequestReviewButton docId={doc.id} />}
-          </>
-        }
-      />
+          )}
+          <ShareButton />
+          <CmdKButton />
+        </div>
+      </div>
 
-      <div className="main-body" style={{ position: "relative" }}>
+      <div className="main-body">
         <div id="doc-scroll" className="doc-scroll">
           <article id="doc-article" className="doc-col">
-            <DocMetaRow doc={doc} version={version} />
+            <h1 className="dt">{doc.title}</h1>
+            {trust && <TrustLine docId={doc.id} trust={trust} />}
 
-            <h1
-              style={{
-                margin: 0,
-                fontFamily: "var(--font-serif)",
-                fontWeight: 400,
-                fontSize: 44,
-                lineHeight: 1.08,
-                letterSpacing: "-0.018em",
-              }}
-            >
-              {doc.title}
-            </h1>
-
-            <div style={{ marginTop: 14 }}>
-              <ProvenanceBar doc={doc} ownerName={ownerName} />
-            </div>
-
-            <TrustLine
-              docId={doc.id}
-              lastReviewedAt={doc.last_reviewed_at}
-              reviewerName={reviewerName}
-              stale={stale}
-              cadence={cadence}
-              frontmatter={doc.frontmatter}
-              canEdit={canEdit}
-              prSource={
-                prUrl
-                  ? {
-                      repo: doc.frontmatter?.source_repo ?? null,
-                      prNumber: prUrl.match(/\/pull\/(\d+)/)?.[1] ?? null,
-                    }
-                  : null
-              }
-            />
-
-            {prUrl && prEvent && (
-              <PrChangedBanner
-                prUrl={prUrl}
-                repo={doc.frontmatter?.source_repo ?? null}
-                filesChanged={
-                  typeof prEvent.metadata?.files_changed === "number"
-                    ? prEvent.metadata.files_changed
-                    : null
-                }
-                eventAt={prEvent.created_at}
-                created={prEvent.action === "created"}
-              />
-            )}
-
-            <WhatChangedBanner
-              docId={doc.id}
-              currentVersion={version}
-              historyHref={historyHref}
-              changes={changes}
-            />
-
-            <div id="doc-body" style={{ marginTop: 32 }}>
+            <div id="doc-body">
               <DocBodyClient bodyMd={doc.body_md} title={doc.title} />
             </div>
+
+            {/* Cited-by also lives at the foot, so the information exists
+                with the rail shut (§4). */}
+            {backlinks.length > 0 && (
+              <section style={{ marginTop: 52, paddingTop: 22, borderTop: "1px solid var(--border)" }}>
+                <div className="sect-h">
+                  <h2>
+                    Cited by {backlinks.length} doc{backlinks.length === 1 ? "" : "s"}
+                  </h2>
+                </div>
+                {backlinks.map((b) => (
+                  <CitingDoc key={b.id} base={base} doc={b} />
+                ))}
+              </section>
+            )}
 
             <div id="doc-comments">
               <DocComments
                 docId={doc.id}
-                initial={thread.data?.comments ?? []}
+                initial={comments}
                 names={thread.data?.names ?? {}}
                 threadFailed={thread.failed}
                 members={(members.data ?? []).map((m) => ({
@@ -248,23 +194,18 @@ export default async function DocViewPage({
           </article>
         </div>
 
-        <ReadingRail
-          base={base}
-          backlinks={backlinks}
-          discussion={discussion}
-          discussionCount={readerComments.length}
-          discussionFailed={thread.failed}
+        <ReadingRail base={base} docId={doc.id} backlinks={backlinks} history={history} />
+
+        {/* The one AI element here too: a dot, scoped to this doc. It sits
+            clear of the closed rail's 40px tab. */}
+        <DocAskAssistant
+          workspaceId={doc.workspace_id}
+          workspaceSlug={wsSlug}
+          docId={doc.id}
+          docTitle={doc.title}
         />
       </div>
-
-      {/* Reading's one floating affordance. The workspace-wide pill stands
-          down on this route, so Ask never appears alongside Co-write. */}
-      <DocAskAssistant
-        workspaceId={doc.workspace_id}
-        workspaceSlug={wsSlug}
-        docId={doc.id}
-        docTitle={doc.title}
-      />
     </>
   );
 }
+

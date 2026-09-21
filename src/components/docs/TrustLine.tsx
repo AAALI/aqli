@@ -2,168 +2,83 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconCheckCircle, IconWarn, IconHistory, IconShield } from "@/components/aqli/icons";
-import { formatRelative } from "@/lib/utils";
-import { CADENCE_LABEL, CADENCES, type VerifyCadence } from "@/lib/verify-cadence";
-import type { DocFrontmatter } from "@/types/doc";
+import Status from "./Status";
+import { avatarColor } from "@/lib/utils";
+import type { Trust } from "@/lib/trust";
+
+const ACTION_LABEL = {
+  confirm: "Confirm it's still true",
+  reverify: "Re-verify",
+  nudge: "Nudge",
+} as const;
 
 /**
- * Woven maintenance: the freshness line under the title. Reading and
- * re-verifying live on the same surface, so "is this still true?" never
- * requires a trip to a separate dashboard.
+ * The trust line (v3 §2): the state, then why.
  *
- * The default state is *resolved*, not a scold. A verified doc says so in
- * green and offers the cadence it is held to; the old standalone grey banner
- * ("Not verified yet — confirm this is still accurate") that sat between every
- * unverified title and its content is now just the warning variant of this
- * same line, in the same place, with the same controls.
+ * `Current · checked by Sara, 5 days ago`. This line is the entire
+ * maintenance UI on the reading surface. Its one action is hidden until the
+ * line is hovered or focused — reachable by keyboard, invisible to someone
+ * who is only reading.
  */
-export default function TrustLine({
-  docId,
-  lastReviewedAt,
-  reviewerName,
-  stale,
-  cadence,
-  frontmatter,
-  canEdit,
-  prSource,
-}: {
-  docId: string;
-  lastReviewedAt: string | null;
-  /** Who last verified it, read from the activity log. */
-  reviewerName: string | null;
-  /** Computed on the server against the doc's own cadence. */
-  stale: boolean;
-  cadence: VerifyCadence;
-  /** Merged into on save so setting a cadence cannot drop tags. */
-  frontmatter: DocFrontmatter;
-  canEdit: boolean;
-  /** 08c: set when the doc was published by a merged PR — the shield variant. */
-  prSource?: { repo: string | null; prNumber: string | null } | null;
-}) {
+export default function TrustLine({ docId, trust }: { docId: string; trust: Trust }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [draftCadence, setDraftCadence] = useState<VerifyCadence>(cadence);
-  const [savingCadence, setSavingCadence] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
 
-  const dirty = draftCadence !== cadence;
-
-  async function reverify() {
+  async function act() {
+    if (!trust.action) return;
     setBusy(true);
     try {
-      await fetch(`/api/docs/${docId}/reviewed`, { method: "POST" });
+      const res = await fetch(
+        trust.action === "nudge" ? `/api/docs/${docId}/nudge` : `/api/docs/${docId}/reviewed`,
+        { method: "POST" },
+      );
+      if (!res.ok) throw new Error();
+      if (trust.action === "nudge") setDone("Nudged");
       router.refresh();
+    } catch {
+      setDone("Didn't go through — try again");
     } finally {
       setBusy(false);
     }
   }
 
-  async function saveCadence() {
-    setSavingCadence(true);
-    try {
-      await fetch(`/api/docs/${docId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          frontmatter: { ...frontmatter, verify_cadence: draftCadence },
-        }),
-      });
-      router.refresh();
-    } finally {
-      setSavingCadence(false);
-    }
-  }
-
   return (
-    <div className={`trust${stale ? " warn" : ""}`}>
-      <span style={{ display: "inline-flex", flex: "0 0 auto" }}>
-        {stale ? (
-          <IconWarn size={14} />
-        ) : prSource ? (
-          <IconShield size={14} sw={1.7} />
-        ) : (
-          <IconCheckCircle size={14} sw={1.8} />
-        )}
-      </span>
-
-      <span style={{ flex: 1, minWidth: 0 }}>
-        {prSource && !stale ? (
+    <div className="tline">
+      <Status state={trust.state} />
+      <span className="who">
+        {trust.lead}
+        {trust.person && (
           <>
-            Verified by PR review
-            {prSource.repo ? ` — merged in ${prSource.repo}` : ""}
-            {prSource.prNumber ? ` #${prSource.prNumber}` : ""}
-            {lastReviewedAt ? ` · ${formatRelative(lastReviewedAt)}` : ""}
+            {" "}
+            <span
+              className="avatar"
+              aria-hidden
+              style={{ width: 20, height: 20, flexBasis: 20, fontSize: 9, background: avatarColor(trust.person) }}
+            >
+              {trust.person.charAt(0).toUpperCase()}
+            </span>
+            {trust.person}
           </>
-        ) : lastReviewedAt ? (
-          <>
-            {stale ? "Last verified " : "Verified "}
-            {formatRelative(lastReviewedAt)}
-            {reviewerName ? ` by ${reviewerName}` : ""}
-            {stale ? " — due for a check" : ""}
-          </>
-        ) : (
-          "Never verified — confirm this is still accurate"
         )}
+        {trust.tail}
       </span>
-
-      {/* The cadence this doc is held to. Editable in place: deciding how often
-          something needs re-checking is part of reading it, not a settings trip. */}
-      <label
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 5,
-          flex: "0 0 auto",
-        }}
-      >
-        <span style={{ opacity: 0.8 }}>cadence</span>
-        <select
-          value={draftCadence}
-          onChange={(e) => setDraftCadence(e.target.value as VerifyCadence)}
-          disabled={!canEdit || savingCadence}
-          aria-label="How often this doc should be re-verified"
-          style={{
-            background: "transparent",
-            border: 0,
-            font: "inherit",
-            color: "inherit",
-            fontWeight: 500,
-            cursor: canEdit ? "pointer" : "default",
-            outline: "none",
-            padding: 0,
-          }}
-        >
-          {CADENCES.map((c) => (
-            <option key={c} value={c}>
-              {CADENCE_LABEL[c]}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <span style={{ display: "inline-flex", gap: 4, flex: "0 0 auto" }}>
-        {dirty && canEdit && (
-          <button
-            onClick={saveCadence}
-            disabled={savingCadence}
-            className="btn btn-primary"
-            style={{ height: 24, fontSize: 11.5, padding: "0 10px" }}
-          >
-            {savingCadence ? "Saving…" : "Save"}
-          </button>
-        )}
-        {canEdit && (
-          <button
-            onClick={reverify}
-            disabled={busy}
-            className="btn btn-ghost"
-            style={{ height: 24, fontSize: 11.5, padding: "0 8px", gap: 5, color: "inherit" }}
-          >
-            <IconHistory size={11} />
-            {busy ? "Verifying…" : "Re-verify"}
-          </button>
-        )}
-      </span>
+      {trust.action && (
+        <span className={`re${done ? " is-pinned" : ""}`}>
+          {done ? (
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{done}</span>
+          ) : (
+            <button
+              type="button"
+              className={`btn btn-sm ${trust.action === "confirm" ? "btn-primary" : "btn-secondary"}`}
+              onClick={act}
+              disabled={busy}
+            >
+              {busy ? "…" : ACTION_LABEL[trust.action]}
+            </button>
+          )}
+        </span>
+      )}
     </div>
   );
 }

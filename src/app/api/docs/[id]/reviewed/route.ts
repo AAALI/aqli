@@ -16,8 +16,12 @@ export async function POST(_req: NextRequest, { params }: Params) {
   const { id } = await params;
   const doc = await getDoc(id);
 
-  // Status stays as-is (typically approved); only the freshness clock resets.
-  await updateDoc(id, { last_reviewed_at: new Date().toISOString() });
+  // Confirming is what makes a doc Current: the freshness clock resets, and a
+  // doc that was waiting on a check leaves Checks — someone has answered.
+  await updateDoc(id, {
+    last_reviewed_at: new Date().toISOString(),
+    ...(doc.status === "review" ? { status: "approved" as const } : {}),
+  });
 
   await logActivity({
     docId: id,

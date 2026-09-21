@@ -389,13 +389,15 @@ html, body {
   border-radius: 6px;
   font-family: var(--font-sans);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   border: 1px solid transparent;
   cursor: pointer;
   white-space: nowrap;
   transition: background 80ms ease;
   text-decoration: none;
 }
+.btn-lg { height: 40px; padding: 0 18px; font-size: 14px; border-radius: 7px; }
+.btn-sm { height: 27px; padding: 0 9px; font-size: 12px; font-weight: 500; }
 .btn-primary {
   background: var(--accent);
   color: #fff;
@@ -408,7 +410,7 @@ html, body {
   border-color: var(--border);
 }
 .dark .btn-secondary { background: var(--bg-card); }
-.btn-secondary:hover { background: var(--bg-sidebar); }
+.btn-secondary:hover { border-color: var(--border-strong); }
 .btn-ghost {
   background: transparent;
   color: var(--text-secondary);
@@ -417,11 +419,11 @@ html, body {
 .btn-ghost:hover { background: rgba(0,0,0,0.04); color: var(--text-primary); }
 .dark .btn-ghost:hover { background: rgba(255,255,255,0.04); }
 .btn-ghost-danger { color: #993C1D; }
-.btn-ghost-danger:hover { background: var(--stale-bg); }
+.btn-ghost-danger:hover { background: var(--danger-bg); }
 .btn-icon {
   width: 32px; padding: 0; justify-content: center;
 }
-.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn:disabled { opacity: 0.45; cursor: default; }
 
 .iconbtn {
   width: 32px; height: 32px;
@@ -434,7 +436,7 @@ html, body {
   border: 0;
   text-decoration: none;
 }
-.iconbtn:hover { background: rgba(0,0,0,0.04); color: var(--text-primary); }
+.iconbtn:hover { background: rgba(0,0,0,0.05); color: var(--text-primary); }
 .dark .iconbtn:hover { background: rgba(255,255,255,0.04); }
 .iconbtn .dot {
   position: absolute; top: 6px; right: 7px;
@@ -681,10 +683,13 @@ html, body {
   min-width: 0;
   background: var(--bg-base);
 }
+/* Positioned so the rail, the tab and the AI dot anchor to the paper's frame,
+   not to the window. */
 .main-body {
   flex: 1;
   display: flex;
   min-height: 0;
+  position: relative;
 }
 .content {
   flex: 1;
@@ -1102,7 +1107,7 @@ html, body {
   align-items: center;
   gap: 5px;
   font-size: 11.5px;
-  color: var(--stale-text);
+  color: var(--danger-text);
 }
 
 .onb-input {
@@ -1121,10 +1126,10 @@ html, body {
   box-shadow: 0 0 0 3px rgba(15, 110, 86, 0.12);
 }
 .onb-input.is-invalid {
-  border-color: var(--stale-border);
+  border-color: var(--danger-border);
 }
 .onb-input.is-invalid.is-focused {
-  border-color: var(--stale-text);
+  border-color: var(--danger-text);
   box-shadow: 0 0 0 3px rgba(153, 60, 29, 0.12);
 }
 .onb-input-prefix {
@@ -1358,7 +1363,7 @@ html, body {
   line-height: 1.5;
 }
 .onb-msg.is-error {
-  color: var(--stale-text);
+  color: var(--danger-text);
 }
 .onb-msg.is-ok {
   color: var(--approved-text);
@@ -1466,13 +1471,6 @@ html, body {
    narrow viewport does not produce a scrollbar — the columns are simply
    squeezed until the reading column disappears behind the rail. Both side
    columns therefore have to leave the flow rather than shrink. */
-
-.doc-rail {
-  width: 300px;
-  flex: 0 0 300px;
-  display: flex;
-  flex-direction: column;
-}
 
 /* ───────── Paper: the document column ─────────
    Shared verbatim by write and read (v3 §2). The *only* difference between
@@ -1722,19 +1720,6 @@ html, body {
   }
 }
 
-/* "Needs updating" rows: type · title · when + cadence · overdue · action. */
-.stale-row {
-  display: grid;
-  grid-template-columns: 80px 1fr 210px 80px 150px;
-  gap: 14px;
-}
-@media (max-width: 900px) {
-  .stale-row {
-    grid-template-columns: 1fr auto;
-    row-gap: 10px;
-  }
-}
-
 /* The standard measure for a list-shaped screen. Wider than the 720px reading
    column because rows carry metadata and actions, not prose. */
 .page-col {
@@ -1746,122 +1731,158 @@ html, body {
   margin: 0 auto;
 }
 
-/* ───────── Rail blocks ─────────
-   Every block either shows data or a purposeful empty state; none of them is
-   a permanent placeholder. */
-.rail-block {
-  padding: 18px 20px;
+/* ───────── Trust line ─────────
+   One line, 16px under the title: the state, who checked it and when. The
+   action (Re-verify, Nudge, Confirm) is hidden until the line is hovered or
+   focused — `visibility`, so revealing it does not reflow the line — and is
+   the entire maintenance UI on the reading surface (v3 §2). */
+.tline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-height: 27px;
+  flex-wrap: wrap;
 }
-.rail-block + .rail-block {
-  border-top: 1px solid var(--border);
+.tline .who { display: inline-flex; align-items: center; gap: 6px; }
+.tline .re { margin-left: auto; visibility: hidden; }
+.tline:hover .re,
+.tline:focus-within .re,
+.tline .re.is-pinned { visibility: visible; }
+
+/* ───────── Reading rail ─────────
+   Ships closed: a 40px strip on the right edge. Open, it is 312px and slides
+   over the paper rather than squeezing it — the column keeps its measure. */
+.rtab {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 40px;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 18px;
+  gap: 4px;
+  cursor: pointer;
+  z-index: 3;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
 }
-.rail-label {
+.rtab:hover { background: var(--bg-sidebar); color: var(--text-secondary); }
+.rtab .vlab {
+  writing-mode: vertical-rl;
+  margin-top: 10px;
   font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   font-weight: 600;
-  letter-spacing: 0.14em;
+}
+.rail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 312px;
+  border-left: 1px solid var(--border);
+  background: var(--bg-card);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -14px 0 34px -22px rgba(20, 20, 18, 0.3);
+  animation: railIn 180ms ease-out;
+}
+@keyframes railIn { from { transform: translateX(312px); } to { transform: none; } }
+.rail-tabs { display: flex; gap: 2px; padding: 12px 12px 0; border-bottom: 1px solid var(--border); align-items: flex-end; }
+.rt {
+  padding: 7px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: 0;
+  background: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-family: var(--font-sans);
+}
+.rt.is-on { color: var(--text-primary); border-bottom-color: var(--accent); }
+.rail-x {
+  margin: 0 0 8px auto;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border: 0;
+  background: none;
+  display: flex;
+}
+.rail-x:hover { color: var(--text-primary); }
+.rail-body { padding: 16px 18px; overflow: auto; flex: 1; }
+.rail-foot { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+.rail-empty { margin: 0; font-size: 13px; color: var(--text-muted); }
+.ol-i {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 8px;
+  border: 0;
+  background: none;
+  border-radius: 5px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.ol-i:hover { background: rgba(0, 0, 0, 0.035); color: var(--text-primary); }
+.ol-i.is-on { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+.ol-i.sub { padding-left: 20px; font-size: 12.5px; }
+
+/* A citing doc: title over a status dot and where the citation sits. Used in
+   the rail and at the foot of the doc, so the information exists with the
+   rail shut. */
+.bl {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+}
+.bl:last-child { border-bottom: 0; }
+.bl b { font-size: 13px; font-weight: 600; letter-spacing: -0.003em; color: var(--text-primary); }
+.bl span { font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+.bl:hover b { color: var(--accent); }
+
+/* Section label, used across Home, Checks, Drafts and the doc foot. */
+.sect-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.sect-h h2 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
-.rail-empty {
-  font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
+.sect-h a, .sect-h .sect-a { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--accent); text-decoration: none; }
 
-/* Outline rows — the live heading list, current section highlighted. */
-.ol-item {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  width: 100%;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  border-radius: 5px;
-  padding: 4px 8px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  color: var(--text-primary);
-  cursor: pointer;
-}
-.ol-item:hover {
-  background: var(--bg-sidebar);
-}
-.ol-item.cur {
-  background: var(--accent-light);
-  color: var(--accent);
-  font-weight: 500;
-}
-.ol-item.missing {
-  color: var(--text-muted);
-  opacity: 0.72;
-  cursor: default;
-}
-.ol-item.missing:hover {
-  background: transparent;
-}
-.ol-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ol-pct {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--text-muted);
-  flex: 0 0 auto;
-}
-.ol-item.cur .ol-pct {
-  color: var(--accent);
-}
+/* Below ~1100px the rail becomes an overlay over the paper rather than a
+   column beside it (§4), which it already is — nothing to do but keep the
+   closed tab out of the reading column's way on phones. */
+/* The AI dot and its panel stand clear of the rail, closed or open. */
+.rtab ~ .spark, .rtab ~ .aip { right: 64px; }
+.rail ~ .spark, .rail ~ .aip { right: 336px; }
 
-/* "Draw from" — an approved passage offered for quoting or citing. */
-.draw-card {
-  padding: 10px 12px;
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.draw-excerpt {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-  border-left: 2px solid var(--border-strong);
-  padding-left: 8px;
-}
-
-/* The trust line under a viewer's title: resolved by default, warning when
-   the doc is actually overdue. */
-.trust {
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 12.5px;
-  background: var(--approved-bg);
-  border: 1px solid var(--approved-border);
-  color: var(--approved-text);
-}
-.trust.warn {
-  background: var(--stale-bg);
-  border-color: var(--stale-border);
-  color: var(--stale-text);
-}
-
-/* Rail first: the reading column needs the room before the sidebar does. */
-@media (max-width: 1100px) {
-  .doc-rail {
-    display: none;
-  }
+@media (max-width: 767px) {
+  .rtab { display: none; }
+  .rtab ~ .spark, .rtab ~ .aip { right: 16px; }
+  .rail { width: 100%; }
 }
 
 @media (max-width: 860px) {
