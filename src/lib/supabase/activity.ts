@@ -1,10 +1,8 @@
-import { createServerSupabaseClient } from "./server";
 import { scoped } from "@/lib/db";
 import type {
   ActivityAction,
   ActorType,
   DocActivity,
-  DocActivityWithDoc,
 } from "@/types/activity";
 
 /**
