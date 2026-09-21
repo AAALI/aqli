@@ -101,7 +101,7 @@ export default function Sidebar({
             <Link href={`${base}/checks`} className={`sb-item ${isChecks ? "is-active" : ""}`}>
               <span className="sb-icon"><IconCheck /></span>
               <span>Checks</span>
-              <span className="sb-count" style={{ color: "var(--ageing-text)" }}>{checksCount}</span>
+              <span className="sb-count is-due">{checksCount}</span>
             </Link>
           )}
         </div>

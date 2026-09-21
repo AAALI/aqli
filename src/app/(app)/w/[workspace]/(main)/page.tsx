@@ -1,33 +1,29 @@
 import Link from "next/link";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
-import { getSpaces } from "@/lib/supabase/spaces";
-import { getDocs } from "@/lib/supabase/docs";
-import { getPendingReviewDocs, getOpenProposalCount } from "@/lib/supabase/review";
-import { getStaleDocs, daysSinceReview } from "@/lib/supabase/stale";
-import { getWorkspaceActivity, type FeedActivity } from "@/lib/supabase/activity";
-import { listIntegrationConnections } from "@/lib/supabase/integration-connections";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { greeting, todayLong, withinHours, dayBucket } from "@/lib/home";
+import { getHome, type WaitingItem } from "@/lib/supabase/home";
+import { getSpaces } from "@/lib/supabase/spaces";
+import { getOwnerDirectory } from "@/lib/supabase/owners";
 import AppTopBar from "@/components/layout/AppTopBar";
-import { AgentChip } from "@/components/aqli/badges";
-import { PageHeader, EmptyState } from "@/components/aqli/page";
-import { typeLabel } from "@/lib/doc-display";
-import { formatRelative, avatarColor } from "@/lib/utils";
-import {
-  IconEdit,
-  IconBook,
-  IconArrowUpRight,
-  IconRobot,
-  IconWarn,
-  IconGitMerge,
-  IconCheckCircle,
-  IconSparkle,
-  IconPlus,
-} from "@/components/aqli/icons";
+import Status from "@/components/docs/Status";
+import WriteKey from "@/components/home/WriteKey";
 import SchemaBehind from "@/components/preflight/SchemaBehind";
+import { IconPlus, IconFile } from "@/components/aqli/icons";
 import { loadOrDrift } from "@/lib/preflight/drift";
+import { dayGreeting, homeSummary, shortDay, whereLeftOff } from "@/lib/home";
+import { docState } from "@/lib/doc-status";
+import { formatRelative, avatarColor } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
 
+/**
+ * Home answers one question (v3 §5.7): what should I read, write, or check
+ * today. Where you left off, what is waiting on you, what is new since
+ * Monday, and what people keep asking that nothing answers.
+ *
+ * No notification bell, no review counter, no stats row. A brand-new
+ * workspace gets the first-run screen (frame 04) instead: one target, three
+ * patterns, and a cursor waiting.
+ */
 export default async function WorkspaceHome({
   params,
 }: {
@@ -40,570 +36,243 @@ export default async function WorkspaceHome({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const home = await loadOrDrift(() =>
+  const loaded = await loadOrDrift(() =>
     Promise.all([
-      getDocs(workspace.id, { limit: 16 }),
-      getPendingReviewDocs(workspace.id),
-      getOpenProposalCount(workspace.id),
-      getStaleDocs(workspace.id),
-      // The feed reads across the workspace on the service role, so it is told
-      // who is looking rather than left to show everyone everything.
-      getWorkspaceActivity(workspace.id, 24, user?.id ?? null),
+      getHome(workspace.id, user?.id ?? null),
       getSpaces(workspace.id),
-      listIntegrationConnections(workspace.id),
+      getOwnerDirectory(workspace.id),
     ]),
   );
-  if (!home.ok) {
-    return <SchemaBehind drift={home.drift} healthHref={`/w/${slug}/settings/health`} />;
+  if (!loaded.ok) {
+    return <SchemaBehind drift={loaded.drift} healthHref={`/w/${slug}/settings/health`} />;
   }
-  const [recentDocs, pendingReview, proposalCount, staleDocs, activity, spaces, connections] =
-    home.data;
-  const githubConnected = connections.some(
-    (c) => c.provider === "github" && c.status === "connected",
-  );
+  const [home, spaces, owners] = loaded.data;
 
   const base = `/w/${workspace.slug}`;
-  const myId = user?.id ?? null;
   const fullName =
-    (user?.user_metadata?.full_name as string | undefined) ||
-    user?.email?.split("@")[0] ||
-    "there";
+    (user?.user_metadata?.full_name as string | undefined) || user?.email?.split("@")[0] || "there";
   const firstName = fullName.split(" ")[0];
-  const firstSpace = spaces[0];
-  const newDocHref = firstSpace ? `${base}/write?space=${firstSpace.slug}` : `${base}/write`;
+  const writeHref = spaces[0] ? `${base}/write?space=${spaces[0].slug}` : `${base}/write`;
+  const nameOf = (id: string | null) =>
+    id ? (id === user?.id ? "You" : (owners[id]?.name ?? "A teammate")) : null;
 
-  // Brand-new workspace — keep the clean-slate welcome.
-  if (recentDocs.length === 0) {
-    return (
-      <>
-        <AppTopBar base={base} crumbs={[{ label: "Home" }]} />
-        <div className="content">
-          <EmptyWorkspace firstSpaceHref={firstSpace ? `${base}/s/${firstSpace.slug}` : base} writeHref={newDocHref} />
-        </div>
-      </>
-    );
+  if (!home.hasPublished && !home.leftOff) {
+    return <FirstRun base={base} firstName={firstName} writeHref={writeHref} />;
   }
-
-  // ── Pick up where you left off ──────────────────────────────────────
-  const drafts = recentDocs.filter((d) => d.status === "draft");
-  const myDraft = drafts.find((d) => d.owner_id === myId) ?? drafts[0] ?? null;
-  const reading = recentDocs.find((d) => d.status === "approved" && d.id !== myDraft?.id) ?? null;
-  const recent = recentDocs.find((d) => d.id !== myDraft?.id && d.id !== reading?.id) ?? null;
-
-  // ── Needs your attention ────────────────────────────────────────────
-  const agentAwaiting = pendingReview.filter((d) => d.author_type === "agent");
-  const humanAwaiting = pendingReview.filter((d) => d.author_type !== "agent");
-  const attention = [
-    ...agentAwaiting.map((doc) => ({ kind: "review" as const, doc })),
-    ...humanAwaiting.map((doc) => ({ kind: "review" as const, doc })),
-    ...staleDocs.map((doc) => ({ kind: "stale" as const, doc })),
-  ].slice(0, 5);
-  // Proposals are changes, not documents, so they get one row pointing at the
-  // queue rather than being flattened into a list of documents where a
-  // not-yet-existing document would have nothing to link to.
-  const attentionCount = attention.length + (proposalCount > 0 ? 1 : 0);
-
-  // ── Headline ────────────────────────────────────────────────────────
-  const autoPublished = recentDocs.filter(
-    (d) => d.frontmatter?.source_pr_url && withinHours(d.updated_at, 24),
-  ).length;
-  const sub = buildHeadline(autoPublished, agentAwaiting.length, staleDocs.length);
-
-  // ── What's new feed ─────────────────────────────────────────────────
-  const feedGroups = groupFeed(activity);
 
   return (
     <>
-      <AppTopBar
-        base={base}
-        crumbs={[{ label: "Home" }]}
-        primary={firstSpace ? { label: "New Doc", href: newDocHref } : null}
-      />
-      <div className="content" style={{ overflowY: "auto", padding: "32px 56px 64px" }}>
-        <div className="page-col-wide">
-          <div style={{ marginBottom: 28 }}>
-            <PageHeader
-              size="hero"
-              eyebrow={todayLong()}
-              title={greeting(firstName)}
-              sub={sub}
-            />
-          </div>
+      <AppTopBar crumbs={[{ label: "Home" }]} primary={{ label: "Write", href: writeHref }} />
+      <div className="wrap">
+        <div className="wrap-in">
+          <h1 className="h1">{dayGreeting()}</h1>
+          <p className="h1s">{homeSummary(home.draftCount, home.waiting.length)}</p>
 
-          {/* Pick up where you left off */}
-          <PickupRow base={base} myDraft={myDraft} reading={reading} recent={recent} />
+          {home.leftOff && <LeftOff base={base} doc={home.leftOff} />}
 
-          {/* Needs your attention */}
-          <section style={{ marginBottom: 44 }}>
-            <SectionHead
-              eyebrow="Needs your attention"
-              title={attentionTitle(attentionCount)}
-              right={
-                githubConnected ? (
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      padding: "3px 8px",
-                      background: "var(--ok-bg)",
-                      color: "var(--ok-text)",
-                      border: "1px solid var(--ok-border)",
-                      borderRadius: 999,
-                      fontSize: 11,
-                      fontWeight: 500,
-                    }}
-                  >
-                    <IconGitMerge size={11} /> PR merges skip review
+          {home.waiting.length > 0 && (
+            <section className="sect">
+              <div className="sect-h">
+                <h2>Waiting on you</h2>
+                {home.checksTotal > 0 && <Link href={`${base}/checks`}>All checks →</Link>}
+              </div>
+              {home.waiting.map((w) => (
+                <WaitingRow key={`${w.kind}-${w.doc.id}`} base={base} item={w} />
+              ))}
+            </section>
+          )}
+
+          {home.newSince.length > 0 && (
+            <section className="sect">
+              <div className="sect-h">
+                <h2>New since Monday</h2>
+              </div>
+              {home.newSince.map((d) => (
+                <Link key={d.id} href={`${base}/docs/${d.id}`} className="row">
+                  <Status doc={d} form="dot" />
+                  <span>
+                    <span className="t">{d.title || "Untitled"}</span>
+                    <span className="m">
+                      {d.space && <span className="ty">{d.space.name}</span>}
+                      <span>· {provenance(d, nameOf(d.owner_id))}</span>
+                    </span>
                   </span>
-                ) : null
-              }
-            />
-            {attentionCount === 0 ? (
-              <EmptyState
-                tone="clear"
-                icon={<IconCheckCircle size={20} sw={2} />}
-                title="You're all caught up"
-              >
-                Nothing to review, nothing past its verification cadence.
-              </EmptyState>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {proposalCount > 0 && (
-                  <Link
-                    href={`${base}/checks`}
-                    className="card"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: "14px 18px",
-                      textDecoration: "none",
-                      color: "inherit",
-                      borderLeft: "3px solid var(--warn-text)",
-                    }}
-                  >
-                    <span style={{ fontSize: 14.5, fontWeight: 500 }}>
-                      {proposalCount} {proposalCount === 1 ? "change" : "changes"} waiting for
-                      review
-                    </span>
-                    <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                      Nothing is published until you approve it
-                    </span>
-                  </Link>
-                )}
-                {attention.map((a) => (
-                  <AttentionRow key={a.doc.id} base={base} kind={a.kind} doc={a.doc} />
-                ))}
-              </div>
-            )}
-          </section>
+                  <span className="m">{shortDay(d.created_at)}</span>
+                </Link>
+              ))}
+            </section>
+          )}
 
-          {/* What's new */}
-          <section>
-            <SectionHead eyebrow="What's new" title="In your spaces" />
-            {feedGroups.length === 0 ? (
-              <EmptyState title="Nothing has moved in the last few days">
-                Drafts, approvals and agent activity across your spaces show up here as
-                they happen.
-              </EmptyState>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 18, maxWidth: 720 }}>
-                {feedGroups.map((g) => (
-                  <div key={g.when}>
-                    <div
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: 600,
-                        letterSpacing: "0.14em",
-                        textTransform: "uppercase",
-                        color: "var(--text-muted)",
-                        marginBottom: 6,
-                      }}
-                    >
-                      {g.when}
-                    </div>
-                    {g.events.map((e) => (
-                      <FeedRow key={e.id} base={base} e={e} />
-                    ))}
-                  </div>
-                ))}
+          {home.gaps.length > 0 && (
+            <section className="sect">
+              <div className="sect-h">
+                <h2>Asked this week · no doc answers it</h2>
               </div>
-            )}
-          </section>
+              {home.gaps.map((g) => (
+                <div key={g.normalized} className="row" style={{ cursor: "default" }}>
+                  <span className="n">{g.count}×</span>
+                  <span>
+                    <span className="t q">“{g.question}”</span>
+                    <span className="m">
+                      asked by {g.askers} {g.askers === 1 ? "person" : "people"} · last asked{" "}
+                      {formatRelative(g.lastAsked)}
+                    </span>
+                  </span>
+                  <Link
+                    href={`${base}/write?title=${encodeURIComponent(g.question)}${spaces[0] ? `&space=${spaces[0].slug}` : ""}`}
+                    className="btn btn-sm btn-secondary"
+                  >
+                    Write it
+                  </Link>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {home.waiting.length === 0 && home.newSince.length === 0 && home.gaps.length === 0 && (
+            <p className="h1s" style={{ marginTop: 36 }}>
+              Nothing new this week, and nobody is waiting on you.
+            </p>
+          )}
         </div>
       </div>
     </>
   );
 }
 
-// ── Headline / titles ─────────────────────────────────────────────────
-
-function buildHeadline(autoPublished: number, agentDrafts: number, stale: number): string {
-  const parts: string[] = [];
-  if (autoPublished > 0)
-    parts.push(
-      `${autoPublished} PR merge${autoPublished === 1 ? "" : "s"} auto-published recently.`,
-    );
-  if (agentDrafts > 0)
-    parts.push(
-      `${agentDrafts} agent draft${agentDrafts === 1 ? "" : "s"} need${agentDrafts === 1 ? "s" : ""} your review.`,
-    );
-  if (parts.length === 0 && stale > 0)
-    parts.push(`${stale} doc${stale === 1 ? "" : "s"} need${stale === 1 ? "s" : ""} verifying.`);
-  if (parts.length === 0) return "Everything's current — a good day to write something down.";
-  return parts.join(" ");
-}
-
-function attentionTitle(n: number): string {
-  if (n === 0) return "Nothing pending";
-  return `${n} thing${n === 1 ? "" : "s"} only you can move forward`;
-}
-
-// ── Pick-up row ───────────────────────────────────────────────────────
-
-function PickupRow({
-  base,
-  myDraft,
-  reading,
-  recent,
-}: {
-  base: string;
-  myDraft: DocWithSpace | null;
-  reading: DocWithSpace | null;
-  recent: DocWithSpace | null;
-}) {
-  const cards: { label: string; icon: React.ReactNode; doc: DocWithSpace }[] = [];
-  if (myDraft) cards.push({ label: "Continue draft", icon: <IconEdit size={13} />, doc: myDraft });
-  if (reading) cards.push({ label: "Pick up reading", icon: <IconBook size={13} />, doc: reading });
-  if (recent) cards.push({ label: "Recently updated", icon: <IconSparkle size={13} />, doc: recent });
-  if (cards.length === 0) return null;
-
+function LeftOff({ base, doc }: { base: string; doc: DocWithSpace }) {
+  const { section, midSentence } = whereLeftOff(doc.body_md);
+  const where = section
+    ? midSentence
+      ? `you stopped mid-sentence in “${section}”`
+      : `last written in “${section}”`
+    : "not started yet";
   return (
-    <div
-      className="home-jumpcards"
-      style={{
-        display: "grid",
-        gap: 12,
-        marginBottom: 44,
-      }}
-    >
-      {cards.map((c) => (
-        <Link
-          key={c.doc.id + c.label}
-          href={`${base}/docs/${c.doc.id}`}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            padding: "16px 18px 16px",
-            background: "var(--bg-card)",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-            minWidth: 0,
-            textDecoration: "none",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "var(--text-muted)",
-              marginBottom: 10,
-            }}
-          >
-            <span style={{ color: "var(--accent)", display: "inline-flex" }}>{c.icon}</span>
-            {c.label}
-          </div>
-          <div
-            style={{
-              fontFamily: "var(--font-serif)",
-              fontSize: 18,
-              lineHeight: 1.25,
-              letterSpacing: "-0.005em",
-              color: "var(--text-primary)",
-              marginBottom: 8,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {c.doc.title}
-          </div>
-          <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-            {typeLabel(c.doc.type)}
-            {c.doc.space ? ` · ${c.doc.space.name}` : ""} · {formatRelative(c.doc.updated_at)}
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-// ── Attention row ─────────────────────────────────────────────────────
-
-function AttentionRow({
-  base,
-  kind,
-  doc,
-}: {
-  base: string;
-  kind: "review" | "stale";
-  doc: DocWithSpace;
-}) {
-  const tone =
-    kind === "review" && doc.author_type === "agent"
-      ? { border: "var(--agent-border)", bg: "var(--agent-tint)", icon: <IconRobot size={14} /> }
-      : kind === "stale"
-        ? { border: "var(--danger-border)", bg: "var(--danger-bg)", icon: <IconWarn size={14} /> }
-        : { border: "var(--border-strong)", bg: "var(--bg-card)", icon: <IconCheckCircle size={14} sw={1.8} /> };
-
-  const days = daysSinceReview(doc);
-  const meta =
-    kind === "review"
-      ? `${typeLabel(doc.type)}${doc.space ? ` · ${doc.space.name}` : ""} · awaiting review · ${formatRelative(doc.updated_at)}`
-      : `${typeLabel(doc.type)}${doc.space ? ` · ${doc.space.name}` : ""} · ${days === null ? "never verified" : `last verified ${days}d ago`}`;
-  const cta = kind === "review" ? "Review" : "Open doc";
-
-  return (
-    <div
-      className="home-attention-row"
-      style={{
-        display: "grid",
-        gap: 16,
-        padding: "14px 18px",
-        background: "var(--bg-card)",
-        border: "1px solid var(--border)",
-        borderLeft: `3px solid ${tone.border}`,
-        borderRadius: 8,
-        alignItems: "center",
-      }}
-    >
-      <span
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 8,
-          background: tone.bg,
-          color: tone.border,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flex: "0 0 32px",
-        }}
-      >
-        {tone.icon}
-      </span>
-
-      <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 14.5, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.005em" }}>
-            {doc.title}
-          </span>
-          {kind === "review" && doc.author_type === "agent" && (
-            <AgentChip label={doc.agent_id ?? "Agent"} />
-          )}
-        </div>
-        <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{meta}</div>
+    <div className="card" style={{ marginTop: 26, display: "flex", alignItems: "center", gap: 18, padding: "16px 18px" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p className="eyebrow-s">Where you left off</p>
+        <p style={{ margin: "6px 0 0", fontFamily: "var(--font-serif)", fontSize: 19, fontWeight: 500, letterSpacing: "-0.008em" }}>
+          {doc.title || "Untitled"}
+        </p>
+        <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--text-muted)" }}>
+          In Drafts · {where} · {formatRelative(doc.updated_at)}
+        </p>
       </div>
-
-      <Link
-        href={`${base}/docs/${doc.id}`}
-        className="btn btn-primary"
-        style={{ height: 28, fontSize: 12.5, padding: "0 12px" }}
-      >
-        {cta}
+      <Link href={`${base}/docs/${doc.id}/edit`} className="btn btn-primary">
+        Keep writing
       </Link>
     </div>
   );
 }
 
-// ── Feed ──────────────────────────────────────────────────────────────
-
-type FeedGroup = { when: string; events: FeedActivity[] };
-
-function groupFeed(activity: FeedActivity[]): FeedGroup[] {
-  const order = ["Today", "Yesterday", "Earlier"] as const;
-  const buckets: Record<string, FeedActivity[]> = { Today: [], Yesterday: [], Earlier: [] };
-  for (const a of activity) buckets[dayBucket(a.created_at)].push(a);
-  return order.map((when) => ({ when, events: buckets[when] })).filter((g) => g.events.length > 0);
-}
-
-const VERB: Record<string, string> = {
-  created: "drafted",
-  approved: "approved",
-  status_changed: "updated",
-  review_requested: "requested review for",
-  changes_requested: "requested changes on",
-  commented: "commented on",
-  rejected: "rejected",
-};
-
-function FeedRow({ base, e }: { base: string; e: FeedActivity }) {
-  const autoApproved =
-    Boolean(e.metadata?.auto_approved) ||
-    (e.action === "approved" && Boolean(e.doc?.frontmatter?.source_pr_url));
-  const isAgent = e.actor_type === "agent";
-  const who = e.actor_name ?? (isAgent ? "An agent" : "Someone");
-  let verb = VERB[e.action] ?? e.action;
-  if (autoApproved) verb = "merged PR → auto-published";
-  else if (e.action === "created" && isAgent) verb = "drafted (awaiting review)";
-
+function WaitingRow({ base, item }: { base: string; item: WaitingItem }) {
+  const { doc } = item;
+  const minutes = readMinutes(doc.body_md);
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "26px 1fr auto",
-        gap: 10,
-        padding: "8px 0",
-        alignItems: "start",
-      }}
-    >
-      <FeedIcon autoApproved={autoApproved} isAgent={isAgent} initial={(who[0] ?? "?").toUpperCase()} />
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, color: "var(--text-primary)", lineHeight: 1.45 }}>
-          <span style={{ fontWeight: 500 }}>{who}</span>
-          <span style={{ color: "var(--text-secondary)" }}> {verb} </span>
-          {e.doc ? (
-            <Link
-              href={`${base}/docs/${e.doc.id}`}
-              style={{ fontWeight: 500, color: "var(--text-primary)", textDecoration: "none" }}
-            >
-              {e.doc.title}
-            </Link>
+    <Link href={`${base}/docs/${doc.id}`} className="row">
+      <Status doc={doc} state={item.kind === "asked" ? "unverified" : docState(doc)} />
+      <span>
+        <span className="t">{doc.title || "Untitled"}</span>
+        <span className="m">
+          {item.kind === "asked" ? (
+            <>
+              {item.askedBy && (
+                <span
+                  className="avatar"
+                  aria-hidden
+                  style={{ width: 20, height: 20, flexBasis: 20, fontSize: 9, background: avatarColor(item.askedBy) }}
+                >
+                  {item.askedBy.charAt(0).toUpperCase()}
+                </span>
+              )}
+              {item.askedBy ?? "Someone"} asked you to check it · {formatRelative(item.askedAt)} · {minutes} min read
+            </>
           ) : (
-            <span style={{ fontWeight: 500 }}>a doc</span>
+            <>
+              You own it · nobody has confirmed it in {sinceWords(doc.last_reviewed_at)}
+              {item.citedBy > 0 && ` · ${item.citedBy} doc${item.citedBy === 1 ? "" : "s"} cite it`}
+            </>
           )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {autoApproved && (
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                height: 18,
-                padding: "0 6px",
-                borderRadius: 5,
-                fontSize: 10.5,
-                fontWeight: 500,
-                background: "var(--ok-bg)",
-                color: "var(--ok-text)",
-                border: "1px solid var(--ok-border)",
-              }}
-            >
-              <IconGitMerge size={10} /> Auto-approved
-            </span>
-          )}
-          <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
-            {e.doc?.space ? `${e.doc.space.name} · ` : ""}
-            {formatRelative(e.created_at)}
-          </span>
-        </div>
-      </div>
-      {e.doc && (
-        <span style={{ color: "var(--text-muted)", marginTop: 4 }}>
-          <IconArrowUpRight size={13} />
         </span>
-      )}
-    </div>
+      </span>
+      <span className="btn btn-sm btn-secondary">{item.kind === "asked" ? "Check" : "Still true?"}</span>
+    </Link>
   );
 }
 
-function FeedIcon({
-  autoApproved,
-  isAgent,
-  initial,
-}: {
-  autoApproved: boolean;
-  isAgent: boolean;
-  initial: string;
-}) {
-  if (autoApproved) {
-    return (
-      <span
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: 999,
-          background: "var(--ok-bg)",
-          border: "1px solid var(--ok-border)",
-          color: "var(--ok-text)",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <IconGitMerge size={11} />
-      </span>
-    );
-  }
-  if (isAgent) {
-    return (
-      <span
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: 999,
-          background: "var(--agent-tint)",
-          border: "1px solid var(--agent-border)",
-          color: "var(--agent-icon)",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <IconRobot size={11} />
-      </span>
-    );
-  }
-  return <span className="avatar avatar-sm" style={{ background: avatarColor(initial) }}>{initial}</span>;
-}
-
-// ── Shared bits ───────────────────────────────────────────────────────
-
-/** A band within the home screen. `PageHeader` at `sub` size, plus a right slot. */
-function SectionHead({
-  eyebrow,
-  title,
-  right,
-}: {
-  eyebrow: string;
-  title: string;
-  right?: React.ReactNode;
-}) {
+function FirstRun({ base, firstName, writeHref }: { base: string; firstName: string; writeHref: string }) {
+  const patterns = [
+    { type: "how_to", name: "How-to", line: "Steps someone can follow without asking you." },
+    { type: "decision", name: "Decision", line: "What we chose, what we rejected, why." },
+    { type: "brief", name: "Brief", line: "What we're doing, for whom, by when." },
+  ];
+  const sep = writeHref.includes("?") ? "&" : "?";
   return (
-    <div style={{ marginBottom: 16 }}>
-      <PageHeader size="sub" eyebrow={eyebrow} title={title} action={right} />
-    </div>
-  );
-}
-
-function EmptyWorkspace({ firstSpaceHref, writeHref }: { firstSpaceHref: string; writeHref: string }) {
-  return (
-    <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ maxWidth: 520 }}>
-        <EmptyState
-          title="A clean slate"
-          action={
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <Link href={writeHref} className="btn btn-primary" style={{ height: 38, padding: "0 18px" }}>
-                <IconPlus size={14} /> Write your first doc
+    <>
+      <AppTopBar
+        crumbs={[{ label: "Home" }]}
+        secondary={{ label: "Invite your team", href: `${base}/settings/members` }}
+      />
+      <WriteKey href={writeHref} />
+      <div className="wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingBottom: 140 }}>
+        <div style={{ width: "100%", maxWidth: 660 }}>
+          <h1 className="h1" style={{ fontSize: 36 }}>A clean slate, {firstName}.</h1>
+          <p className="h1s" style={{ maxWidth: 470 }}>
+            Write one thing. Everything else in Aqli — search, checking, your agents — starts
+            working the moment there&apos;s something here.
+          </p>
+          <Link
+            href={writeHref}
+            className="btn btn-primary"
+            style={{ marginTop: 26, height: 52, padding: "0 24px", fontSize: 16, borderRadius: 9 }}
+          >
+            <IconPlus size={18} /> Start writing
+            <span className="kbd" style={{ borderColor: "rgba(255,255,255,.3)", color: "rgba(255,255,255,.72)", marginLeft: 6 }}>
+              N
+            </span>
+          </Link>
+          <p className="eyebrow-s" style={{ margin: "34px 0 10px", letterSpacing: "0.13em" }}>
+            Or start from a pattern
+          </p>
+          <div className="grid3">
+            {patterns.map((p) => (
+              <Link key={p.type} href={`${writeHref}${sep}type=${p.type}`} className="tpl">
+                <b>{p.name}</b>
+                <span>{p.line}</span>
               </Link>
-              <Link href={firstSpaceHref} className="btn btn-secondary" style={{ height: 38, padding: "0 16px" }}>
-                Browse a space <IconArrowUpRight size={14} />
-              </Link>
-            </div>
-          }
-        >
-          This workspace doesn&apos;t have any docs yet. Start with a policy, a how-to, or
-          the thing everyone keeps asking about — your team and your AI will both read it.
-        </EmptyState>
+            ))}
+          </div>
+          <p className="hint" style={{ marginTop: 28 }}>
+            <IconFile size={13} /> Bringing docs from Notion or Confluence?{" "}
+            <Link href={`${base}/settings/import`} style={{ color: "var(--accent)", textDecoration: "none" }}>
+              Import them
+            </Link>{" "}
+            — links and headings survive.
+          </p>
+        </div>
       </div>
-    </div>
+    </>
   );
+}
+
+/** Where a new doc came from, in words (§3.6: attributed, never chipped). */
+function provenance(d: DocWithSpace, author: string | null): string {
+  const pr = d.frontmatter?.source_pr_url?.match(/\/pull\/(\d+)/)?.[1];
+  const tail = docState(d) === "unverified" ? " · nobody has checked it yet" : "";
+  if (pr) return `written from PR #${pr}${tail}`;
+  if (d.author_type === "agent") return `written by ${d.agent_id ?? "an agent"}${tail}`;
+  return `${author ?? "A teammate"}${tail}`;
+}
+
+function readMinutes(md: string | null): number {
+  return Math.max(1, Math.round((md ?? "").split(/\s+/).filter(Boolean).length / 230));
+}
+
+/** "4 months", "3 weeks" — how long nobody has confirmed something. */
+function sinceWords(iso: string | null): string {
+  if (!iso) return "a while";
+  const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000);
+  if (days >= 60) return `${Math.floor(days / 30)} months`;
+  if (days >= 14) return `${Math.floor(days / 7)} weeks`;
+  return `${days} days`;
 }
