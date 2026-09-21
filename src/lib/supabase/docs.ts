@@ -476,9 +476,34 @@ export async function getBacklinks(docId: string, workspaceId: string) {
   }));
 }
 
-export async function searchDocs(workspaceId: string, query: string) {
+export type SearchHit = {
+  id: string;
+  title: string;
+  type: DocType;
+  status: DocStatus;
+  space_id: string | null;
+  owner_id: string | null;
+  author_type: "human" | "agent";
+  agent_id: string | null;
+  updated_at: string;
+  last_reviewed_at: string | null;
+  frontmatter: DocFrontmatter | null;
+  body_text: string | null;
+  parent_doc_id: string | null;
+  parent: { id: string; title: string } | null;
+};
+
+export async function searchDocs(
+  workspaceId: string,
+  query: string,
+  /**
+   * Who is searching. An unpublished draft is invisible to everyone but its
+   * author (v3 §3.2), so it only comes back to them.
+   */
+  viewerId: string | null = null,
+): Promise<SearchHit[]> {
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase
+  let q = supabase
     .from("docs")
     // `body_text` rather than `body_md`: the result snippet is prose, and the
     // markdown source leaks `##`, `**` and table pipes into it. The
@@ -490,11 +515,14 @@ export async function searchDocs(workspaceId: string, query: string) {
     .select(
       // `last_reviewed_at` + `frontmatter` come along because every surface a
       // doc appears on renders the same status dot, and `docState` needs both.
-      "id, title, type, status, space_id, updated_at, last_reviewed_at, frontmatter, body_text, parent_doc_id, parent:docs!docs_parent_doc_id_fkey(id, title)",
+      "id, title, type, status, space_id, owner_id, author_type, agent_id, updated_at, last_reviewed_at, frontmatter, body_text, parent_doc_id, parent:docs!docs_parent_doc_id_fkey(id, title)",
     )
     .eq("workspace_id", workspaceId)
+    .neq("status", "archived")
     .textSearch("search_vector", query, { type: "websearch" })
     .limit(20);
+  q = viewerId ? q.or(`status.neq.draft,owner_id.eq.${viewerId}`) : q.neq("status", "draft");
+  const { data, error } = await q;
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as unknown as SearchHit[];
 }

@@ -19,6 +19,6 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
 
-  const results = await searchDocs(workspaceId, query);
+  const results = await searchDocs(workspaceId, query, user.id);
   return NextResponse.json({ results });
 }

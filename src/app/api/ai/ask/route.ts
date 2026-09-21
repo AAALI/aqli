@@ -5,6 +5,7 @@ import { getMyRole } from "@/lib/supabase/members";
 import { queryContext } from "@/lib/ai/context";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { recordQuestion, answerAdmitsGap } from "@/lib/supabase/questions";
+import { docState, type DocState, type Stateful } from "@/lib/doc-status";
 
 const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -91,6 +92,19 @@ Answer concisely and accurately. At the end, list the sources you used as: "Sour
       properties: { workspace_id, sources_count: contextResults.length },
     });
 
+    // Each source carries the same state every other surface shows for it,
+    // so "Because" under an answer says how far to trust it.
+    const ids = [...new Set(contextResults.map((r) => r.doc_id))];
+    const { data: rows } = await supabase
+      .from("docs")
+      .select("id, last_reviewed_at, updated_at, frontmatter")
+      .in("id", ids);
+    const states = new Map<string, DocState>(
+      ((rows ?? []) as (Stateful & { id: string })[]).map(
+        (d) => [d.id, docState(d)],
+      ),
+    );
+
     return NextResponse.json({
       answer,
       sources: contextResults.map((r) => ({
@@ -99,6 +113,7 @@ Answer concisely and accurately. At the end, list the sources you used as: "Sour
         heading: r.heading,
         source_url: r.source_url,
         score: r.score,
+        state: states.get(r.doc_id) ?? "unverified",
       })),
     });
   } catch (err) {
