@@ -18,6 +18,10 @@ export type Space = {
    * the agent path, which inherits the key owner's membership.
    */
   visibility: "open" | "private";
+  /** Up to three doc ids, the space page's Start here cards, in order. */
+  start_here: string[];
+  /** Doc ids a newcomer should read, in order. */
+  reading_path: string[];
   created_at: string;
 };
 

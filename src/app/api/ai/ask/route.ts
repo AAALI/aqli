@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getMyRole } from "@/lib/supabase/members";
 import { queryContext } from "@/lib/ai/context";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { recordQuestion, answerAdmitsGap } from "@/lib/supabase/questions";
 
 const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -38,9 +39,10 @@ export async function POST(req: NextRequest) {
   });
 
   if (contextResults.length === 0) {
+    // Recorded unanswered: this is what Home and Search surface as a gap.
+    await recordQuestion(workspace_id, question, null);
     return NextResponse.json({
-      answer:
-        "No relevant approved docs found for this question. Try approving more docs or rephrasing your question.",
+      answer: "Nobody has written this down yet.",
       sources: [],
     });
   }
@@ -74,6 +76,14 @@ Answer concisely and accurately. At the end, list the sources you used as: "Sour
     });
     const answer =
       response.choices[0]?.message?.content ?? "Unable to generate answer.";
+
+    // A retrieval hit is not an answer if the model says the passages do
+    // not cover it — that still counts as a gap.
+    await recordQuestion(
+      workspace_id,
+      question,
+      answerAdmitsGap(answer) ? null : contextResults[0].doc_id,
+    );
 
     getPostHogClient().capture({
       distinctId: user.id,

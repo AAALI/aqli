@@ -6,6 +6,7 @@ import { getDocCommentThread } from "@/lib/supabase/comments";
 import { listWorkspaceMembers, getMyRole } from "@/lib/supabase/members";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getDocActivity } from "@/lib/supabase/activity";
+import { recordRead } from "@/lib/supabase/questions";
 import TrustLine from "@/components/docs/TrustLine";
 import ReadingRail, { CitingDoc, type HistoryEntry } from "@/components/docs/ReadingRail";
 import DocComments from "@/components/docs/DocComments";
@@ -70,6 +71,8 @@ export default async function DocViewPage({
       getMyRole(doc.workspace_id),
       getDocActivity(doc.workspace_id, doc.id, 50).catch(() => []),
       createServerSupabaseClient(),
+      // Once per person per doc — what reading-path completion counts.
+      recordRead(doc.workspace_id, doc.id),
     ]);
   const {
     data: { user },
