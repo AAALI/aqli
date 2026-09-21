@@ -811,6 +811,12 @@ html, body {
   text-transform: uppercase;
   color: var(--text-muted);
 }
+/* Space page: health bar and shelves. */
+.meter { display: flex; height: 6px; border-radius: 999px; overflow: hidden; background: var(--border); width: 220px; }
+.meter i { display: block; }
+.shelf { margin-top: 26px; }
+.shelf > h3 { margin: 0 0 4px; font-family: var(--font-serif); font-size: 18px; font-weight: 500; }
+.shelf > p { margin: 0 0 6px; font-size: 12.5px; color: var(--text-muted); }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .tpl {
