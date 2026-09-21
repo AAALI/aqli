@@ -76,6 +76,13 @@ export default function ReadingRail({
     [buildOutline],
   );
 
+  // The phone's read bar opens the same rail (frame 13).
+  useEffect(() => {
+    const onOpen = () => openRail("outline");
+    window.addEventListener("aqli:open-rail", onOpen);
+    return () => window.removeEventListener("aqli:open-rail", onOpen);
+  }, [openRail]);
+
   // Esc closes the rail when it is the topmost thing open.
   useEffect(() => {
     if (!open) return;

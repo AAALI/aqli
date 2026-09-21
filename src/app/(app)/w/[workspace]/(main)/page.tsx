@@ -74,7 +74,7 @@ export default async function WorkspaceHome({
             <section className="sect">
               <div className="sect-h">
                 <h2>Waiting on you</h2>
-                {home.checksTotal > 0 && <Link href={`${base}/checks`}>All checks →</Link>}
+                {home.checksTotal > 0 && <Link href={`${base}/checks`} className="only-wide">All checks →</Link>}
               </div>
               {home.waiting.map((w) => (
                 <WaitingRow key={`${w.kind}-${w.doc.id}`} base={base} item={w} />
@@ -97,7 +97,7 @@ export default async function WorkspaceHome({
                       <span>· {provenance(d, nameOf(d.owner_id))}</span>
                     </span>
                   </span>
-                  <span className="m">{shortDay(d.created_at)}</span>
+                  <span className="m row-act">{shortDay(d.created_at)}</span>
                 </Link>
               ))}
             </section>
@@ -120,7 +120,7 @@ export default async function WorkspaceHome({
                   </span>
                   <Link
                     href={`${base}/write?title=${encodeURIComponent(g.question)}${spaces[0] ? `&space=${spaces[0].slug}` : ""}`}
-                    className="btn btn-sm btn-secondary"
+                    className="btn btn-sm btn-secondary row-act"
                   >
                     Write it
                   </Link>
@@ -170,7 +170,11 @@ function WaitingRow({ base, item }: { base: string; item: WaitingItem }) {
   const minutes = readMinutes(doc.body_md);
   return (
     <Link href={`${base}/docs/${doc.id}`} className="row">
-      <Status doc={doc} state={item.kind === "asked" ? "unverified" : docState(doc)} />
+      {/* Pill on the desktop, the bare dot at phone scale (frame 12). */}
+      <span style={{ display: "flex" }}>
+        <Status doc={doc} state={item.kind === "asked" ? "unverified" : docState(doc)} className="only-wide" />
+        <Status doc={doc} state={item.kind === "asked" ? "unverified" : docState(doc)} form="dot" className="only-phone" />
+      </span>
       <span>
         <span className="t">{doc.title || "Untitled"}</span>
         <span className="m">
@@ -195,7 +199,7 @@ function WaitingRow({ base, item }: { base: string; item: WaitingItem }) {
           )}
         </span>
       </span>
-      <span className="btn btn-sm btn-secondary">{item.kind === "asked" ? "Check" : "Still true?"}</span>
+      <span className="btn btn-sm btn-secondary row-act">{item.kind === "asked" ? "Check" : "Still true?"}</span>
     </Link>
   );
 }

@@ -367,25 +367,7 @@ html, body {
 .tb-spacer { flex: 1; }
 .tb-actions { display: flex; align-items: center; gap: 10px; }
 
-/* Drawer trigger. Only meaningful below the sidebar breakpoint, where the
-   sidebar leaves the flow — see the responsive block near the end of the file. */
-.tb-nav-toggle {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin-left: -6px;
-  flex: 0 0 32px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-.tb-nav-toggle:hover { color: var(--text-primary); border-color: var(--border-strong); }
 
-.sb-scrim { display: none; }
 
 /* Buttons */
 .btn {
@@ -2038,68 +2020,7 @@ html, body {
   .rail { width: 100%; }
 }
 
-@media (max-width: 860px) {
-  .tb-nav-toggle {
-    display: inline-flex;
-  }
 
-  /* Off-canvas drawer. `position: fixed` takes it out of the flex row, so the
-     content column gets the full viewport width. */
-  .sb {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 60;
-    width: 264px;
-    flex-basis: 264px;
-    transform: translateX(-100%);
-    /* Translated off-screen is still rendered: its links stay in the tab order
-       and can be reached by a swipe at the edge. `visibility` takes it out of
-       both, delayed so it survives the closing slide. */
-    visibility: hidden;
-    pointer-events: none;
-    transition: transform 180ms ease, visibility 0s linear 180ms;
-    box-shadow: none;
-  }
-  .sb[data-open] {
-    transform: none;
-    visibility: visible;
-    pointer-events: auto;
-    transition: transform 180ms ease, visibility 0s;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
-  }
-
-  .sb-scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    background: rgba(0, 0, 0, 0.32);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 180ms ease;
-  }
-  .sb-scrim[data-open] {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .tb {
-    padding: 0 14px;
-    gap: 8px;
-  }
-  /* The breadcrumb is the first thing to give up room to the actions. */
-  .tb-crumb {
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  .content {
-    padding: 20px 16px;
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .sb,
@@ -2442,17 +2363,7 @@ html, body {
   justify-self: start;
 }
 
-@media (max-width: 860px) {
-  /* Drop the owner and timestamp columns rather than crushing the title. */
-  .doc-row {
-    grid-template-columns: auto 1fr auto !important;
-    gap: 10px !important;
-  }
-  .doc-row > :nth-child(4),
-  .doc-row > :nth-child(5) {
-    display: none;
-  }
-}
+
 
 /* ───────── The AI panel, open ─────────
    `.spark` and `.aip` (above) are the closed and open forms. This only adds
@@ -2471,4 +2382,110 @@ html, body {
     right: 16px;
   }
   .spark { right: 16px; }
+}
+
+
+/* ───────── Responsive (v3 §4) ─────────
+   Down to ~1100px the desktop is sidebar · paper · rail. Below that the
+   sidebar collapses to its icons and the rail is already an overlay. Under
+   768px it is the phone: read and capture only, three tabs at the bottom,
+   no Checks, no settings, no space browsing. */
+.ptabs, .pbar-read, .pformat, .only-phone { display: none; }
+
+@media (max-width: 1100px) and (min-width: 768px) {
+  .sb:not(.set-nav) { width: 60px; flex-basis: 60px; padding-left: 0; padding-right: 0; align-items: center; }
+  .sb:not(.set-nav) .sb-head { padding: 0 0 10px; }
+  .sb:not(.set-nav) .sb-workspace,
+  .sb:not(.set-nav) .sb-section-label,
+  .sb:not(.set-nav) .sb-item > span:not(.sb-icon):not(.sb-emoji),
+  .sb:not(.set-nav) .sb-newspace > span:not(.sb-icon),
+  .sb:not(.set-nav) .sb-foot .meta { display: none; }
+  .sb:not(.set-nav) .sb-brand-word { display: none; }
+  .sb:not(.set-nav) .sb-item { justify-content: center; padding: 8px; }
+  .sb:not(.set-nav) .sb-nav { padding: 8px 6px 0; }
+  .sb:not(.set-nav) .sb-foot { padding: 10px 0 0; justify-content: center; }
+}
+
+@media (max-width: 767px) {
+  .sb, .set-nav { display: none !important; }
+  .only-wide { display: none !important; }
+  .only-phone { display: inline-block; }
+  .tb { padding: 0 16px; }
+
+  /* Three tabs: Home, Search, and the write button between them. */
+  .ptabs {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: 76px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-card);
+    align-items: flex-start;
+    padding-top: 11px;
+    z-index: 30;
+  }
+  .ptab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    background: none;
+    border: 0;
+    font-family: var(--font-sans);
+  }
+  .ptab.is-on { color: var(--accent); }
+  .ptab-write {
+    width: 34px; height: 34px; border-radius: 999px;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; margin-top: -6px;
+  }
+  .has-ptabs .wrap { padding-bottom: 100px; }
+
+  /* Phone scale (frame 12): 15px titles, bare dots, tighter rows. */
+  .wrap .h1 { font-size: 25px; }
+  .wrap .h1s { font-size: 13px; }
+  .row { padding: 12px 0; grid-template-columns: auto 1fr; }
+  .row .t { font-size: 15px; }
+  .row .m { font-size: 11.5px; }
+  .row > .row-act { display: none; }
+
+  /* Reading (frame 13): the paper gets the screen; the controls collapse
+     into one bar at the bottom. */
+  .rtab, .spark { display: none; }
+  .dt { font-size: 29px; }
+  .dbody { font-size: 17px; }
+  .dbody h2 { font-size: 20px; margin-top: 24px; }
+  .pbar-read {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: 66px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-card);
+    align-items: center;
+    padding: 0 8px;
+    gap: 4px;
+    z-index: 30;
+  }
+  .pbar-read .btn { flex: 1; justify-content: center; }
+  .has-pbar .doc-col { padding-bottom: 120px; }
+
+  /* Writing (frame 14): a formatting bar that sits on the keyboard. */
+  .pformat {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: 52px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-card);
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    z-index: 30;
+  }
 }

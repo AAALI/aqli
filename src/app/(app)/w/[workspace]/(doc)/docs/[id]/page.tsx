@@ -13,6 +13,7 @@ import DocComments from "@/components/docs/DocComments";
 import DocAskAssistant from "@/components/docs/DocAskAssistant";
 import DocBodyClient from "@/components/docs/DocBodyClient";
 import ShareButton from "@/components/docs/ShareButton";
+import PhoneReadBar from "@/components/docs/PhoneReadBar";
 import { IconChevRight, IconEdit } from "@/components/aqli/icons";
 import CmdKButton from "@/components/cmdk/CmdKButton";
 import { isPublished } from "@/lib/doc-status";
@@ -152,7 +153,7 @@ export default async function DocViewPage({
         </div>
       </div>
 
-      <div className="main-body">
+      <div className="main-body has-pbar">
         <div id="doc-scroll" className="doc-scroll">
           <article id="doc-article" className="doc-col">
             <h1 className="dt">{doc.title}</h1>
@@ -208,6 +209,7 @@ export default async function DocViewPage({
           docTitle={doc.title}
         />
       </div>
+      <PhoneReadBar editHref={canEdit ? `${base}/docs/${doc.id}/edit` : null} />
     </>
   );
 }

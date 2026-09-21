@@ -14,6 +14,7 @@ import { IconChevLeft, IconSearch } from "@/components/aqli/icons";
 import type { KeyHandlerRegistry } from "@/components/editor/v2/types";
 import { useDocImages } from "@/components/editor/useDocImages";
 import TableControls from "@/components/editor/v2/TableControls";
+import PhoneFormatBar from "@/components/editor/PhoneFormatBar";
 import { aqliExtensions } from "@/lib/markdown/schema";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
@@ -425,7 +426,7 @@ export default function DocEditorClient({
         </div>
       </div>
 
-      <div className="main-body" style={{ position: "relative" }}>
+      <div className="main-body has-pbar" style={{ position: "relative" }}>
         <div ref={scrollRef} className="doc-scroll" style={{ position: "relative" }}>
           <article className="doc-col">
             {/* A textarea, not an input: at 40px a real title runs past the
@@ -528,6 +529,7 @@ export default function DocEditorClient({
           />
         )}
       </div>
+      {editor && <PhoneFormatBar editor={editor} onAsk={() => setChatOpen(true)} />}
 
       {publishOpen && (
         <PublishSheet

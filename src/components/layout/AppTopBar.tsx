@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Fragment } from "react";
 import { IconChevRight, IconPlus } from "@/components/aqli/icons";
 import CmdKButton from "@/components/cmdk/CmdKButton";
-import MobileNavToggle from "./MobileNavToggle";
 
 export type Crumb = { label: string; href?: string };
 
@@ -30,7 +29,6 @@ export default function AppTopBar({
 }) {
   return (
     <div className="tb">
-      <MobileNavToggle />
       <nav className="tb-crumb" aria-label="Breadcrumb">
         {crumbs.map((c, i) => {
           const last = i === crumbs.length - 1;

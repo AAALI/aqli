@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { setMobileNav, useMobileNav } from "./mobile-nav";
 import { IconChevLeft } from "@/components/aqli/icons";
 import { createClient } from "@/lib/supabase/client";
 
@@ -49,11 +47,6 @@ export default function SettingsSidebar({ base, workspaceName, isAdmin = false }
     },
   ];
 
-  const navOpen = useMobileNav();
-  useEffect(() => {
-    setMobileNav(false);
-  }, [pathname]);
-
   async function signOut() {
     await createClient().auth.signOut();
     router.push("/login");
@@ -62,8 +55,7 @@ export default function SettingsSidebar({ base, workspaceName, isAdmin = false }
 
   return (
     <>
-      <div className="sb-scrim" data-open={navOpen ? "" : undefined} onClick={() => setMobileNav(false)} aria-hidden="true" />
-      <aside className="set-nav sb" data-open={navOpen ? "" : undefined}>
+      <aside className="set-nav sb">
         <Link href={base} className="btn btn-ghost" style={{ marginBottom: 16, padding: "0 8px 0 4px", alignSelf: "flex-start" }}>
           <IconChevLeft size={16} />
           {workspaceName}

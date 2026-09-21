@@ -5,6 +5,7 @@ import { getSpaces, getSpaceDocCounts } from "@/lib/supabase/spaces";
 import { getReviewCount, getOpenProposalCount } from "@/lib/supabase/review";
 import { getDocs } from "@/lib/supabase/docs";
 import Sidebar from "@/components/layout/Sidebar";
+import PhoneTabs from "@/components/layout/PhoneTabs";
 import SchemaBehind from "@/components/preflight/SchemaBehind";
 import { loadOrDrift } from "@/lib/preflight/drift";
 
@@ -60,7 +61,11 @@ export default async function MainShell({
         draftsCount={draftsCount}
         spaceCounts={spaceCounts}
       />
-      <div className="main">{children}</div>
+      <div className="main has-ptabs">{children}</div>
+      <PhoneTabs
+        base={`/w/${workspace.slug}`}
+        writeHref={spaces[0] ? `/w/${workspace.slug}/write?space=${spaces[0].slug}` : `/w/${workspace.slug}/write`}
+      />
     </>
   );
 }

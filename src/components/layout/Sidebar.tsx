@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
 import type { Space } from "@/types/space";
-import { setMobileNav, useMobileNav } from "./mobile-nav";
 import { AqliWordmark } from "@/components/aqli/AqliMark";
 import { IconHome, IconSearch, IconCheck, IconEdit } from "@/components/aqli/icons";
 import SpaceIcon from "@/components/aqli/SpaceIcon";
@@ -47,25 +45,10 @@ export default function Sidebar({
   const isDrafts = pathname.startsWith(`${base}/drafts`);
   const isSearch = pathname.startsWith(`${base}/search`);
   const isChecks = pathname.startsWith(`${base}/checks`);
-  const navOpen = useMobileNav();
-
-  // On a phone the drawer covers the page, so following a link has to close it
-  // — otherwise the destination renders underneath and looks like nothing
-  // happened.
-  useEffect(() => {
-    setMobileNav(false);
-  }, [pathname]);
 
   return (
     <>
-      {/* Scrim: only painted while the drawer is open, and only on mobile. */}
-      <div
-        className="sb-scrim"
-        data-open={navOpen ? "" : undefined}
-        onClick={() => setMobileNav(false)}
-        aria-hidden="true"
-      />
-      <aside className="sb" data-open={navOpen ? "" : undefined}>
+      <aside className="sb">
         <div className="sb-head">
           <Link href={base} style={{ textDecoration: "none" }}>
             <AqliWordmark />
