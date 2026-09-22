@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SettingsHeader } from "@/components/settings/primitives";
+import SpaceIcon from "@/components/aqli/SpaceIcon";
 import type { ReviewPolicy } from "@/lib/merge/disposition";
 
 type SpaceRow = {
@@ -230,10 +231,10 @@ export default function SpacePoliciesClient({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 15,
+                    color: "var(--text-secondary)",
                   }}
                 >
-                  {space.icon}
+                  <SpaceIcon icon={space.icon} />
                 </span>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
@@ -335,7 +336,7 @@ export default function SpacePoliciesClient({
               paddingTop: 18,
             }}
           >
-            Only workspace admins can change a space&apos;s review policy.
+            Only workspace admins can change who reads a space or who checks it.
           </p>
         )}
       </div>
@@ -382,8 +383,8 @@ function SpaceRoster({
     <div>
       <p style={{ fontSize: 12.5, color: "var(--text-secondary)", marginBottom: 10, lineHeight: 1.5 }}>
         Only these people can read this space — in the app, in search, and through any assistant,
-        which inherits the space membership of whoever owns its key. A <strong>reviewer</strong> can
-        also approve proposals here; if nobody is named, any editor or admin can, as before.
+        which inherits the space membership of whoever owns its key. A <strong>checker</strong> can
+        also confirm changes waiting in Checks; if nobody is named, any editor or admin can.
       </p>
       {error && (
         <p style={{ fontSize: 12.5, color: "var(--danger-fg, #b91c1c)", marginBottom: 8 }}>{error}</p>

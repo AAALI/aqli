@@ -46,7 +46,7 @@ export default function AutoApprovePolicyToggle({
         type="button"
         role="switch"
         aria-checked={enabled}
-        aria-label="Auto-approve docs from merged PRs"
+        aria-label="Publish docs from merged PRs straight away"
         onClick={toggle}
         disabled={busy}
         style={{

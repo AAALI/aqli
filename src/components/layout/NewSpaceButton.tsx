@@ -3,14 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconPlus, IconX } from "@/components/aqli/icons";
-
-const EMOJI_CHOICES = ["📋", "⚙️", "🛡️", "🔧", "🏢", "📐", "🚀", "📊", "🧪", "📁"];
+import SpaceIcon, { SPACE_ICON_KEYS, type SpaceIconKey } from "@/components/aqli/SpaceIcon";
 
 export default function NewSpaceButton({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [icon, setIcon] = useState("📋");
+  const [icon, setIcon] = useState<SpaceIconKey>("folder");
   const [busy, setBusy] = useState(false);
 
   async function create() {
@@ -25,7 +24,7 @@ export default function NewSpaceButton({ workspaceId }: { workspaceId: string })
       if (res.ok) {
         setOpen(false);
         setName("");
-        setIcon("📋");
+        setIcon("folder");
         router.refresh();
       }
     } finally {
@@ -62,17 +61,21 @@ export default function NewSpaceButton({ workspaceId }: { workspaceId: string })
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <span style={{ fontSize: 11.5, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-secondary)" }}>Icon</span>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {EMOJI_CHOICES.map((e) => (
+                  {SPACE_ICON_KEYS.map((k) => (
                     <button
-                      key={e}
-                      onClick={() => setIcon(e)}
+                      key={k}
+                      onClick={() => setIcon(k)}
+                      aria-label={k}
+                      aria-pressed={icon === k}
                       style={{
-                        width: 38, height: 38, fontSize: 18, borderRadius: 8, cursor: "pointer",
-                        border: `1.5px solid ${icon === e ? "var(--accent)" : "var(--border)"}`,
-                        background: icon === e ? "var(--accent-light)" : "var(--bg-card)",
+                        width: 38, height: 38, borderRadius: 8, cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: `1.5px solid ${icon === k ? "var(--accent)" : "var(--border)"}`,
+                        background: icon === k ? "var(--accent-light)" : "var(--bg-card)",
+                        color: icon === k ? "var(--accent)" : "var(--text-secondary)",
                       }}
                     >
-                      {e}
+                      <SpaceIcon icon={k} size={18} />
                     </button>
                   ))}
                 </div>
