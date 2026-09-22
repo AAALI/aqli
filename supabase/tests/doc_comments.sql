@@ -98,6 +98,7 @@ begin
     where schemaname = 'public' and tablename = 'doc_comments'
   ) = array[
     'doc_comments_delete',
+    'doc_comments_draft_privacy',
     'doc_comments_insert',
     'doc_comments_read',
     'doc_comments_space_visibility'
