@@ -58,7 +58,7 @@ export async function createSpace(payload: {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("spaces")
-    .insert({ ...payload, icon: payload.icon ?? "📄" })
+    .insert({ ...payload, icon: payload.icon ?? "folder" })
     .select()
     .single();
   if (error) throw error;

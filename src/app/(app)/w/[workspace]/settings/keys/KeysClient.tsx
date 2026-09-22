@@ -61,7 +61,7 @@ function ScopeChips({
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
       <span
-        title="Every key can read approved context."
+        title="Every key can read published docs."
         style={{ ...chipStyle, color: "var(--text-muted)", borderColor: "var(--border)" }}
       >
         read
