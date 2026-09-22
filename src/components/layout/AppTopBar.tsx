@@ -2,60 +2,56 @@ import Link from "next/link";
 import { Fragment } from "react";
 import { IconChevRight, IconPlus } from "@/components/aqli/icons";
 import CmdKButton from "@/components/cmdk/CmdKButton";
-import MobileNavToggle from "./MobileNavToggle";
-import NotificationsButton from "./NotificationsButton";
 
 export type Crumb = { label: string; href?: string };
 
+/**
+ * The 54px top bar of every screen that has a sidebar (v3 §2).
+ *
+ * A breadcrumb, at most one primary action, and search. There is no
+ * notification bell: what used to arrive there now arrives on Home, under
+ * "Waiting on you", and in Checks — places you go on purpose rather than a
+ * badge that asks to be cleared.
+ */
 export default function AppTopBar({
   crumbs,
-  base,
-  saved,
   primary,
-  share,
+  secondary,
   actions,
 }: {
-  /** Workspace base path (e.g. `/w/acme`). Used by the notifications bell. */
-  base?: string;
   crumbs: Crumb[];
-  saved?: string | null;
   primary?: { label: string; href: string } | null;
-  share?: boolean;
-  /**
-   * Screen-specific actions, rendered ahead of the global ones. The doc
-   * surfaces put History / Edit here so they need no second bar of their own —
-   * one 56px top bar is the whole of the app chrome.
-   */
+  secondary?: { label: string; href: string } | null;
+  /** Screen-specific actions, rendered ahead of search. */
   actions?: React.ReactNode;
+  /** Retained for call sites not yet rebuilt; the bell is gone. */
+  base?: string;
 }) {
   return (
     <div className="tb">
-      <MobileNavToggle />
-      <div className="tb-crumb">
+      <nav className="tb-crumb" aria-label="Breadcrumb">
         {crumbs.map((c, i) => {
           const last = i === crumbs.length - 1;
           return (
             <Fragment key={i}>
               {i > 0 && <span className="crumb-sep"><IconChevRight size={12} /></span>}
               {c.href && !last ? (
-                <Link href={c.href} className={last ? "crumb-cur" : ""}>{c.label}</Link>
+                <Link href={c.href}>{c.label}</Link>
               ) : (
                 <span className={last ? "crumb-cur" : ""}>{c.label}</span>
               )}
             </Fragment>
           );
         })}
-        {saved && (
-          <span className="crumb-saved">
-            <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)" }} />
-            {saved}
-          </span>
-        )}
-      </div>
+      </nav>
       <div className="tb-spacer" />
       <div className="tb-actions">
         {actions}
-        {share && <button className="btn btn-secondary">Share</button>}
+        {secondary && (
+          <Link href={secondary.href} className="btn btn-secondary">
+            {secondary.label}
+          </Link>
+        )}
         {primary && (
           <Link href={primary.href} className="btn btn-primary">
             <IconPlus size={14} />
@@ -63,7 +59,6 @@ export default function AppTopBar({
           </Link>
         )}
         <CmdKButton />
-        {base && <NotificationsButton base={base} />}
       </div>
     </div>
   );

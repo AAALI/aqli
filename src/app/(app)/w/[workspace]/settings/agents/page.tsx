@@ -6,5 +6,5 @@ export default async function AgentsSettingsPage({
   params: Promise<{ workspace: string }>;
 }) {
   const { workspace } = await params;
-  redirect(`/w/${workspace}/agent-log`);
+  redirect(`/w/${workspace}/settings/keys`);
 }

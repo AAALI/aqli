@@ -4,159 +4,298 @@ import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getSpaceBySlug } from "@/lib/supabase/spaces";
 import { getDocs, getSpaceTree } from "@/lib/supabase/docs";
 import { getOwnerDirectory } from "@/lib/supabase/owners";
-import DocList from "@/components/docs/DocList";
-import DocTree from "@/components/docs/DocTree";
+import { getMyRole } from "@/lib/supabase/members";
+import { readingPathProgress } from "@/lib/supabase/questions";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import AppTopBar from "@/components/layout/AppTopBar";
-import SpaceTabs from "@/components/spaces/SpaceTabs";
-import { PageHeader, EmptyState } from "@/components/aqli/page";
-import ShelvesView, { type Shelf } from "@/components/spaces/ShelvesView";
+import DocTree from "@/components/docs/DocTree";
+import Status from "@/components/docs/Status";
+import SpaceIcon from "@/components/aqli/SpaceIcon";
+import CurateShelves from "@/components/spaces/CurateShelves";
+import { docState, isPublished, type DocState } from "@/lib/doc-status";
 import { typeLabel } from "@/lib/doc-display";
-import { IconPlus } from "@/components/aqli/icons";
+import { formatRelative } from "@/lib/utils";
 import type { DocWithSpace } from "@/types/doc";
 
+/**
+ * A space is a library (v3 §5.8, frame 08): a health bar, the docs to start
+ * with, a reading path for newcomers, and topic shelves. Not a filterable
+ * table of PRDs and ADRs.
+ *
+ * The one filter is Ageing — "Show what needs a look" — which is where the
+ * deleted /stale dashboard's job went: the state travels with the doc, and
+ * this chip gathers the ones that have drifted in this space.
+ */
 export default async function SpacePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspace: string; space: string }>;
+  searchParams: Promise<{ show?: string }>;
 }) {
   const { workspace: wsSlug, space: spaceSlug } = await params;
+  const { show } = await searchParams;
   const workspace = await getWorkspaceBySlug(wsSlug);
   const space = await getSpaceBySlug(workspace.id, spaceSlug).catch(() => null);
   if (!space) notFound();
 
-  const [docs, owners, tree] = await Promise.all([
-    getDocs(workspace.id, { spaceId: space.id, limit: 200 }),
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const [all, owners, tree, role] = await Promise.all([
+    getDocs(workspace.id, { spaceId: space.id, limit: 300 }),
     getOwnerDirectory(workspace.id),
     getSpaceTree(workspace.id, space.id),
+    getMyRole(workspace.id),
   ]);
-  // A space nobody has nested anything in still opens on Shelves: the tree is
-  // there when it has something to show, rather than replacing a view people
-  // already use with a flat list under a new name.
-  const hasTree = tree.some((d) => d.parent_doc_id !== null);
+
+  // A draft is a place, and it is yours: nothing unpublished is on the shelf.
+  const docs = all.filter((d) => isPublished(d.status) && d.status !== "archived");
+  const byId = new Map(docs.map((d) => [d.id, d]));
   const base = `/w/${workspace.slug}`;
-  const newHref = `${base}/s/${space.slug}/new`;
+  const writeHref = `${base}/write?space=${space.slug}`;
+  const canCurate = role === "admin" || role === "editor";
+  const nameOf = (id: string | null) =>
+    id ? (id === user?.id ? "you" : (owners[id]?.name ?? "a teammate")) : null;
+
+  const states = new Map<string, DocState>(docs.map((d) => [d.id, docState(d)]));
+  const count = (s: DocState) => [...states.values()].filter((x) => x === s).length;
+  const health = { current: count("current"), ageing: count("ageing"), unverified: count("unverified") };
+  const showingAgeing = show === "ageing";
+
+  // Curated by the owner; until someone does, lead with the three most
+  // recently confirmed Current docs so the shelf is not empty on day one.
+  const curated = (space.start_here ?? []).map((id) => byId.get(id)).filter(Boolean) as DocWithSpace[];
+  const startHere = curated.length
+    ? curated
+    : docs
+        .filter((d) => states.get(d.id) === "current")
+        .sort((a, b) => (b.last_reviewed_at ?? "").localeCompare(a.last_reviewed_at ?? ""))
+        .slice(0, 3);
+  const path = (space.reading_path ?? []).map((id) => byId.get(id)).filter(Boolean) as DocWithSpace[];
+  const progress = await readingPathProgress(workspace.id, path.map((d) => d.id));
+  const pathMinutes = path.reduce((n, d) => n + minutes(d.body_md), 0);
+
+  const shelves = buildShelves(showingAgeing ? docs.filter((d) => states.get(d.id) === "ageing") : docs);
+  const hasTree = tree.some((d) => d.parent_doc_id !== null);
 
   return (
     <>
-      <AppTopBar base={base} crumbs={[{ label: space.name }]} primary={{ label: "New Doc", href: newHref }} />
+      <AppTopBar
+        crumbs={[{ label: "Spaces" }, { label: space.name }]}
+        primary={{ label: "Write", href: writeHref }}
+      />
+      <div className="wrap">
+        <div style={{ maxWidth: 840 }}>
+          <h1 className="h1" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ color: "var(--text-secondary)", display: "flex" }}>
+              <SpaceIcon icon={space.icon} size={24} />
+            </span>
+            {space.name}
+          </h1>
 
-      {docs.length === 0 ? (
-        <div className="content" style={{ padding: "28px 40px" }}>
-          <div style={{ maxWidth: 1040, margin: "0 auto" }}>
-            <SpaceTitle icon={space.icon} name={space.name} count={0} />
-            <EmptySpace newHref={newHref} spaceName={space.name} />
-          </div>
+          {docs.length === 0 ? (
+            <p className="h1s" style={{ marginTop: 14 }}>
+              Nothing here yet.{" "}
+              <Link href={writeHref} style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+                Write the first doc
+              </Link>{" "}
+              — it becomes findable by the team and readable by your agents.
+            </p>
+          ) : (
+            <>
+              <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                <HealthBar {...health} />
+                <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-secondary)" }}>
+                  {docs.length} doc{docs.length === 1 ? "" : "s"} ·{" "}
+                  <b style={{ fontWeight: 600, color: "var(--current-text)" }}>{health.current} current</b> ·{" "}
+                  <b style={{ fontWeight: 600, color: "var(--ageing-text)" }}>{health.ageing} ageing</b> · {health.unverified} unverified
+                </p>
+                {health.ageing > 0 && (
+                  <Link
+                    href={showingAgeing ? `${base}/s/${space.slug}` : `${base}/s/${space.slug}?show=ageing`}
+                    className={`pick${showingAgeing ? " is-on" : ""}`}
+                    style={{ marginLeft: "auto", height: 27, fontSize: 12 }}
+                  >
+                    {showingAgeing ? "Showing what needs a look · clear" : "Show what needs a look →"}
+                  </Link>
+                )}
+              </div>
+
+              {!showingAgeing && (startHere.length > 0 || canCurate) && (
+                <section className="sect" style={{ marginTop: 32 }}>
+                  <div className="sect-h">
+                    <h2>Start here</h2>
+                    {canCurate && (
+                      <CurateShelves
+                        spaceId={space.id}
+                        docs={docs.map((d) => ({ id: d.id, title: d.title }))}
+                        startHere={space.start_here ?? []}
+                        readingPath={space.reading_path ?? []}
+                      />
+                    )}
+                  </div>
+                  {startHere.length === 0 && (
+                    <p className="h1s" style={{ margin: 0 }}>
+                      Nothing is confirmed here yet. Pick the docs a newcomer should read first.
+                    </p>
+                  )}
+                  <div className="grid3">
+                    {startHere.map((d) => (
+                      <Link key={d.id} href={`${base}/docs/${d.id}`} className="tpl">
+                        <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                          <Status doc={d} form="dot" />
+                          <span className="ty">{typeLabel(d.type)}</span>
+                        </span>
+                        <b>{d.title || "Untitled"}</b>
+                        <span>{summary(d.body_md)} {minutes(d.body_md)} min.</span>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {!showingAgeing && path.length > 0 && (
+                <section className="shelf">
+                  <div className="sect-h" style={{ marginBottom: 6 }}><h2>Reading path</h2></div>
+                  <h3>New here? Read these {path.length === 1 ? "one" : NUM[path.length] ?? path.length}, in order.</h3>
+                  <p>
+                    ~{pathMinutes} minutes
+                    {progress.finished > 0 && ` · ${progress.finished} ${progress.finished === 1 ? "person has" : "people have"} finished it`}
+                  </p>
+                  {path.map((d, i) => (
+                    <Link key={d.id} href={`${base}/docs/${d.id}`} className="row">
+                      <span className="n" style={progress.mine.has(d.id) ? { color: "var(--accent)" } : undefined}>
+                        {progress.mine.has(d.id) ? "✓" : i + 1}
+                      </span>
+                      <span>
+                        <span className="t">{d.title || "Untitled"}</span>
+                        <span className="m">
+                          <Status doc={d} form="dot" />
+                          {checkedWords(d)}
+                        </span>
+                      </span>
+                      <span className="m">{minutes(d.body_md)} min</span>
+                    </Link>
+                  ))}
+                </section>
+              )}
+
+              {shelves.map((shelf) => (
+                <section key={shelf.name} className="shelf">
+                  <h3>
+                    {shelf.name}{" "}
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", fontWeight: 400 }}>
+                      {shelf.docs.length}
+                    </span>
+                  </h3>
+                  {shelf.docs.map((d) => (
+                    <Link key={d.id} href={`${base}/docs/${d.id}`} className="row">
+                      <Status doc={d} form="dot" />
+                      <span>
+                        <span className="t">{d.title || "Untitled"}</span>
+                        <span className="m">
+                          <span className="ty">{typeLabel(d.type)}</span>
+                          <span>· {[attribution(d, nameOf(d.owner_id)), shelfReason(d)].filter(Boolean).join(" · ")}</span>
+                        </span>
+                      </span>
+                      <span className="m">{rightDate(d)}</span>
+                    </Link>
+                  ))}
+                </section>
+              ))}
+
+              {!showingAgeing && hasTree && (
+                <section className="sect">
+                  <div className="sect-h"><h2>All pages</h2></div>
+                  <DocTree
+                    docs={tree.filter((d) => d.status !== "draft")}
+                    base={base}
+                    spaceSlug={space.slug}
+                  />
+                </section>
+              )}
+            </>
+          )}
         </div>
-      ) : (
-        <div className="content" style={{ padding: 0, overflowY: "auto" }}>
-          <div style={{ padding: "32px 56px 22px", background: "var(--bg-base)" }}>
-            <SpaceTitle icon={space.icon} name={space.name} count={docs.length} />
-          </div>
-          <SpaceTabs
-            docCount={docs.length}
-            defaultTab={hasTree ? "pages" : "shelves"}
-            pages={<DocTree docs={tree} base={base} spaceSlug={space.slug} />}
-            shelves={
-              <ShelvesView
-                base={base}
-                startHere={pickStartHere(docs)}
-                {...buildShelves(docs)}
-              />
-            }
-            list={<DocList docs={docs} workspaceSlug={workspace.slug} emptyLabel="No docs in this space yet." owners={owners} />}
-          />
-        </div>
-      )}
+      </div>
     </>
   );
 }
 
-// ── Shelf assembly ────────────────────────────────────────────────────
+const NUM = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
 
-/** Up to three approved docs (most recently updated) as canonical entry points. */
-function pickStartHere(docs: DocWithSpace[]): DocWithSpace[] {
-  return docs.filter((d) => d.status === "approved").slice(0, 3);
+function HealthBar({ current, ageing, unverified }: { current: number; ageing: number; unverified: number }) {
+  const total = current + ageing + unverified || 1;
+  const pct = (n: number) => `${(n / total) * 100}%`;
+  return (
+    <div
+      className="meter"
+      role="img"
+      aria-label={`${current} current, ${ageing} ageing, ${unverified} unverified`}
+    >
+      <i style={{ background: "var(--current-text)", width: pct(current) }} />
+      <i style={{ background: "var(--ageing-dot)", width: pct(ageing) }} />
+      <i style={{ background: "#C9C7BE", width: pct(unverified) }} />
+    </div>
+  );
 }
 
-/**
- * Cluster docs into shelves by tag (subject matter). If no doc carries tags,
- * fall back to grouping by doc type so the view is still meaningful.
- */
-function buildShelves(docs: DocWithSpace[]): { shelves: Shelf[]; shelfBasis: "topic" | "type" } {
+/** Topic shelves by tag; by doc type when nothing is tagged. */
+function buildShelves(docs: DocWithSpace[]): { name: string; docs: DocWithSpace[] }[] {
   const byTag = new Map<string, DocWithSpace[]>();
-  for (const d of docs) {
-    for (const tag of d.frontmatter?.tags ?? []) {
-      if (!byTag.has(tag)) byTag.set(tag, []);
-      byTag.get(tag)!.push(d);
-    }
-  }
-
+  for (const d of docs) for (const tag of d.frontmatter?.tags ?? []) byTag.set(tag, [...(byTag.get(tag) ?? []), d]);
   if (byTag.size > 0) {
-    const shelves: Shelf[] = [...byTag.entries()]
-      .sort((a, b) => b[1].length - a[1].length)
-      .map(([name, shelfDocs]) => ({ name, docs: shelfDocs }));
-    const untagged = docs.filter((d) => !(d.frontmatter?.tags?.length));
-    if (untagged.length > 0) shelves.push({ name: "Untagged", docs: untagged });
-    return { shelves, shelfBasis: "topic" };
+    const shelves = [...byTag.entries()].sort((a, b) => b[1].length - a[1].length).map(([name, ds]) => ({ name, docs: ds }));
+    const loose = docs.filter((d) => !d.frontmatter?.tags?.length);
+    if (loose.length) shelves.push({ name: "Everything else", docs: loose });
+    return shelves;
   }
-
   const byType = new Map<string, DocWithSpace[]>();
-  for (const d of docs) {
-    const key = typeLabel(d.type);
-    if (!byType.has(key)) byType.set(key, []);
-    byType.get(key)!.push(d);
+  for (const d of docs) byType.set(typeLabel(d.type), [...(byType.get(typeLabel(d.type)) ?? []), d]);
+  return [...byType.entries()].sort((a, b) => b[1].length - a[1].length).map(([name, ds]) => ({ name, docs: ds }));
+}
+
+function attribution(d: DocWithSpace, author: string | null): string {
+  const pr = d.frontmatter?.source_pr_url?.match(/\/pull\/(\d+)/)?.[1];
+  if (pr) return `from PR #${pr}`;
+  if (d.author_type === "agent") return d.agent_id ?? "an agent";
+  return author ?? "";
+}
+
+function shelfReason(d: DocWithSpace): string {
+  const state = docState(d);
+  if (d.status === "review") return "waiting on a check";
+  if (state === "unverified") return "nobody has checked it";
+  if (Date.now() - Date.parse(d.created_at) < 86_400_000) return "published today";
+  return "";
+}
+
+function rightDate(d: DocWithSpace): string {
+  const state = docState(d);
+  if (state === "ageing") return checkedWords(d).replace("nobody has confirmed it in ", "");
+  if (state === "current") return `checked ${formatRelative(d.last_reviewed_at ?? d.updated_at)}`;
+  return formatRelative(d.updated_at);
+}
+
+function checkedWords(d: DocWithSpace): string {
+  const state = docState(d);
+  if (state === "ageing") {
+    const months = Math.max(1, Math.floor((Date.now() - Date.parse(d.last_reviewed_at ?? d.updated_at)) / (30 * 86_400_000)));
+    return `nobody has confirmed it in ${months} month${months === 1 ? "" : "s"}`;
   }
-  const shelves: Shelf[] = [...byType.entries()]
-    .sort((a, b) => b[1].length - a[1].length)
-    .map(([name, shelfDocs]) => ({ name, docs: shelfDocs }));
-  return { shelves, shelfBasis: "type" };
+  if (state === "current") return `checked ${formatRelative(d.last_reviewed_at ?? d.updated_at)}`;
+  return "nobody has checked it yet";
 }
 
-// ── Header / empty ────────────────────────────────────────────────────
-
-function SpaceTitle({ icon, name, count }: { icon: string; name: string; count: number }) {
-  return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 18 }}>
-      <span
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 12,
-          background: "var(--accent-light)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 28,
-          flex: "0 0 56px",
-        }}
-      >
-        {icon}
-      </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <PageHeader
-          eyebrow="Space"
-          title={name}
-          sub={`${count} doc${count === 1 ? "" : "s"}`}
-        />
-      </div>
-    </div>
-  );
+function minutes(md: string | null): number {
+  return Math.max(1, Math.round((md ?? "").split(/\s+/).filter(Boolean).length / 230));
 }
 
-function EmptySpace({ newHref, spaceName }: { newHref: string; spaceName: string }) {
-  return (
-    <div style={{ marginTop: 24 }}>
-      <EmptyState
-        title={`${spaceName} is empty`}
-        action={
-          <Link href={newHref} className="btn btn-primary" style={{ height: 38, padding: "0 18px" }}>
-            <IconPlus size={14} /> New Doc
-          </Link>
-        }
-      >
-        Docs you create here become shared context — searchable by your team and
-        queryable by your agents.
-      </EmptyState>
-    </div>
-  );
+/** One line to say what a Start here doc is: its opening sentence. */
+function summary(md: string | null): string {
+  const para = (md ?? "").split(/\n{2,}/).map((b) => b.trim()).find((b) => b && !b.startsWith("#") && !b.startsWith("|"));
+  const sentence = (para ?? "").replace(/[*_`[\]]/g, "").split(/(?<=[.!?])\s/)[0] ?? "";
+  return sentence.length > 70 ? `${sentence.slice(0, 68).trimEnd()}…` : sentence;
 }

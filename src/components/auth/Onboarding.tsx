@@ -1,21 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { AqliMark } from "@/components/aqli/AqliMark";
+import SpaceIcon from "@/components/aqli/SpaceIcon";
+import { IconCheckCircle, IconLink } from "@/components/aqli/icons";
 import {
-  IconCheck,
-  IconCheckCircle,
-  IconKey,
-  IconRobot,
-  IconSparkle,
-  IconWarn,
-} from "@/components/aqli/icons";
-import {
-  CUSTOM_SPACE_EMOJI,
-  NUMBERED_STEPS,
+  CUSTOM_SPACE_ICON,
   ONBOARDING_STEPS,
   SUGGESTED_SPACES,
   canAddCustomSpace,
@@ -29,6 +22,7 @@ import {
   suggestSlug,
   toggleSpace,
   validateSlug,
+  workspaceNameFromEmail,
   type StepKey,
 } from "@/lib/onboarding/plan";
 import * as analytics from "@/lib/analytics";
@@ -84,12 +78,15 @@ export default function Onboarding() {
   // asking existing members to create a second workspace.
   const [booting, setBooting] = useState(true);
 
-  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
-  const [workspaceName, setWorkspaceName] = useState("");
+  // Pre-filled from the email domain until the person types (§5.2).
+  const [nameInput, setNameInput] = useState<string | null>(null);
+  const workspaceName = nameInput ?? workspaceNameFromEmail(email);
+  const setWorkspaceName = setNameInput;
+  const [editingUrl, setEditingUrl] = useState(false);
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [takenSlugs, setTakenSlugs] = useState<string[]>([]);
@@ -100,9 +97,7 @@ export default function Onboarding() {
   const [customSpaces, setCustomSpaces] = useState<string[]>([]);
   const [customDraft, setCustomDraft] = useState("");
 
-  const [agentName, setAgentName] = useState("Claude");
-  const [issuedKey, setIssuedKey] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [addingCustom, setAddingCustom] = useState(false);
 
   const [busy, setBusy] = useState(false);
   // The push into the workspace is a navigation, not a fetch — without this the
@@ -251,12 +246,13 @@ export default function Onboarding() {
     setNotice(null);
     setBusy(true);
     try {
-      const name = fullName.trim();
+      // Email and password, and nothing else is asked (§5.1). Until a name is
+      // set, the app greets people by the first part of their email.
+      const name = email.split("@")[0] ?? "";
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { full_name: name },
           // The confirmation email lands on /auth/callback, which exchanges the
           // code for a session and resumes onboarding at the workspace step.
           emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/signup?step=workspace")}`,
@@ -372,7 +368,7 @@ export default function Onboarding() {
         return;
       }
       setSpacesFailed([]);
-      setStep("assistant");
+      finish("spaces");
     } catch {
       setSpacesFailed(picked.filter((p) => !existingSpaces.includes(p)));
       setError("Couldn't reach the server. Try again, or carry on and add your spaces later.");
@@ -381,47 +377,10 @@ export default function Onboarding() {
     }
   }
 
-  async function createKey() {
-    if (!workspace) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspace_id: workspace.id, name: agentName.trim() || "Claude" }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error ?? "Could not create a key");
-      // `createApiKey` returns the plain key once, as `secret`; only the hash
-      // is stored, so there is no second chance to read it.
-      const secret: string | undefined = body.key?.secret;
-      if (!secret) throw new Error("The key was created but could not be read. Find it in Settings → API keys.");
-      setIssuedKey(secret);
-      analytics.capture("onboarding_key_created", { workspace_id: workspace.id });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create a key");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyKey() {
-    if (!issuedKey) return;
-    try {
-      await navigator.clipboard.writeText(issuedKey);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setError("Could not copy — select the key and copy it manually.");
-    }
-  }
-
   /**
-   * Leave onboarding. Called by every terminal action — skipping the AI step,
-   * continuing after a key is issued, and the escape offered on a resumed run.
-   * There is no confirmation screen in between: the workspace's own empty
-   * state is the welcome, and it comes with the button that writes doc one.
+   * Leave onboarding. Called by both actions on the last step — Start writing
+   * and "Company is fine — skip". There is no confirmation screen in between:
+   * the next thing on screen is a cursor.
    */
   const finish = useCallback(
     (via: string) => {
@@ -439,7 +398,8 @@ export default function Onboarding() {
         body: JSON.stringify({ settings: { [ONBOARDED_AT]: new Date().toISOString() } }),
         keepalive: true,
       }).catch(() => {});
-      router.push(`/w/${workspace.slug}`);
+      // Three screens, then a cursor (§13): the editor, not a welcome page.
+      router.push(`/w/${workspace.slug}/write`);
       router.refresh();
     },
     [workspace, router],
@@ -452,556 +412,276 @@ export default function Onboarding() {
     setCustomSpaces((c) => [...c, name]);
     setPicked((p) => [...p, name]);
     setCustomDraft("");
+    setAddingCustom(false);
   }
 
   const allSpaceOptions = [
     ...SUGGESTED_SPACES,
-    ...customSpaces.map((name) => ({ emoji: CUSTOM_SPACE_EMOJI, name, desc: "Your own space" })),
-  ];
-  const knownSpaceNames = [
-    ...SUGGESTED_SPACES.map((s) => s.name),
-    ...customSpaces,
-    ...existingSpaces,
+    ...customSpaces.map((name) => ({ icon: CUSTOM_SPACE_ICON, name, desc: "Your own space" })),
   ];
   const newSpaceCount = spacesToCreate(picked, existingSpaces, customSpaces).length;
+  const googleSso = process.env.NEXT_PUBLIC_GOOGLE_SSO === "1";
+
+  async function continueWithGoogle() {
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/signup?step=workspace")}`,
+      },
+    });
+    if (error) setError(error.message);
+  }
 
   if (booting) return <BootingScreen />;
 
   return (
-    <div className="onb">
-      <StepRail current={step} />
-      <div className="onb-stage">
-        <div className="onb-topbar">
-          {step === "account" ? (
-            <span>
-              Already have an account?{" "}
-              <Link href="/login" style={{ color: "var(--accent)", fontWeight: 500, textDecoration: "none" }}>
-                Log in
-              </Link>
-            </span>
-          ) : workspace ? (
-            <span>
-              Workspace{" "}
-              <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspace.name}</strong>
-            </span>
-          ) : email ? (
-            <span>
-              Signed in as{" "}
-              <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{email}</strong>
-            </span>
-          ) : null}
+    <div className="ob">
+      <div className="ob-t">
+        <Link href="/" className="wm" aria-label="Aqli">
+          <AqliMark size={20} />
+          <span>aqli</span>
+        </Link>
+        <div className="ob-steps" aria-label={`Step ${stepIndex(step) + 1} of ${ONBOARDING_STEPS.length}`}>
+          {ONBOARDING_STEPS.map((s, i) => (
+            <span
+              key={s.key}
+              className={`ob-dot${i === stepIndex(step) ? " on" : i < stepIndex(step) ? " done" : ""}`}
+            />
+          ))}
         </div>
+      </div>
 
-        <div className="onb-body">
-          {/* The spaces step carries eight options; it gets a wider column so
-              they lay out two-up and the primary action stays above the fold. */}
-          <div className={`onb-col${step === "spaces" ? " is-wide" : ""}`}>
-            {step === "account" &&
-              (awaitingConfirmation ? (
-                <Stage
-                  eyebrow="Check your inbox"
-                  title="Confirm your email."
-                  sub={`We sent a link to ${email}. Opening it brings you straight back here to name your workspace.`}
-                >
-                  <Panel>
-                    <PanelRow icon={<IconCheckCircle size={15} />} tone="ok">
-                      Your account exists. Nothing else happens in this tab until the link is
-                      opened — you can close it safely.
-                    </PanelRow>
-                  </Panel>
-                  {error && <Msg tone="error">{error}</Msg>}
-                  {notice && <Msg tone="ok">{notice}</Msg>}
-                  <Footer
-                    left={
-                      <button type="button" className="btn btn-ghost onb-btn" onClick={resendConfirmation} disabled={busy}>
-                        {busy ? "Sending…" : "Resend email"}
-                      </button>
-                    }
-                    right={
-                      <Link href="/login" className="btn btn-primary onb-btn onb-btn-primary">
-                        Already confirmed? Log in
-                      </Link>
-                    }
-                  />
-                </Stage>
-              ) : (
-                <Stage
-                  eyebrow={stepEyebrow("account")}
-                  title="Set up your account."
-                  sub="Aqli is your company's knowledge base — one your team writes and your AI tools can read. You'll be writing in under five minutes."
-                >
-                  <form onSubmit={submitAccount} className="onb-form">
-                    <Field label="Full name" hint="So your team and agents can see who wrote what.">
-                      <TextInput value={fullName} onChange={setFullName} placeholder="Ada Lovelace" required autoFocus />
-                    </Field>
-                    <Field label="Work email">
-                      <TextInput type="email" value={email} onChange={setEmail} placeholder="you@team.com" required />
-                    </Field>
-                    <Field label="Password" hint="At least 6 characters. We never see it.">
-                      <TextInput type="password" value={password} onChange={setPassword} placeholder="••••••••••••" minLength={6} required />
-                    </Field>
-                    {error && <Msg tone="error">{error}</Msg>}
-                    <Footer
-                      left={
-                        <span style={{ fontSize: 12, color: "var(--text-muted)", maxWidth: 320 }}>
-                          By continuing you agree to the{" "}
-                          <Link href="/terms" style={{ color: "var(--text-secondary)" }}>Terms</Link> and{" "}
-                          <Link href="/privacy" style={{ color: "var(--text-secondary)" }}>Privacy policy</Link>.
-                        </span>
-                      }
-                      right={
-                        <button type="submit" className="btn btn-primary onb-btn onb-btn-primary" disabled={busy || !fullName.trim()}>
-                          {busy ? "Creating…" : "Continue"}
-                        </button>
-                      }
-                    />
-                  </form>
-                </Stage>
-              ))}
-
-            {step === "workspace" && (
-              <Stage
-                eyebrow={stepEyebrow("workspace")}
-                title="Name your workspace."
-                sub="One workspace per team or organisation. You can rename it later."
-              >
-                <form onSubmit={submitWorkspace} className="onb-form">
-                  <Field label="Workspace name">
-                    <TextInput value={workspaceName} onChange={setWorkspaceName} placeholder="e.g. ACME" required autoFocus />
-                  </Field>
-                  <Field
-                    label="Workspace URL"
-                    hint={slugError ? undefined : "Used for share links and AI integrations."}
-                    error={slugError ?? (slugTouched && !slugCheck.ok ? slugCheck.reason : undefined)}
-                  >
-                    <TextInput
-                      mono
-                      prefix="aqli.app/w/"
-                      value={slugTouched ? slug : effectiveSlug}
-                      onChange={(v) => {
-                        setSlug(v);
-                        setSlugTouched(true);
-                        setSlugError(null);
-                      }}
-                      placeholder="acme"
-                      invalid={!!slugError}
-                    />
-                  </Field>
-
-                  {slugError && (
-                    <div className="onb-alts">
-                      <span className="onb-alts-label">Available instead</span>
-                      <div className="onb-alts-row">
-                        {slugAlternatives(workspaceName || effectiveSlug, takenSlugs).map((alt) => (
-                          <button
-                            key={alt}
-                            type="button"
-                            className="onb-chip"
-                            onClick={() => {
-                              setSlug(alt);
-                              setSlugTouched(true);
-                              setSlugError(null);
-                            }}
-                          >
-                            {alt}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <Panel>
-                    <PanelRow icon={<IconSparkle size={15} />}>
-                      We&apos;ll start you off with a{" "}
-                      <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>Company</strong>{" "}
-                      space for handbooks and policies. You&apos;ll pick spaces for your teams next.
-                    </PanelRow>
-                  </Panel>
-
-                  {error && <Msg tone="error">{error}</Msg>}
-                  <Footer
-                    right={
-                      <button type="submit" className="btn btn-primary onb-btn onb-btn-primary" disabled={busy || !workspaceName.trim() || !slugCheck.ok}>
-                        {busy ? "Creating…" : "Continue"}
-                      </button>
-                    }
-                  />
-                </form>
-              </Stage>
-            )}
-
-            {step === "spaces" && (
-              <Stage
-                eyebrow={stepEyebrow("spaces")}
-                title="What lives where?"
-                sub="One space per team usually works. Pick the teams you have — you can add or remove any of them later."
-              >
-                <div className="onb-spaces">
-                  {allSpaceOptions.map((s) => {
-                    const on = picked.some((p) => p.toLowerCase() === s.name.toLowerCase());
-                    const locked = existingSpaces.some((e) => e.toLowerCase() === s.name.toLowerCase());
-                    return (
-                      <button
-                        key={s.name}
-                        type="button"
-                        aria-pressed={on}
-                        disabled={locked}
-                        onClick={() => setPicked((p) => toggleSpace(p, s.name, existingSpaces))}
-                        className={`onb-space${on ? " is-on" : ""}${locked ? " is-locked" : ""}`}
-                      >
-                        <span className="onb-space-tick">{on && <IconCheck size={12} />}</span>
-                        <span className="onb-space-emoji">{s.emoji}</span>
-                        <span className="onb-space-copy">
-                          <span className="onb-space-name">
-                            {s.name}
-                            {locked && <span className="onb-space-tag">added</span>}
-                          </span>
-                          <span className="onb-space-desc">{s.desc}</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="onb-custom">
-                  <TextInput
-                    value={customDraft}
-                    onChange={setCustomDraft}
-                    placeholder="Add your own — e.g. Legal, Design, Support"
-                    onEnter={addCustomSpace}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-ghost onb-btn"
-                    onClick={addCustomSpace}
-                    disabled={!canAddCustomSpace(customDraft, knownSpaceNames)}
-                  >
-                    Add
-                  </button>
-                </div>
-
-                {error && <Msg tone="error">{error}</Msg>}
-                <Footer
-                  left={
-                    <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-                      {newSpaceCount === 0 ? "Company space only" : `${newSpaceCount} to create`}
-                    </span>
-                  }
-                  right={
-                    <div className="onb-actions">
-                      {/* Only after the retries below have genuinely been
-                          exhausted — not as a substitute for retrying. */}
-                      {spacesFailed.length > 0 && (
-                        <button
-                          type="button"
-                          className="btn btn-ghost onb-btn"
-                          onClick={() => setStep("assistant")}
-                          disabled={busy}
-                        >
-                          Carry on
-                        </button>
-                      )}
-                      <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={submitSpaces} disabled={busy}>
-                        {busy ? "Creating…" : spacesFailed.length > 0 ? "Try again" : "Continue"}
-                      </button>
-                    </div>
-                  }
-                />
-              </Stage>
-            )}
-
-            {step === "assistant" && (
-              <Stage
-                eyebrow={stepEyebrow("assistant")}
-                title="Connect your AI."
-                sub="Aqli works with any assistant your team uses — Claude, ChatGPT, Cursor. They read your approved docs for context and draft updates for you to review. Optional, and changeable later."
-              >
-                {issuedKey ? (
+      <div className="ob-mid">
+        {step === "account" &&
+          (awaitingConfirmation ? (
+            <div className="ob-card">
+              <p className="ob-eb">Check your inbox</p>
+              <h1 className="ob-q">Confirm your email.</h1>
+              <p className="ob-s">
+                We sent a link to {email}. Opening it brings you straight back here — you can close this tab safely.
+              </p>
+              {error && <p className="ob-err" role="alert">{error}</p>}
+              {notice && <p className="ob-note">{notice}</p>}
+              <div className="ob-acts">
+                <button type="button" className="btn btn-secondary btn-lg" onClick={resendConfirmation} disabled={busy}>
+                  {busy ? "Sending…" : "Send it again"}
+                </button>
+                <Link href="/login" className="ob-skip">Already confirmed? Sign in</Link>
+              </div>
+            </div>
+          ) : (
+            <form className="ob-card" onSubmit={submitAccount}>
+              <p className="ob-eb">{stepEyebrow("account")}</p>
+              <h1 className="ob-q">Let&apos;s get you writing.</h1>
+              <p className="ob-s">Two minutes from here to a published doc. You can change everything later.</p>
+              <div className="ob-f">
+                {googleSso && (
                   <>
-                    <Panel tone="ok">
-                      <PanelRow icon={<IconCheckCircle size={15} />} tone="ok">
-                        Key created for <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>{agentName}</strong>. Copy it now —
-                        it is not shown again.
-                      </PanelRow>
-                      <div className="onb-key">
-                        <code>{issuedKey}</code>
-                        <button type="button" className="btn btn-ghost onb-btn" onClick={copyKey}>
-                          {copied ? "Copied" : "Copy"}
-                        </button>
-                      </div>
-                    </Panel>
-                    <Panel>
-                      <PanelRow icon={<IconRobot size={15} />}>
-                        Paste it into your assistant&apos;s tool settings. It can read approved docs
-                        and submit drafts — nothing goes live without your review.
-                      </PanelRow>
-                    </Panel>
-                  </>
-                ) : (
-                  <>
-                    <Field label="Assistant name" hint="So you can recognise it in the AI activity log.">
-                      <TextInput value={agentName} onChange={setAgentName} placeholder="e.g. Claude, ChatGPT, Cursor" onEnter={createKey} />
-                    </Field>
-                    <Panel>
-                      <PanelRow icon={<IconKey size={15} />}>
-                        We&apos;ll generate an access key scoped to read approved docs and propose
-                        changes. You can revoke it any time from <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>Settings → API keys</strong>.
-                      </PanelRow>
-                    </Panel>
+                    <button type="button" className="btn btn-secondary btn-lg" style={{ justifyContent: "center" }} onClick={continueWithGoogle}>
+                      <GoogleMark /> Continue with Google
+                    </button>
+                    <div className="ob-or"><hr /><span>or</span><hr /></div>
                   </>
                 )}
-
-                {error && <Msg tone="error">{error}</Msg>}
-                <Footer
-                  left={
-                    <button type="button" className="btn btn-ghost onb-btn" onClick={() => setStep("spaces")}>
-                      Back
-                    </button>
-                  }
-                  right={
-                    <div className="onb-actions">
-                      {!issuedKey && (
-                        <>
-                          {/* Straight into the workspace — there is no summary
-                              screen between here and writing something. */}
-                          <button
-                            type="button"
-                            className="btn btn-ghost onb-btn"
-                            onClick={() => finish("skipped-key")}
-                            disabled={leaving}
-                          >
-                            {leaving ? "Opening…" : "Skip for now"}
-                          </button>
-                          <button type="button" className="btn btn-primary onb-btn onb-btn-primary" onClick={createKey} disabled={busy || leaving}>
-                            {busy ? "Creating…" : "Create key"}
-                          </button>
-                        </>
-                      )}
-                      {issuedKey && (
-                        <button
-                          type="button"
-                          className="btn btn-primary onb-btn onb-btn-primary"
-                          onClick={() => finish("created-key")}
-                          disabled={leaving}
-                        >
-                          {leaving ? "Opening…" : "Open workspace"}
-                        </button>
-                      )}
-                    </div>
-                  }
+                <input
+                  className="inp lg"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@company.com"
+                  aria-label="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoFocus
                 />
-              </Stage>
-            )}
+                <input
+                  className="inp lg"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Password — at least 8 characters"
+                  aria-label="Password"
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              {error && <p className="ob-err" role="alert">{error}</p>}
+              <div className="ob-acts">
+                <button type="submit" className="btn btn-primary btn-lg" disabled={busy || !email || password.length < 8}>
+                  {busy ? "Creating…" : "Continue"}
+                  {!busy && <span className="kbd kbd-on-accent">⏎</span>}
+                </button>
+                <span className="ob-skip">
+                  Already have an account?{" "}
+                  <Link href="/login" style={{ color: "var(--accent)", textDecoration: "none" }}>Sign in</Link>
+                </span>
+              </div>
+            </form>
+          ))}
 
-          </div>
-        </div>
+        {step === "workspace" && (
+          <form className="ob-card" onSubmit={submitWorkspace}>
+            <p className="ob-eb">{stepEyebrow("workspace")}</p>
+            <h1 className="ob-q">What should we call it?</h1>
+            <p className="ob-s">The name your team will see at the top of every page.</p>
+            <div className="ob-f">
+              <input
+                className="inp lg"
+                aria-label="Workspace name"
+                value={workspaceName}
+                onChange={(e) => setWorkspaceName(e.target.value)}
+                required
+                autoFocus
+              />
+              {/* Derived, not asked for (§5.2). Changeable, for the rare
+                  person who cares, one click away. */}
+              {editingUrl ? (
+                <div className="ob-url">
+                  <span>aqli.app/</span>
+                  <input
+                    className="inp"
+                    aria-label="Workspace URL"
+                    value={slugTouched ? slug : effectiveSlug}
+                    onChange={(e) => {
+                      setSlug(e.target.value);
+                      setSlugTouched(true);
+                      setSlugError(null);
+                    }}
+                  />
+                </div>
+              ) : (
+                <p className="hint" style={{ margin: 0 }}>
+                  <IconLink size={13} /> aqli.app/
+                  <b style={{ color: "var(--text-secondary)", fontWeight: 600, marginLeft: -4 }}>{effectiveSlug || "…"}</b> ·{" "}
+                  <button type="button" className="ob-link" onClick={() => setEditingUrl(true)}>change</button>
+                </p>
+              )}
+              {(slugError || (slugTouched && !slugCheck.ok)) && (
+                <p className="ob-err" role="alert">{slugError ?? (!slugCheck.ok ? slugCheck.reason : "")}</p>
+              )}
+              {slugError && (
+                <div className="pickrow">
+                  {slugAlternatives(workspaceName || effectiveSlug, takenSlugs).map((alt) => (
+                    <button
+                      key={alt}
+                      type="button"
+                      className="pick"
+                      onClick={() => {
+                        setSlug(alt);
+                        setSlugTouched(true);
+                        setSlugError(null);
+                        setEditingUrl(true);
+                      }}
+                    >
+                      {alt}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {error && <p className="ob-err" role="alert">{error}</p>}
+            <div className="ob-acts">
+              <button type="submit" className="btn btn-primary btn-lg" disabled={busy || !workspaceName.trim() || !slugCheck.ok}>
+                {busy ? "Creating…" : "Continue"}
+                {!busy && <span className="kbd kbd-on-accent">⏎</span>}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {step === "spaces" && (
+          <form
+            className="ob-card"
+            style={{ width: 520 }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newSpaceCount === 0 || spacesFailed.length) finish(spacesFailed.length ? "spaces-partial" : "spaces");
+              else void submitSpaces();
+            }}
+          >
+            <p className="ob-eb">{stepEyebrow("spaces")}</p>
+            <h1 className="ob-q">Anywhere else to put things?</h1>
+            <p className="ob-s">
+              Spaces are just shelves. <b style={{ fontWeight: 600 }}>Company</b> is ready — add more now or whenever you need them.
+            </p>
+            <div className="ob-f">
+              <div className="pickrow">
+                {allSpaceOptions.map((opt) => {
+                  const on = picked.some((p) => p.toLowerCase() === opt.name.toLowerCase());
+                  const locked = existingSpaces.some((e) => e.toLowerCase() === opt.name.toLowerCase());
+                  return (
+                    <button
+                      key={opt.name}
+                      type="button"
+                      aria-pressed={on}
+                      title={locked ? "Already created" : opt.desc}
+                      className={`pick${on ? " is-on" : ""}`}
+                      onClick={() => setPicked((p) => toggleSpace(p, opt.name, existingSpaces))}
+                    >
+                      <span className="em"><SpaceIcon icon={opt.icon} /></span>
+                      {opt.name}
+                    </button>
+                  );
+                })}
+                {addingCustom ? (
+                  <input
+                    className="inp"
+                    style={{ width: 180, height: 32, borderRadius: 999 }}
+                    autoFocus
+                    aria-label="Name a space"
+                    placeholder="Name it"
+                    value={customDraft}
+                    onChange={(e) => setCustomDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addCustomSpace();
+                      } else if (e.key === "Escape") {
+                        setAddingCustom(false);
+                      }
+                    }}
+                    onBlur={() => (customDraft.trim() ? addCustomSpace() : setAddingCustom(false))}
+                  />
+                ) : (
+                  <button type="button" className="pick" style={{ color: "var(--text-muted)", borderStyle: "dashed" }} onClick={() => setAddingCustom(true)}>
+                    ＋ Something else
+                  </button>
+                )}
+              </div>
+            </div>
+            {error && <p className="ob-err" role="alert">{error}</p>}
+            <div className="ob-acts">
+              <button type="submit" className="btn btn-primary btn-lg" disabled={busy || leaving}>
+                {busy ? "Making spaces…" : leaving ? "Opening…" : "Start writing"}
+                {!busy && !leaving && <span className="kbd kbd-on-accent">⏎</span>}
+              </button>
+              <button type="button" className="ob-skip" disabled={busy || leaving} onClick={() => finish("skip")}>
+                Company is fine — skip
+              </button>
+            </div>
+            <p className="hint" style={{ marginTop: 26, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              <IconCheckCircle size={13} /> Connecting AI agents and teammates now lives in Settings — nothing here blocks you.
+            </p>
+          </form>
+        )}
       </div>
     </div>
   );
 }
-
-/* ───────── Chrome ───────── */
 
 function BootingScreen() {
+  return <div className="ob" aria-busy="true" />;
+}
+
+function GoogleMark() {
   return (
-    <div className="onb-boot">
-      <AqliMark size={26} />
-      <span>Getting your workspace ready…</span>
-    </div>
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path fill="#4285F4" d="M23 12.2c0-.8-.1-1.6-.2-2.3H12v4.4h6.1a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7c2.2-2 3.5-5 3.5-8.5Z" />
+      <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.8-2.9l-3.7-2.9c-1.1.7-2.4 1.1-4.1 1.1a7.2 7.2 0 0 1-6.8-5H1.4v3a12 12 0 0 0 10.6 6.7Z" />
+      <path fill="#FBBC05" d="M5.2 14.3a7.2 7.2 0 0 1 0-4.6v-3H1.4a12 12 0 0 0 0 10.6l3.8-3Z" />
+      <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.3-3.3A11.6 11.6 0 0 0 12 0 12 12 0 0 0 1.4 6.7l3.8 3A7.2 7.2 0 0 1 12 4.8Z" />
+    </svg>
   );
 }
-
-function StepRail({ current }: { current: StepKey }) {
-  const currentIdx = stepIndex(current);
-  const pct = Math.round((currentIdx / (ONBOARDING_STEPS.length - 1)) * 100);
-
-  return (
-    <aside className="onb-rail">
-      <div className="onb-rail-brand">
-        <AqliMark size={22} />
-        <span>aqli</span>
-      </div>
-
-      {/* Compact progress for narrow screens, where the full list is hidden. */}
-      <div className="onb-progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-        <div className="onb-progress-bar" style={{ width: `${pct}%` }} />
-      </div>
-      {/* No workspace name here — the top bar already carries it, and on narrow
-          screens the two sit within a few pixels of each other. */}
-      <div className="onb-progress-label">
-        {`Step ${currentIdx + 1} of ${NUMBERED_STEPS.length}`}
-      </div>
-
-      <div className="onb-rail-head">
-        <div className="onb-rail-eyebrow">Set up</div>
-        <div className="onb-rail-time">About 2 minutes</div>
-      </div>
-
-      <ol className="onb-steps">
-        {ONBOARDING_STEPS.map((s, i) => {
-          const done = i < currentIdx;
-          const now = i === currentIdx;
-          return (
-            <li key={s.key} className={`onb-step${now ? " is-now" : ""}${done ? " is-done" : ""}`} aria-current={now ? "step" : undefined}>
-              <span className="onb-step-dot">{done ? <IconCheck size={12} /> : i + 1}</span>
-              <span className="onb-step-copy">
-                <span className="onb-step-label">{s.label}</span>
-                <span className="onb-step-hint">{s.hint}</span>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-
-      <div className="onb-rail-foot">
-        <span>Open source · MIT</span>
-        <span>github.com/AAALI/aqli</span>
-      </div>
-    </aside>
-  );
-}
-
-function Stage({
-  eyebrow,
-  title,
-  sub,
-  children,
-}: {
-  eyebrow?: string | null;
-  title: string;
-  sub?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      <header className="onb-head">
-        {eyebrow && <div className="onb-eyebrow">{eyebrow}</div>}
-        <h1 className="onb-title">{title}</h1>
-        {sub && <p className="onb-sub">{sub}</p>}
-      </header>
-      {children}
-    </>
-  );
-}
-
-function Footer({ left, right }: { left?: React.ReactNode; right: React.ReactNode }) {
-  return (
-    <div className="onb-footer">
-      <div className="onb-footer-left">{left}</div>
-      <div className="onb-footer-right">{right}</div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  hint,
-  error,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="onb-field">
-      <span className="onb-field-label">{label}</span>
-      {children}
-      {error ? (
-        <span className="onb-field-error">
-          <IconWarn size={12} /> {error}
-        </span>
-      ) : hint ? (
-        <span className="onb-field-hint">{hint}</span>
-      ) : null}
-    </label>
-  );
-}
-
-function TextInput({
-  value,
-  onChange,
-  placeholder,
-  prefix,
-  mono,
-  type = "text",
-  required,
-  autoFocus,
-  minLength,
-  onEnter,
-  invalid,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  prefix?: string;
-  mono?: boolean;
-  type?: string;
-  required?: boolean;
-  autoFocus?: boolean;
-  minLength?: number;
-  onEnter?: () => void;
-  invalid?: boolean;
-}) {
-  const [focused, setFocused] = useState(false);
-  const ref = useRef<HTMLInputElement>(null);
-
-  return (
-    <span
-      className={`onb-input${focused ? " is-focused" : ""}${invalid ? " is-invalid" : ""}`}
-      onClick={() => ref.current?.focus()}
-    >
-      {prefix && <span className="onb-input-prefix">{prefix}</span>}
-      <input
-        ref={ref}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        placeholder={placeholder}
-        required={required}
-        autoFocus={autoFocus}
-        minLength={minLength}
-        style={{ fontFamily: mono ? "var(--font-mono)" : "inherit", fontSize: mono ? 13 : 14 }}
-        onKeyDown={
-          onEnter
-            ? (e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  onEnter();
-                }
-              }
-            : undefined
-        }
-      />
-    </span>
-  );
-}
-
-function Panel({ tone, children }: { tone?: "ok"; children: React.ReactNode }) {
-  return <div className={`onb-panel${tone === "ok" ? " is-ok" : ""}`}>{children}</div>;
-}
-
-function PanelRow({
-  icon,
-  tone,
-  children,
-}: {
-  icon: React.ReactNode;
-  tone?: "ok";
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="onb-panel-row">
-      <span className={`onb-panel-icon${tone === "ok" ? " is-ok" : ""}`}>{icon}</span>
-      <div className="onb-panel-copy">{children}</div>
-    </div>
-  );
-}
-
-function Msg({ tone, children }: { tone: "error" | "ok"; children: React.ReactNode }) {
-  return <p className={`onb-msg is-${tone}`}>{children}</p>;
-}
-

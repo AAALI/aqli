@@ -1,4 +1,4 @@
-import type { DocType, DocStatus } from "@/types/doc";
+import type { DocType } from "@/types/doc";
 
 export const TYPE_LABEL: Record<DocType, string> = {
   general: "Doc",
@@ -14,18 +14,6 @@ export const TYPE_LABEL: Record<DocType, string> = {
   compliance: "Compliance",
 };
 
-export const STATUS_LABEL: Record<DocStatus, string> = {
-  draft: "Draft",
-  review: "Review",
-  approved: "Approved",
-  stale: "Stale",
-  archived: "Archived",
-};
-
 export function typeLabel(type: string): string {
   return TYPE_LABEL[type as DocType] ?? "Doc";
-}
-
-export function statusLabel(status: string): string {
-  return STATUS_LABEL[status as DocStatus] ?? "Draft";
 }

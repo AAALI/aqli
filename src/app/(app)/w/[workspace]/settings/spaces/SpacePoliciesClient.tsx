@@ -27,21 +27,21 @@ const POLICIES: {
 }[] = [
   {
     value: "open",
-    label: "Open",
+    label: "Everyone",
     description:
       "Everything lands immediately. People and agents both write straight into the space.",
   },
   {
     value: "review_agents",
-    label: "Agents reviewed",
+    label: "Agents checked",
     description:
-      "People write directly. Agent changes wait in the review queue, unless that agent's key carries the write scope.",
+      "People write directly. Agent changes wait in Checks for a person to confirm, unless that agent's key carries the write scope.",
   },
   {
     value: "review_all",
-    label: "Everything reviewed",
+    label: "Everything checked",
     description:
-      "Every change queues for approval, including one made by a person. For policy, legal and compliance spaces.",
+      "Every change waits in Checks, including one made by a person. For policy, legal and compliance spaces.",
   },
 ];
 
@@ -195,7 +195,7 @@ export default function SpacePoliciesClient({
       <div style={{ maxWidth: 920, margin: "0 auto" }}>
         <SettingsHeader
           title="Spaces"
-          sub="Who can read a space, and who has to approve a change before it becomes part of one. Approvals happen in the review queue; nothing is lost while it waits."
+          sub="Who can read a space, and who has to confirm a change before it becomes part of one. Confirming happens in Checks; nothing is lost while it waits."
           action={
             error ? (
               <span style={{ fontSize: 12.5, color: "#993C1D" }}>{error}</span>
@@ -294,7 +294,7 @@ export default function SpacePoliciesClient({
 
                 <div style={{ justifySelf: "end", display: "flex", alignItems: "center", gap: 10 }}>
                   {saved === space.id && (
-                    <span style={{ fontSize: 12, color: "var(--approved-text)" }}>Saved</span>
+                    <span style={{ fontSize: 12, color: "var(--ok-text)" }}>Saved</span>
                   )}
                   <select
                     value={space.review_policy}
@@ -417,7 +417,7 @@ function SpaceRoster({
               >
                 <option value="none">No access</option>
                 <option value="member">Member</option>
-                <option value="reviewer">Reviewer</option>
+                <option value="reviewer">Checker</option>
               </select>
             </div>
           );

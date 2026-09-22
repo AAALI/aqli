@@ -70,7 +70,7 @@ export default async function IntegrationDetailPage({
             const showSuccess = status === "connected" && connected;
             const showFailure = status !== "connected" || !connected;
             return (
-              <div style={{ marginBottom: 18, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: showSuccess ? "var(--approved-bg)" : "var(--bg-sidebar)", color: showSuccess ? "var(--approved-text)" : "var(--text-secondary)", fontSize: 13 }}>
+              <div style={{ marginBottom: 18, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", background: showSuccess ? "var(--ok-bg)" : "var(--bg-sidebar)", color: showSuccess ? "var(--ok-text)" : "var(--text-secondary)", fontSize: 13 }}>
                 {showSuccess ? "Connection saved." : showFailure ? "Connection was not completed." : ""}
               </div>
             );
@@ -110,16 +110,16 @@ function GitHubConfig({
     <>
       {/* 25b policy hero — the one decision this page exists for. */}
       <SettingsCard
-        title="Auto-approve policy"
-        sub="A merged PR was already reviewed in GitHub, so Aqli publishes its doc directly as Approved — live context for agents immediately. Turn this off to route PR-sourced docs through the Review Queue instead."
+        title="Docs from merged pull requests publish themselves"
+        sub="A merged PR was already reviewed in GitHub, so Aqli publishes its doc straight away — live context for agents immediately. Turn this off to send PR-sourced docs to Checks instead."
         action={connected ? <AutoApprovePolicyToggle workspaceId={workspaceId} enabled={autoApprove} /> : undefined}
       >
         {stats && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
             <StatCell
-              label="Auto-approved this quarter"
+              label="Published from PRs this quarter"
               value={String(stats.autoApprovedThisQuarter)}
-              hint="doc updates published without a second review"
+              hint="doc updates published without a second check"
             />
             <StatCell
               label="Docs touched this quarter"
@@ -134,8 +134,8 @@ function GitHubConfig({
             />
           </div>
         )}
-        <ReadOnlyRow label="Matched PR" value={`Patch the linked doc's What's implemented section${autoApprove ? " and approve it (live context immediately)." : " and send it to the Review Queue."}`} />
-        <ReadOnlyRow label="Unmatched PR" value={`Create a new Fix Note in the default destination space${autoApprove ? " and approve it." : " for review."}`} />
+        <ReadOnlyRow label="Matched PR" value={`Patch the linked doc's What's implemented section${autoApprove ? " and publish it (live context immediately)." : " and send it to Checks."}`} />
+        <ReadOnlyRow label="Unmatched PR" value={`Create a new Fix Note in the default destination space${autoApprove ? " and publish it." : " and send it to Checks."}`} />
       </SettingsCard>
 
       <SettingsCard title="Connection" sub="Use a GitHub account with access to the repositories Aqli should watch.">

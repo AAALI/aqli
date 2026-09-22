@@ -5,8 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconChevRight, IconChevDown, IconFile } from "@/components/aqli/icons";
 import { buildDocTree, flattenTree, canMoveUnder, type TreeRow } from "@/lib/doc-tree";
+import Status from "./Status";
+import { isPublished } from "@/lib/doc-status";
+import type { VerifyCadence } from "@/lib/verify-cadence";
+import type { DocStatus } from "@/types/doc";
 
-export type DocTreeItem = TreeRow & { status: string; updated_at: string };
+export type DocTreeItem = TreeRow & {
+  status: string;
+  updated_at: string;
+  last_reviewed_at: string | null;
+  frontmatter: { verify_cadence?: VerifyCadence } | null;
+};
 
 /**
  * Which nodes are open is per-viewer preference, so it lives in localStorage
@@ -284,9 +293,10 @@ export default function DocTree({
                     {node.children.length}
                   </span>
                 )}
-                {node.status === "draft" && (
-                  <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>Draft</span>
-                )}
+                {/* The same dot as every other surface. An unpublished draft
+                    shows nothing: it is a place, not a state, and it is
+                    invisible to everyone but its author anyway. */}
+                {isPublished(node.status as DocStatus) && <Status doc={node} form="dot" />}
               </div>
             </div>
           );

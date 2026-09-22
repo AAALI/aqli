@@ -870,7 +870,7 @@ function ChunkCard({ chunk, delay }: { chunk: ReadChunk; delay: number }) {
           marginTop: 2,
         }}
       >
-        <span style={{ display: "inline-flex", color: "var(--approved-text)" }}>
+        <span style={{ display: "inline-flex", color: "var(--ok-text)" }}>
           <IconCheckCircle size={10} sw={2} />
         </span>
         Approved · verified {chunk.verified}
@@ -943,9 +943,9 @@ function FlowStage_Draft({ isMobile }: { isMobile: boolean }) {
               gap: 5,
               padding: "1px 8px",
               borderRadius: 999,
-              background: "var(--draft-bg)",
-              border: "1px solid var(--draft-border)",
-              color: "var(--draft-text)",
+              background: "var(--unver-bg)",
+              border: "1px solid var(--unver-border)",
+              color: "var(--unver-text)",
               fontSize: 10,
               fontWeight: 500,
             }}
@@ -1363,14 +1363,14 @@ function FlowStage_Review({ isMobile }: { isMobile: boolean }) {
             style={{
               gridArea: "1 / 1",
               padding: "12px 14px",
-              background: "var(--approved-bg)",
-              border: "1px solid var(--approved-border)",
+              background: "var(--ok-bg)",
+              border: "1px solid var(--ok-border)",
               borderRadius: 8,
               display: "flex",
               alignItems: "center",
               gap: 10,
               fontSize: 12.5,
-              color: "var(--approved-text)",
+              color: "var(--ok-text)",
               fontWeight: 500,
               opacity: 0,
               animation: `lpSwapIn 280ms ease ${APPROVED_AT}ms forwards`,
@@ -1386,7 +1386,7 @@ function FlowStage_Review({ isMobile }: { isMobile: boolean }) {
 
 function LpDiffLine({ kind, children }: { kind: "add" | "del" | "ctx"; children: ReactNode }) {
   const map: Record<"add" | "del" | "ctx", { bg: string; color: string }> = {
-    add: { bg: "rgba(15,110,86,0.10)", color: "var(--approved-text)" },
+    add: { bg: "rgba(15,110,86,0.10)", color: "var(--ok-text)" },
     del: { bg: "rgba(190,80,40,0.10)", color: "#993C1D" },
     ctx: { bg: "transparent", color: "var(--text-secondary)" },
   };
@@ -1503,9 +1503,9 @@ function FlowStage_Know({ isMobile }: { isMobile: boolean }) {
               gap: 5,
               padding: "1px 8px",
               borderRadius: 999,
-              background: "var(--approved-bg)",
-              border: "1px solid var(--approved-border)",
-              color: "var(--approved-text)",
+              background: "var(--ok-bg)",
+              border: "1px solid var(--ok-border)",
+              color: "var(--ok-text)",
               fontSize: 10,
               fontWeight: 500,
             }}
@@ -1543,7 +1543,7 @@ function FlowStage_Know({ isMobile }: { isMobile: boolean }) {
             width: "fit-content",
           }}
         >
-          <span style={{ color: "var(--approved-text)", display: "inline-flex" }}>
+          <span style={{ color: "var(--ok-text)", display: "inline-flex" }}>
             <IconCheckCircle size={12} sw={2} />
           </span>
           <span>

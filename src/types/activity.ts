@@ -25,13 +25,3 @@ export type DocActivity = {
   created_at: string;
 };
 
-/** doc_activity row joined with a lightweight doc summary (workspace agent log). */
-export type DocActivityWithDoc = DocActivity & {
-  doc: {
-    id: string;
-    title: string;
-    type: string;
-    status: string;
-    space_id: string | null;
-  } | null;
-};

@@ -9,9 +9,8 @@ import { hasTitleHeading, stripTitleHeading } from "@/lib/markdown/title-heading
 
 /**
  * Read-only renderer for a doc. Deliberately plain — no full-height / overflow
- * wrappers (unlike the editor's `AqliEditor`), so the body flows naturally
- * inside the viewer's own scroll column and headings get correct offsets for
- * the outline to jump to.
+ * wrappers, so the body flows naturally inside the paper column and headings
+ * get correct offsets for the outline to jump to.
  *
  * **Reached only through `DocBodyClient`**, which loads it with `ssr: false`.
  * Import it directly from a page and Tiptap plus the whole markdown schema go
@@ -54,5 +53,7 @@ export default function DocBody({
     };
   }, [editor]);
 
-  return <EditorContent editor={editor} className="prose prose-neutral max-w-none" />;
+  // The same class the writing surface mounts. One implementation of the
+  // paper column, so read and write cannot drift apart (v3 §2).
+  return <EditorContent editor={editor} className="dbody" />;
 }

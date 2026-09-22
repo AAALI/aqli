@@ -10,7 +10,7 @@ import { slugify } from "@/lib/utils";
 
 /* ───────── Steps ───────── */
 
-export type StepKey = "account" | "workspace" | "spaces" | "assistant";
+export type StepKey = "account" | "workspace" | "spaces";
 
 export type OnboardingStep = {
   key: StepKey;
@@ -19,22 +19,17 @@ export type OnboardingStep = {
 };
 
 /**
- * Four steps, and the last one is the last thing that happens.
+ * Three steps, then a cursor (v3 §5.1–5.3, J1).
  *
- * There used to be a fifth, terminal "done" screen: a full-page receipt
- * listing the workspace URL, the spaces and the key — all of which the user
- * had just watched themselves create — behind one "Open workspace" button. It
- * asked nothing and told them nothing new, so finishing setup cost two clicks
- * across two screens instead of one. The arrival moment it was reaching for
- * already exists and is better: a brand-new workspace opens on its own
- * "A clean slate" welcome, in the app, next to the button that writes the
- * first doc.
+ * Account, workspace, spaces. The old fourth step — AI access — moved to
+ * Settings, where it is optional forever and in nobody's way; the receipt
+ * screen that used to follow it went before that. The last step's primary
+ * action is "Start writing", and it lands on the editor.
  */
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   { key: "account", label: "Account", hint: "Email and password" },
   { key: "workspace", label: "Workspace", hint: "Your company or team" },
-  { key: "spaces", label: "Spaces", hint: "How docs are organised" },
-  { key: "assistant", label: "AI access", hint: "Optional" },
+  { key: "spaces", label: "Spaces", hint: "Optional" },
 ];
 
 /** Every step is numbered now that none of them is pure ceremony. */
@@ -54,10 +49,36 @@ export function prevStep(key: StepKey): StepKey {
   return ONBOARDING_STEPS[Math.max(i - 1, 0)].key;
 }
 
-/** "Step 2 of 4". */
+/** "Step 2 of 3"; the last one says it is optional, because it is. */
 export function stepEyebrow(key: StepKey): string | null {
   const i = NUMBERED_STEPS.findIndex((s) => s.key === key);
-  return i === -1 ? null : `Step ${i + 1} of ${NUMBERED_STEPS.length}`;
+  if (i === -1) return null;
+  return `Step ${i + 1} of ${NUMBERED_STEPS.length}${key === "spaces" ? " · optional" : ""}`;
+}
+
+/**
+ * The workspace name, pre-filled from the email domain (v3 §5.2):
+ * ali@1989.studio → "1989 Studio". A personal mailbox says nothing about a
+ * company, so it gets "Ali's workspace" instead.
+ */
+const PERSONAL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "yahoo.com",
+  "icloud.com", "me.com", "proton.me", "protonmail.com", "aol.com", "fastmail.com", "hey.com",
+]);
+
+export function workspaceNameFromEmail(email: string): string {
+  const [local = "", domain = ""] = email.trim().toLowerCase().split("@");
+  const person = local.split(/[._+-]/)[0] ?? "";
+  const personName = person ? person[0].toUpperCase() + person.slice(1) : "";
+  if (!domain || PERSONAL_DOMAINS.has(domain)) return personName ? `${personName}'s workspace` : "";
+  const parts = domain.split(".");
+  // Drop the TLD, and a second-level suffix like co.uk.
+  const core = parts.length > 2 && parts[parts.length - 2].length <= 3 ? parts.slice(0, -2) : parts.slice(0, -1);
+  const words = (core.length ? core : parts).join(" ").split(/[-_\s]+/).filter(Boolean);
+  const tld = parts[parts.length - 1];
+  // A brand that *is* its TLD ("1989.studio") keeps it as a word.
+  if (words.length === 1 && /^\d+$/.test(words[0])) words.push(tld);
+  return words.map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
 }
 
 /** The last step — the one whose primary action leaves onboarding entirely. */
@@ -161,28 +182,28 @@ export function slugAlternatives(
 /* ───────── Spaces ───────── */
 
 export type SpaceSuggestion = {
-  emoji: string;
+  /** A key understood by `components/aqli/SpaceIcon`. */
+  icon: string;
   name: string;
   desc: string;
 };
 
 /**
- * Team-neutral by design (roadmap phase 1): a Head of People has to see
- * themselves in this list, so Engineering sits among the others rather than
- * leading. "Company" is seeded by `create_workspace_for_user`, so it always
- * arrives already created.
+ * In the order frame 03 draws them, with the line icons that replaced the
+ * emoji defaults. "Company" is seeded by `create_workspace_for_user`, so it
+ * always arrives already created — and is enough on its own.
  */
 export const SUGGESTED_SPACES: SpaceSuggestion[] = [
-  { emoji: "🏢", name: "Company", desc: "Handbook, policies, onboarding" },
-  { emoji: "🤝", name: "People", desc: "Hiring, benefits, culture" },
-  { emoji: "📣", name: "Marketing", desc: "Campaigns, brand, content" },
-  { emoji: "💼", name: "Sales", desc: "Playbooks, pricing, FAQs" },
-  { emoji: "🧭", name: "Product", desc: "Roadmap, specs, decisions" },
-  { emoji: "🔧", name: "Ops", desc: "Processes, vendors, reports" },
-  { emoji: "⚙️", name: "Engineering", desc: "Technical docs, runbooks" },
+  { icon: "book", name: "Company", desc: "Handbook, policies, onboarding" },
+  { icon: "flag", name: "Product", desc: "Roadmap, specs, decisions" },
+  { icon: "gear", name: "Engineering", desc: "Technical docs, runbooks" },
+  { icon: "users", name: "People", desc: "Hiring, benefits, culture" },
+  { icon: "table", name: "Sales", desc: "Playbooks, pricing, FAQs" },
+  { icon: "chat", name: "Marketing", desc: "Campaigns, brand, content" },
+  { icon: "archive", name: "Ops", desc: "Processes, vendors, reports" },
 ];
 
-export const CUSTOM_SPACE_EMOJI = "📁";
+export const CUSTOM_SPACE_ICON = "folder";
 
 function sameName(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -232,7 +253,7 @@ export function spacesToCreate(
     out.push({
       name: name.trim(),
       slug,
-      icon: suggestion && !isCustom ? suggestion.emoji : CUSTOM_SPACE_EMOJI,
+      icon: suggestion && !isCustom ? suggestion.icon : CUSTOM_SPACE_ICON,
     });
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import FloatingAssistant from "@/components/ai/FloatingAssistant";
 
 /**
@@ -21,6 +21,12 @@ export default function DocAskAssistant({
   docTitle: string;
 }) {
   const [open, setOpen] = useState(false);
+  // The phone's read bar has no dot to tap; it asks by event instead.
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener("aqli:open-ask", onOpen);
+    return () => window.removeEventListener("aqli:open-ask", onOpen);
+  }, []);
   return (
     <FloatingAssistant
       mode="ask"

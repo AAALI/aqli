@@ -1,14 +1,20 @@
 import type { ReactNode } from "react";
 import { IconChevDown } from "@/components/aqli/icons";
-import { PageHeader } from "@/components/aqli/page";
 
 /**
- * Settings screens announce themselves the same way every other screen does.
- * This is `PageHeader` with the eyebrow fixed to "Settings" and the rule under
- * it always on — the only two things that were ever settings-specific about it.
+ * Settings screens announce themselves the way every v3 list screen does: a
+ * serif H1 and one line of what the page is for (§1 `.h1` / `.h1s`).
  */
 export function SettingsHeader({ title, sub, action }: { title: string; sub?: string; action?: ReactNode }) {
-  return <PageHeader eyebrow="Settings" title={title} sub={sub} action={action} divider />;
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 26 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <h1 className="h1">{title}</h1>
+        {sub && <p className="h1s" style={{ maxWidth: 560 }}>{sub}</p>}
+      </div>
+      {action}
+    </div>
+  );
 }
 
 export function SettingsCard({ title, sub, children, action }: { title: string; sub?: string; children: ReactNode; action?: ReactNode }) {

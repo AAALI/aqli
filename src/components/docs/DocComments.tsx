@@ -381,7 +381,7 @@ export default function DocComments({
             }
           />
           {error && (
-            <span style={{ fontSize: 12, color: "var(--stale-text)" }}>{error}</span>
+            <span style={{ fontSize: 12, color: "var(--danger-text)" }}>{error}</span>
           )}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>

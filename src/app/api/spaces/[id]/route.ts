@@ -23,6 +23,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (typeof updates.name === "string") patch.name = updates.name;
   if (typeof updates.icon === "string") patch.icon = updates.icon;
 
+  // The space's curated shelves (v3 §5.8): up to three Start here docs and an
+  // ordered reading path. Plain id lists — the page resolves them, and a doc
+  // that has since been deleted or made private simply does not render.
+  const isIdList = (v: unknown): v is string[] =>
+    Array.isArray(v) && v.every((x) => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x));
+  if (updates.start_here !== undefined) {
+    if (!isIdList(updates.start_here) || updates.start_here.length > 3)
+      return NextResponse.json({ error: "start_here takes up to three doc ids" }, { status: 400 });
+    patch.start_here = updates.start_here;
+  }
+  if (updates.reading_path !== undefined) {
+    if (!isIdList(updates.reading_path) || updates.reading_path.length > 12)
+      return NextResponse.json({ error: "reading_path takes up to twelve doc ids" }, { status: 400 });
+    patch.reading_path = updates.reading_path;
+  }
+
   // Who may *read* a space, like who must approve a change, is a governance
   // decision rather than housekeeping: admins only, checked against the space's
   // own workspace.

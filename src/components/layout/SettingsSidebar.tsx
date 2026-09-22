@@ -1,101 +1,82 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect } from "react";
-import { setMobileNav, useMobileNav } from "./mobile-nav";
-import {
-  IconDownload,
-  IconGear,
-  IconPulse,
-  IconKey,
-  IconLink,
-  IconChevLeft,
-  IconFolder,
-  IconRobot,
-  IconUsers,
-} from "@/components/aqli/icons";
-import AccountMenu from "./AccountMenu";
+import { usePathname, useRouter } from "next/navigation";
+import { IconChevLeft } from "@/components/aqli/icons";
+import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   base: string;
   workspaceName: string;
-  userName?: string;
-  roleLabel?: string;
   isAdmin?: boolean;
 };
 
-export default function SettingsSidebar({ base, workspaceName, userName = "You", roleLabel = "Member", isAdmin = false }: Props) {
+/**
+ * Settings nav (v3 §5.10, frame 10). Admin is findable, not present: a narrow
+ * nav reached on purpose, with a way back to the workspace at the top.
+ * Three groups — the workspace, what it connects to, and you.
+ */
+export default function SettingsSidebar({ base, workspaceName, isAdmin = false }: Props) {
   const pathname = usePathname();
-  const settingsBase = `${base}/settings`;
-  const workspaceSlug = base.split("/").filter(Boolean).at(1) ?? "";
+  const router = useRouter();
+  const s = `${base}/settings`;
 
-  const agentLogHref = `/w/${workspaceSlug}/agent-log`;
-
-  const nav = [
-    { id: "general", href: settingsBase, icon: <IconGear />, label: "Workspace", exact: true },
-    { id: "spaces", href: `${settingsBase}/spaces`, icon: <IconFolder />, label: "Spaces" },
-    { id: "keys", href: `${settingsBase}/keys`, icon: <IconKey />, label: "API keys" },
-    { id: "members", href: `${settingsBase}/members`, icon: <IconUsers />, label: "Members" },
-    { id: "integrations", href: `${settingsBase}/integrations`, icon: <IconLink />, label: "Integrations" },
-    // Admins only: the page reports migrations, RLS state and row counts for
-    // the whole installation, and the RPC behind it refuses anyone else.
-    ...(isAdmin
-      ? [
-          { id: "import", href: `${settingsBase}/import`, icon: <IconDownload />, label: "Import & export" },
-          { id: "health", href: `${settingsBase}/health`, icon: <IconPulse />, label: "Health" },
-        ]
-      : []),
-    // Same destination and same name as the workspace sidebar's entry, so the
-    // two navigations do not disagree about what the screen is called.
-    { id: "agents", href: agentLogHref, icon: <IconRobot />, label: "AI activity" },
+  const groups: { label: string; items: { href: string; label: string; exact?: boolean }[] }[] = [
+    {
+      label: "Workspace",
+      items: [
+        { href: s, label: "General", exact: true },
+        { href: `${s}/members`, label: "People" },
+        { href: `${s}/spaces`, label: "Spaces" },
+        // Installation-wide reports; the RPCs behind them refuse anyone else.
+        ...(isAdmin
+          ? [
+              { href: `${s}/import`, label: "Import & export" },
+              { href: `${s}/health`, label: "Health" },
+            ]
+          : []),
+      ],
+    },
+    {
+      label: "Connections",
+      items: [
+        { href: `${s}/keys`, label: "AI access" },
+        { href: `${s}/integrations`, label: "Integrations" },
+        { href: `${s}/notifications`, label: "Notifications" },
+      ],
+    },
   ];
 
-  const navOpen = useMobileNav();
-  useEffect(() => {
-    setMobileNav(false);
-  }, [pathname]);
+  async function signOut() {
+    await createClient().auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <>
-      <div
-        className="sb-scrim"
-        data-open={navOpen ? "" : undefined}
-        onClick={() => setMobileNav(false)}
-        aria-hidden="true"
-      />
-      <aside className="sb" data-open={navOpen ? "" : undefined} style={{ paddingTop: 14 }}>
-      <div style={{ padding: "0 16px 12px" }}>
-        <Link
-          href={base}
-          style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--text-secondary)", fontSize: 12.5, padding: "6px 8px 6px 4px", margin: "0 -4px 8px", borderRadius: 6, textDecoration: "none" }}
-        >
-          <IconChevLeft size={14} />
-          <span>{workspaceName}</span>
+      <aside className="set-nav sb">
+        <Link href={base} className="btn btn-ghost" style={{ marginBottom: 16, padding: "0 8px 0 4px", alignSelf: "flex-start" }}>
+          <IconChevLeft size={16} />
+          {workspaceName}
         </Link>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-          Settings
-        </div>
-      </div>
-
-      <div className="sb-nav">
-        {nav.map((n) => {
-          const active = n.exact ? pathname === n.href : pathname.startsWith(n.href);
-          return (
-            <Link key={n.id} href={n.href} className={`sb-item ${active ? "is-active" : ""}`}>
-              <span className="sb-icon">{n.icon}</span>
-              <span style={{ flex: 1 }}>{n.label}</span>
-            </Link>
-          );
-        })}
-      </div>
-
-      <AccountMenu
-        base={base}
-        userName={userName}
-        workspaceSlug={workspaceSlug}
-        roleLabel={roleLabel}
-      />
+        {groups.map((g, i) => (
+          <div key={g.label}>
+            <div className="sb-section-label" style={{ padding: `${i === 0 ? 6 : 16}px 10px 6px` }}>{g.label}</div>
+            {g.items.map((n) => {
+              const active = n.exact ? pathname === n.href : pathname.startsWith(n.href);
+              return (
+                <Link key={n.href} href={n.href} className={`sb-item ${active ? "is-active" : ""}`} style={{ fontSize: 13 }}>
+                  {n.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+        <div className="sb-section-label" style={{ padding: "16px 10px 6px" }}>You</div>
+        <button type="button" className="sb-item" onClick={signOut} style={{ background: "none", border: 0, width: "100%", textAlign: "left", fontFamily: "inherit", fontSize: 13 }}>
+          Sign out
+        </button>
       </aside>
     </>
   );

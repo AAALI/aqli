@@ -10,14 +10,7 @@ import {
   type RefObject,
 } from "react";
 import type { Editor } from "@tiptap/react";
-import {
-  IconImage,
-  IconLink,
-  IconQuote,
-  IconRobot,
-  IconTable,
-} from "@/components/aqli/icons";
-import { MERMAID_TEMPLATE } from "@/components/editor/MermaidCodeBlock";
+import { IconChat, IconLink, IconQuote, IconSparkle, IconTable } from "@/components/aqli/icons";
 import type { KeyHandlerRegistry, RelatedResult } from "./types";
 
 type Cmd = {
@@ -28,19 +21,24 @@ type Cmd = {
   keywords: string;
 };
 
+/**
+ * Seven commands and one way to ask (v3 §4).
+ *
+ * The old menu had twelve, including Subheading, Image, Code block and
+ * Diagram. Nothing was lost by trimming it — `###` still makes a subheading,
+ * images still paste and drop, ``` still opens a code block and ```mermaid a
+ * diagram. What went is the *list*, which is the point: a menu you scan is a
+ * menu that interrupts.
+ */
 const CMDS: Cmd[] = [
-  { id: "cite", icon: <IconQuote size={13} />, name: "Cite an approved doc", hint: "Inline reference, with backlink", keywords: "cite reference link doc" },
-  { id: "agent", icon: <IconRobot size={13} />, name: "Ask agent to draft this section", hint: "Drafts in Co-write — you approve", keywords: "agent draft ai cowrite write" },
-  { id: "h2", icon: <span style={{ fontFamily: "var(--font-serif)", fontSize: 14 }}>H</span>, name: "Heading", hint: "Section heading (H2)", keywords: "heading h2 section title" },
-  { id: "h3", icon: <span style={{ fontFamily: "var(--font-serif)", fontSize: 12 }}>H</span>, name: "Subheading", hint: "Subsection heading (H3)", keywords: "heading h3 subsection" },
-  { id: "bullet", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>•</span>, name: "Bulleted list", hint: "Plain list", keywords: "bullet list ul" },
-  { id: "ordered", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>1.</span>, name: "Numbered list", hint: "Ordered list", keywords: "numbered ordered list ol" },
-  { id: "quote", icon: <span style={{ fontFamily: "var(--font-serif)", fontSize: 15 }}>&ldquo;</span>, name: "Quote", hint: "Block quote", keywords: "quote blockquote" },
-  { id: "image", icon: <IconImage size={13} />, name: "Image", hint: "Upload a picture — or just paste one", keywords: "image picture screenshot photo upload media figure" },
-  { id: "table", icon: <IconTable size={13} />, name: "Table", hint: "Rows and columns", keywords: "table grid rows columns spreadsheet matrix" },
-  { id: "diagram", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>⌥</span>, name: "Diagram", hint: "Flowchart, sequence, or process (Mermaid)", keywords: "diagram flowchart flow chart mermaid sequence process workflow" },
-  { id: "code", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{"{}"}</span>, name: "Code block", hint: "Fenced code", keywords: "code fence pre" },
-  { id: "divider", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>—</span>, name: "Divider", hint: "Horizontal rule", keywords: "divider rule hr" },
+  { id: "h2", icon: <span style={{ fontFamily: "var(--font-serif)", fontWeight: 600 }}>H</span>, name: "Heading", hint: "Section title", keywords: "heading h2 section title" },
+  { id: "bullet", icon: <span>•</span>, name: "Bulleted list", hint: "One point per line", keywords: "bullet list ul points" },
+  { id: "ordered", icon: <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>1.</span>, name: "Numbered list", hint: "Steps, in order", keywords: "numbered ordered list ol steps" },
+  { id: "table", icon: <IconTable size={14} />, name: "Table", hint: "Owners, dates, decisions", keywords: "table grid rows columns" },
+  { id: "quote", icon: <IconQuote size={14} />, name: "Quote", hint: "Set a passage apart", keywords: "quote blockquote passage" },
+  { id: "divider", icon: <span>—</span>, name: "Divider", hint: "Break the page", keywords: "divider rule hr break" },
+  { id: "cite", icon: <IconChat size={14} />, name: "Cite a doc", hint: "Links both ways, automatically", keywords: "cite reference link doc backlink" },
+  { id: "ask", icon: <IconSparkle size={14} />, name: "Ask Aqli to draft this", hint: "Uses what your team already wrote", keywords: "ask aqli ai draft write agent" },
 ];
 
 type MenuState = {
@@ -50,6 +48,9 @@ type MenuState = {
   left: number;
 };
 
+/** Matches `.slash` in globals.css. Used to clamp the popover to the column. */
+const MENU_WIDTH = 322;
+
 export default function SlashMenu({
   editor,
   containerRef,
@@ -58,7 +59,6 @@ export default function SlashMenu({
   docId,
   base,
   onAskAgent,
-  onInsertImage,
 }: {
   editor: Editor;
   containerRef: RefObject<HTMLDivElement | null>;
@@ -67,7 +67,6 @@ export default function SlashMenu({
   docId: string;
   base: string;
   onAskAgent: () => void;
-  onInsertImage: () => void;
 }) {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [selected, setSelected] = useState(0);
@@ -76,6 +75,7 @@ export default function SlashMenu({
   const menuRef = useRef<MenuState | null>(null);
   const selectedRef = useRef(0);
   const citeRef = useRef<RelatedResult[] | null>(null);
+  const elRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     menuRef.current = menu;
@@ -113,11 +113,17 @@ export default function SlashMenu({
       if (!container) return;
       const coords = editor.view.coordsAtPos(slashPos);
       const rect = container.getBoundingClientRect();
+      // 8px below the caret, flipped above when it would overflow the stage,
+      // and clamped so the popover never hangs off the right edge (§4).
+      const height = elRef.current?.offsetHeight ?? 300;
+      const below = coords.bottom - rect.top + container.scrollTop + 8;
+      const wouldOverflow = coords.bottom - rect.top + 8 + height > rect.height;
+      const above = coords.top - rect.top + container.scrollTop - height - 8;
       setMenu({
         slashPos,
         query,
-        top: coords.bottom - rect.top + container.scrollTop + 6,
-        left: Math.min(coords.left - rect.left, rect.width - 380),
+        top: wouldOverflow && above > 8 ? above : below,
+        left: Math.min(coords.left - rect.left, rect.width - MENU_WIDTH - 18),
       });
       setSelected(0);
     };
@@ -147,13 +153,11 @@ export default function SlashMenu({
       const m = menuRef.current;
       if (!m) return;
       const to = editor.state.selection.from;
+      // The typed "/query" is deleted before anything is inserted, always.
       const chain = editor.chain().focus().deleteRange({ from: m.slashPos, to });
       switch (cmd.id) {
         case "h2":
           chain.setNode("heading", { level: 2 }).run();
-          break;
-        case "h3":
-          chain.setNode("heading", { level: 3 }).run();
           break;
         case "bullet":
           chain.toggleBulletList().run();
@@ -163,18 +167,6 @@ export default function SlashMenu({
           break;
         case "quote":
           chain.toggleBlockquote().run();
-          break;
-        case "code":
-          chain.toggleCodeBlock().run();
-          break;
-        case "diagram":
-          chain
-            .insertContent({
-              type: "codeBlock",
-              attrs: { language: "mermaid" },
-              content: [{ type: "text", text: MERMAID_TEMPLATE }],
-            })
-            .run();
           break;
         case "divider":
           chain.setHorizontalRule().run();
@@ -186,13 +178,7 @@ export default function SlashMenu({
           // editor shows what the markdown will say.
           chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
           break;
-        case "image":
-          // Delete the "/image" text first, then hand off — the picker is a
-          // native dialog and the editor loses focus while it is open.
-          chain.run();
-          onInsertImage();
-          break;
-        case "agent":
+        case "ask":
           chain.run();
           onAskAgent();
           break;
@@ -223,7 +209,7 @@ export default function SlashMenu({
       }
       if (cmd.id !== "cite") close();
     },
-    [editor, workspaceId, docId, onAskAgent, onInsertImage, close],
+    [editor, workspaceId, docId, onAskAgent, close],
   );
 
   const insertCitation = useCallback(
@@ -292,146 +278,61 @@ export default function SlashMenu({
 
   return (
     <div
-      style={{
-        position: "absolute",
-        top: menu.top,
-        left: Math.max(menu.left, 16),
-        width: 360,
-        background: "var(--bg-card)",
-        border: "1px solid var(--border-strong)",
-        borderRadius: 10,
-        boxShadow: "0 12px 32px -8px rgba(20,20,18,0.22), 0 2px 6px rgba(20,20,18,0.06)",
-        padding: 6,
-        zIndex: 30,
-      }}
+      ref={elRef}
+      className="slash"
+      role="listbox"
+      aria-label={citeResults !== null ? "Cite a doc" : "Insert"}
+      style={{ top: menu.top, left: Math.max(menu.left, 16) }}
       onMouseDown={(e) => e.preventDefault()}
     >
-      <div
-        style={{
-          padding: "6px 10px 8px",
-          fontSize: 10.5,
-          fontWeight: 600,
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          color: "var(--text-muted)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <span>{citeResults !== null ? "Cite an approved doc" : "Insert"}</span>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: 0 }}>
-          {citeResults !== null ? "↵ to insert" : "/ to filter"}
-        </span>
-      </div>
-
       {citeResults !== null ? (
         citeLoading ? (
-          <div style={{ padding: "10px 10px 12px", fontSize: 12.5, color: "var(--text-muted)" }}>
-            Searching approved docs…
-          </div>
+          <p className="si-empty">Searching…</p>
         ) : citeResults.length === 0 ? (
-          <div style={{ padding: "10px 10px 12px", fontSize: 12.5, color: "var(--text-muted)" }}>
-            No approved docs matched this passage.
-          </div>
+          <p className="si-empty">Nobody has written this down.</p>
         ) : (
           citeResults.map((r, i) => (
-            <div
+            <button
+              type="button"
               key={r.doc_id + (r.heading ?? "")}
+              role="option"
+              aria-selected={i === selected}
+              className={`si${i === selected ? " is-on" : ""}`}
               onClick={() => insertCitation(r)}
               onMouseEnter={() => setSelected(i)}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "22px 1fr",
-                gap: 10,
-                padding: "8px 10px",
-                background: i === selected ? "var(--accent-light)" : "transparent",
-                border: `1px solid ${i === selected ? "rgba(15,110,86,0.18)" : "transparent"}`,
-                borderRadius: 6,
-                alignItems: "center",
-                cursor: "pointer",
-              }}
             >
-              <span
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 5,
-                  background: i === selected ? "rgba(15,110,86,0.14)" : "var(--bg-sidebar)",
-                  color: i === selected ? "var(--accent)" : "var(--text-secondary)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <IconLink size={12} />
-              </span>
-              <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: i === selected ? "var(--accent)" : "var(--text-primary)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+              <span className="sic"><IconLink size={13} /></span>
+              <span style={{ minWidth: 0 }}>
+                <b style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {r.doc_title}
-                </span>
-                <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+                </b>
+                <em>
                   {r.space}
                   {r.heading ? ` · § ${r.heading}` : ""}
-                </span>
-              </div>
-            </div>
+                </em>
+              </span>
+              <span className="kbd">↵</span>
+            </button>
           ))
         )
       ) : (
         filtered.map((c, i) => (
-          <div
+          <button
+            type="button"
             key={c.id}
+            role="option"
+            aria-selected={i === selected}
+            className={`si${i === selected ? " is-on" : ""}`}
             onClick={() => runCommand(c)}
             onMouseEnter={() => setSelected(i)}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "22px 1fr",
-              gap: 10,
-              padding: "8px 10px",
-              background: i === selected ? "var(--accent-light)" : "transparent",
-              border: `1px solid ${i === selected ? "rgba(15,110,86,0.18)" : "transparent"}`,
-              borderRadius: 6,
-              alignItems: "center",
-              cursor: "pointer",
-            }}
           >
-            <span
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 5,
-                background: i === selected ? "rgba(15,110,86,0.14)" : "var(--bg-sidebar)",
-                color: i === selected ? "var(--accent)" : "var(--text-secondary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {c.icon}
+            <span className="sic">{c.icon}</span>
+            <span>
+              <b>{c.name}</b>
+              <em>{c.hint}</em>
             </span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
-              <span
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: i === selected ? "var(--accent)" : "var(--text-primary)",
-                }}
-              >
-                {c.name}
-              </span>
-              <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{c.hint}</span>
-            </div>
-          </div>
+            <span className="kbd">↵</span>
+          </button>
         ))
       )}
     </div>
