@@ -74,6 +74,35 @@ describe("buildChecks", () => {
     expect(find(checks, "rls").status).toBe("warn");
   });
 
+  it("does not warn about tables that are service-role-only by design", () => {
+    const checks = buildChecks({
+      db: healthyReport({
+        rls: {
+          disabled: [],
+          enabled_without_policies: ["docs_backup_20260805", "integration_secrets", "integration_webhook_events"],
+        },
+      }),
+      env: healthyEnv,
+    });
+    const rls = find(checks, "rls");
+    expect(rls.status).toBe("ok");
+    expect(rls.detail).toContain("integration_secrets");
+    expect(rls.detail).toContain("Drop docs_backup_20260805");
+  });
+
+  it("still warns about a policy-less table among the deliberate ones", () => {
+    const checks = buildChecks({
+      db: healthyReport({
+        rls: { disabled: [], enabled_without_policies: ["integration_secrets", "migration_gates"] },
+      }),
+      env: healthyEnv,
+    });
+    const rls = find(checks, "rls");
+    expect(rls.status).toBe("warn");
+    expect(rls.detail).toContain("migration_gates");
+    expect(rls.detail).not.toContain("integration_secrets");
+  });
+
   it("names the migration files that have not been applied", () => {
     const checks = buildChecks({
       db: healthyReport({
