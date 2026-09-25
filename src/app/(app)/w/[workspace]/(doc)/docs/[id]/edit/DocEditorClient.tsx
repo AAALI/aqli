@@ -10,6 +10,7 @@ import SlashMenu from "@/components/editor/v2/SlashMenu";
 import SelectionToolbar from "@/components/editor/v2/SelectionToolbar";
 import FloatingAssistant from "@/components/ai/FloatingAssistant";
 import PublishSheet, { type Checker } from "@/components/docs/PublishSheet";
+import { DiscardDraftButton } from "@/components/docs/DocLifecycle";
 import { IconChevLeft, IconSearch } from "@/components/aqli/icons";
 import type { KeyHandlerRegistry } from "@/components/editor/v2/types";
 import { useDocImages } from "@/components/editor/useDocImages";
@@ -53,9 +54,12 @@ export default function DocEditorClient({
   workspaceSlug,
   spaces,
   people,
+  canDiscard = false,
 }: {
   doc: DocWithSpace;
   workspaceSlug: string;
+  /** The draft is yours to throw away (drafts are private to their writer). */
+  canDiscard?: boolean;
   /** Where it could live — asked at publish, never here. */
   spaces: Space[];
   /** Who could be asked to check it — likewise. */
@@ -418,6 +422,9 @@ export default function DocEditorClient({
           </button>
           {/* Publish only exists while it is a draft. A published doc is
               edited and saved, not re-published. */}
+          {!isPublished(doc.status) && canDiscard && (
+            <DiscardDraftButton docId={doc.id} redirectTo={`${base}/drafts`} size="md" />
+          )}
           {!isPublished(doc.status) && (
             <button type="button" className="btn btn-primary" onClick={() => setPublishOpen(true)}>
               Publish

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getMyRole } from "@/lib/supabase/members";
+import { recordAudit, humanActor } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -21,6 +22,14 @@ async function spaceWorkspace(
     .eq("id", spaceId)
     .maybeSingle();
   return (data?.workspace_id as string | undefined) ?? null;
+}
+
+async function spaceName(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  spaceId: string,
+): Promise<string | null> {
+  const { data } = await supabase.from("spaces").select("name").eq("id", spaceId).maybeSingle();
+  return (data?.name as string | undefined) ?? null;
 }
 
 export async function GET(_req: NextRequest, { params }: Params) {
@@ -83,6 +92,15 @@ export async function POST(req: NextRequest, { params }: Params) {
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  await recordAudit({
+    workspaceId,
+    actor: humanActor(user),
+    action: "space.member_added",
+    target: { type: "space", id, label: await spaceName(supabase, id) },
+    spaceId: id,
+    metadata: { user_id: userId, role },
+  });
+
   return NextResponse.json({ member: data });
 }
 
@@ -108,6 +126,15 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     .eq("space_id", id)
     .eq("user_id", userId);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  await recordAudit({
+    workspaceId,
+    actor: humanActor(user),
+    action: "space.member_removed",
+    target: { type: "space", id, label: await spaceName(supabase, id) },
+    spaceId: id,
+    metadata: { user_id: userId },
+  });
 
   return NextResponse.json({ ok: true });
 }

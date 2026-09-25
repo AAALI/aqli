@@ -39,6 +39,7 @@ export const EXPECTED_MIGRATIONS: ExpectedMigration[] = [
   { version: "20260921000000", name: "asked_questions_and_reading" },
   { version: "20260922000000", name: "doc_comments_drop_legacy_policies" },
   { version: "20260922010000", name: "security_hardening" },
+  { version: "20260925000000", name: "archive_and_audit" },
 ];
 
 /** Just the versions, which is what the database ledger stores. */

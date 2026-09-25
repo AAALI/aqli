@@ -6,6 +6,7 @@ import { importDeps } from "@/lib/import/db";
 import { runImport } from "@/lib/import/pipeline";
 import { renderImportReport } from "@/lib/import/report";
 import { proposeAgentDoc } from "@/lib/supabase/agent-docs";
+import { recordAudit, humanActor } from "@/lib/audit";
 
 /**
  * Import a zip of markdown, from the browser.
@@ -99,6 +100,20 @@ export async function POST(req: NextRequest) {
       trusted: true,
     }).catch(() => null);
     reportDocId = created?.doc?.id ?? null;
+
+    await recordAudit({
+      workspaceId,
+      actor: humanActor(user),
+      action: "import.applied",
+      target: { type: "import", id: reportDocId, label: file.name },
+      metadata: {
+        pages: report.pages.length,
+        created: report.pages.filter((p) => p.status === "created").length,
+        updated: report.pages.filter((p) => p.status === "updated").length,
+        failed: report.pages.filter((p) => p.status === "failed").length,
+        bytes: file.size,
+      },
+    });
   }
 
   return NextResponse.json({

@@ -28,9 +28,12 @@ export default function SettingsSidebar({ base, workspaceName, isAdmin = false }
         { href: s, label: "General", exact: true },
         { href: `${s}/members`, label: "People" },
         { href: `${s}/spaces`, label: "Spaces" },
+        // Archived pages are out of every list; this is where they are found again.
+        { href: `${s}/archive`, label: "Archive" },
         // Installation-wide reports; the RPCs behind them refuse anyone else.
         ...(isAdmin
           ? [
+              { href: `${s}/audit`, label: "Audit log" },
               { href: `${s}/import`, label: "Import & export" },
               { href: `${s}/health`, label: "Health" },
             ]

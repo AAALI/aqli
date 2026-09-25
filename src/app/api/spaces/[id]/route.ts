@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getMyRole } from "@/lib/supabase/members";
 import type { ReviewPolicy } from "@/lib/merge/disposition";
+import { recordAudit, humanActor } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -91,6 +92,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (Object.keys(patch).length === 0)
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 
+  const { data: prior } = await supabase.from("spaces").select("*").eq("id", id).maybeSingle();
   const { data, error } = await supabase
     .from("spaces")
     .update(patch)
@@ -99,6 +101,19 @@ export async function PUT(req: NextRequest, { params }: Params) {
     .single();
   if (error)
     return NextResponse.json({ error: error.message }, { status: 400 });
+  if (data) {
+    const changes = Object.fromEntries(
+      Object.keys(patch).map((k) => [k, { from: prior?.[k] ?? null, to: patch[k] }]),
+    );
+    await recordAudit({
+      workspaceId: data.workspace_id,
+      actor: humanActor(user),
+      action: "space.updated",
+      target: { type: "space", id, label: data.name },
+      spaceId: id,
+      metadata: { changes },
+    });
+  }
   return NextResponse.json({ space: data });
 }
 
@@ -111,8 +126,23 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const { data: space } = await supabase
+    .from("spaces")
+    .select("workspace_id, name, slug")
+    .eq("id", id)
+    .maybeSingle();
   const { error } = await supabase.from("spaces").delete().eq("id", id);
   if (error)
     return NextResponse.json({ error: error.message }, { status: 400 });
+  if (space) {
+    await recordAudit({
+      workspaceId: space.workspace_id,
+      actor: humanActor(user),
+      action: "space.deleted",
+      target: { type: "space", id, label: space.name },
+      spaceId: id,
+      metadata: { slug: space.slug },
+    });
+  }
   return NextResponse.json({ success: true });
 }

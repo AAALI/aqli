@@ -1,4 +1,5 @@
 import { scoped } from "@/lib/db";
+import { recordAudit, type AuditAction } from "@/lib/audit";
 import type {
   ActivityAction,
   ActorType,
@@ -41,6 +42,58 @@ export async function logActivity({
   } catch (err) {
     console.error("logActivity threw:", err);
   }
+  await auditActivity({ docId, workspaceId, actorType, actorId, actorName, action, metadata });
+}
+
+/**
+ * Every doc activity is also an audit event. The feed goes when the document
+ * goes; the audit log keeps the same fact with the title it had at the time.
+ * `embedded` is housekeeping, not something anybody did.
+ */
+async function auditActivity({
+  docId,
+  workspaceId,
+  actorType,
+  actorId,
+  actorName,
+  action,
+  metadata,
+}: {
+  docId: string;
+  workspaceId: string;
+  actorType: ActorType;
+  actorId: string | null;
+  actorName: string | null;
+  action: ActivityAction;
+  metadata: Record<string, unknown>;
+}): Promise<void> {
+  if (action === "embedded") return;
+  type Snapshot = { title: string | null; space_id: string | null };
+  let doc: Snapshot | null = null;
+  try {
+    const { data } = await scoped(workspaceId)
+      .from("docs")
+      .select("title, space_id")
+      .eq("id", docId)
+      .maybeSingle();
+    doc = (data as Snapshot | null) ?? null;
+  } catch {
+    // The snapshot is a courtesy; the event is recorded without it.
+  }
+  await recordAudit({
+    workspaceId,
+    actor:
+      actorType === "agent"
+        ? { type: "agent", name: actorName, keyId: null }
+        : { type: "human", userId: actorId ?? "", name: actorName },
+    action: (metadata.published === true
+      ? "doc.published"
+      : `doc.${action === "updated" ? "edited" : action}`) as AuditAction,
+    target: { type: "doc", id: docId, label: doc?.title ?? null },
+    docId,
+    spaceId: doc?.space_id ?? null,
+    metadata: actorType === "agent" && actorId ? { ...metadata, agent_id: actorId } : metadata,
+  });
 }
 
 /**

@@ -4,6 +4,7 @@ import { getAgentWorkspaceMeta } from "../../_workspace";
 import { getAgentDoc, proposeAgentDoc } from "@/lib/supabase/agent-docs";
 import { embedDoc } from "@/lib/ai/embedder";
 import { MergeError } from "@/lib/db";
+import { recordAudit, agentActor } from "@/lib/audit";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const agent = await authenticateAgent(req);
@@ -107,6 +108,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     throw err;
   }
+
+  await recordAudit({
+    workspaceId: agent.workspaceId,
+    actor: await agentActor(agent.workspaceId, agent.keyId, agent.ownerUserId),
+    action: "doc.edited",
+    target: { type: "doc", id, label: result.doc?.title ?? existing.title },
+    docId: id,
+    spaceId: existing.space_id,
+    metadata: {
+      proposal_id: result.proposalId,
+      state: result.state,
+      queued_for_review: !result.doc,
+      rationale: typeof updates.rationale === "string" ? updates.rationale.slice(0, 500) : null,
+    },
+  });
 
   if (!result.doc) {
     return NextResponse.json(

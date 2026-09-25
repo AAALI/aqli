@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Role } from "@/types/invitation";
+import { listWorkspaceMembers } from "@/lib/supabase/members";
+import { ownerInfo } from "@/lib/supabase/owners";
+import { recordAudit, humanActor } from "@/lib/audit";
 
 const ROLES: Role[] = ["admin", "editor", "viewer"];
 
@@ -31,6 +34,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       { status: 400 },
     );
 
+  // Read before the change, for the log: the role they had and who they are.
+  const before = await memberSnapshot(workspace_id, userId);
+
   // The RPC re-checks that auth.uid() is a workspace admin and protects the
   // last admin, so the authorization lives in one place at the DB layer.
   const { error } = await supabase.rpc("update_member_role", {
@@ -40,6 +46,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   });
   if (error)
     return NextResponse.json({ error: error.message }, { status: statusFor(error.message) });
+
+  await recordAudit({
+    workspaceId: workspace_id,
+    actor: humanActor(user),
+    action: "member.role_changed",
+    target: { type: "member", id: userId, label: before?.label ?? null },
+    metadata: { from_role: before?.role ?? null, to_role: role, email: before?.email ?? null },
+  });
 
   return NextResponse.json({ success: true });
 }
@@ -57,6 +71,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   if (!workspaceId)
     return NextResponse.json({ error: "workspace_id required" }, { status: 400 });
 
+  const before = await memberSnapshot(workspaceId, userId);
+
   const { error } = await supabase.rpc("remove_member", {
     p_workspace_id: workspaceId,
     p_user_id: userId,
@@ -64,5 +80,19 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   if (error)
     return NextResponse.json({ error: error.message }, { status: statusFor(error.message) });
 
+  await recordAudit({
+    workspaceId,
+    actor: humanActor(user),
+    action: "member.removed",
+    target: { type: "member", id: userId, label: before?.label ?? null },
+    metadata: { role: before?.role ?? null, email: before?.email ?? null, self: userId === user.id },
+  });
+
   return NextResponse.json({ success: true });
+}
+
+async function memberSnapshot(workspaceId: string, userId: string) {
+  const members = await listWorkspaceMembers(workspaceId).catch(() => []);
+  const m = members.find((x) => x.user_id === userId);
+  return m ? { label: ownerInfo(m).name, role: m.role, email: m.email } : null;
 }

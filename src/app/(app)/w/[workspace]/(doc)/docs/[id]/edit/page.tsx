@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getDoc } from "@/lib/supabase/docs";
 import { getSpaces } from "@/lib/supabase/spaces";
 import { listWorkspaceMembers } from "@/lib/supabase/members";
@@ -14,6 +14,8 @@ export default async function DocEditPage({
   const { workspace: wsSlug, id } = await params;
   const doc = await getDoc(id).catch(() => null);
   if (!doc) notFound();
+  // An archived page is put away, not worked on. Restore it first.
+  if (doc.status === "archived") redirect(`/w/${wsSlug}/docs/${doc.id}`);
 
   const [spaces, members, supabase] = await Promise.all([
     getSpaces(doc.workspace_id),
@@ -39,6 +41,12 @@ export default async function DocEditPage({
       workspaceSlug={wsSlug}
       spaces={spaces}
       people={people}
+      // The server decides too; this only keeps the button off drafts someone
+      // else started and shared with you. A legacy ownerless draft is an admin's.
+      canDiscard={
+        doc.owner_id === user?.id ||
+        (doc.owner_id === null && members.some((m) => m.user_id === user?.id && m.role === "admin"))
+      }
     />
   );
 }

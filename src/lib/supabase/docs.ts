@@ -32,7 +32,8 @@ export async function getDocs(
 
   if (options?.spaceId) query = query.eq("space_id", options.spaceId);
   if (options?.type) query = query.eq("type", options.type);
-  if (options?.status) query = query.eq("status", options.status);
+  // Archived pages are put away: listed only when asked for by name.
+  query = options?.status ? query.eq("status", options.status) : query.neq("status", "archived");
   if (options?.limit) query = query.limit(options.limit);
   if (options?.offset !== undefined) {
     query = query.range(
@@ -74,6 +75,7 @@ export async function getSpaceTree(workspaceId: string, spaceId: string) {
     )
     .eq("workspace_id", workspaceId)
     .eq("space_id", spaceId)
+    .neq("status", "archived")
     .order("position", { ascending: true })
     .order("title", { ascending: true });
   if (error) throw error;
@@ -326,12 +328,6 @@ export async function updateDoc(
   return data as Doc;
 }
 
-export async function deleteDoc(id: string) {
-  const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.from("docs").delete().eq("id", id);
-  if (error) throw error;
-}
-
 /**
  * A revision, shaped for the history UI.
  *
@@ -464,6 +460,7 @@ export async function getBacklinks(docId: string, workspaceId: string) {
     )
     .eq("workspace_id", workspaceId)
     .neq("id", docId)
+    .neq("status", "archived")
     .ilike("body_md", `%/docs/${docId}%`)
     .order("updated_at", { ascending: false })
     .limit(20);
