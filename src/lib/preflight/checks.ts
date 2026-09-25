@@ -67,6 +67,19 @@ export type PreflightInput = {
 const list = (items: string[]) => items.join(", ");
 
 /**
+ * Tables that are meant to have RLS on and no policies: only the service role
+ * may touch them. Both migrations say so in a comment beside the `enable row
+ * level security`. Warning about them taught operators to skim past this check,
+ * which is the one that has to be read.
+ */
+const SERVICE_ROLE_ONLY = new Set(["integration_secrets", "integration_webhook_events"]);
+
+/** A hand-made snapshot (`docs_backup_20260805`) — service-role-only is right for it too. */
+const isBackup = (table: string) => /_backup_\d{8}$/.test(table);
+
+const isDeliberatelyLocked = (table: string) => SERVICE_ROLE_ONLY.has(table) || isBackup(table);
+
+/**
  * The migration that most likely owns a table, by name.
  *
  * `doc_comments` is closed by `20260808000000_doc_comments.sql`, and the
@@ -234,20 +247,26 @@ export function buildChecks(input: PreflightInput): Check[] {
       detail: `RLS is disabled on: ${named}. PostgREST applies no restriction to these, so any signed-in user can read every workspace's rows.`,
       fix: "Apply the migration named after each table, then re-run. Do not invite anyone until this is clear.",
     });
-  } else if (db.rls.enabled_without_policies.length > 0) {
+  } else if (db.rls.enabled_without_policies.some((t) => !isDeliberatelyLocked(t))) {
     checks.push({
       id: "rls",
       title: "Row-level security",
       status: "warn",
-      detail: `RLS is on but no policy exists for: ${list(db.rls.enabled_without_policies)}. Nothing can read them except the service role.`,
+      detail: `RLS is on but no policy exists for: ${list(db.rls.enabled_without_policies.filter((t) => !isDeliberatelyLocked(t)))}. Nothing can read them except the service role.`,
       fix: "Deliberate for service-role-only tables. Otherwise a migration landed halfway.",
     });
   } else {
+    const locked = db.rls.enabled_without_policies;
+    const backups = locked.filter(isBackup);
     checks.push({
       id: "rls",
       title: "Row-level security",
       status: "ok",
-      detail: "Every public table has RLS on with at least one policy.",
+      detail:
+        locked.length > 0
+          ? `Every public table has RLS on. ${list(locked)} ${locked.length === 1 ? "is" : "are"} service-role-only by design.` +
+            (backups.length > 0 ? ` Drop ${list(backups)} once you no longer need the snapshot.` : "")
+          : "Every public table has RLS on with at least one policy.",
     });
   }
 
