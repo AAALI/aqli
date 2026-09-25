@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getMyRole } from "@/lib/supabase/members";
 import { slugify } from "@/lib/utils";
+import { recordAudit, humanActor } from "@/lib/audit";
 
 export async function PATCH(
   req: NextRequest,
@@ -41,6 +42,11 @@ export async function PATCH(
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
 
+  const { data: prior } = await supabase
+    .from("workspaces")
+    .select("name, slug, settings")
+    .eq("id", id)
+    .single();
   const { data, error } = await supabase
     .from("workspaces")
     .update(updates)
@@ -54,6 +60,21 @@ export async function PATCH(
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await recordAudit({
+    workspaceId: id,
+    actor: humanActor(user),
+    action: "workspace.updated",
+    target: { type: "workspace", id, label: data?.name ?? null },
+    metadata: {
+      changes: Object.fromEntries(
+        Object.keys(updates).map((k) => [
+          k,
+          { from: (prior as Record<string, unknown> | null)?.[k] ?? null, to: updates[k] },
+        ]),
+      ),
+    },
+  });
 
   return NextResponse.json({ workspace: data });
 }

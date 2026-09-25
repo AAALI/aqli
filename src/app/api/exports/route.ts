@@ -4,6 +4,7 @@ import { getMyRole } from "@/lib/supabase/members";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { workspaceExport } from "@/lib/export/db";
 import { zipStream } from "@/lib/export/zip-writer";
+import { recordAudit, humanActor } from "@/lib/audit";
 
 /**
  * Download the whole workspace as markdown and images.
@@ -39,6 +40,12 @@ export async function GET(req: NextRequest) {
 
   const files = await workspaceExport(workspace.id);
   const date = new Date().toISOString().slice(0, 10);
+  await recordAudit({
+    workspaceId: workspace.id,
+    actor: humanActor(user),
+    action: "export.downloaded",
+    target: { type: "export", label: `${workspace.slug}-${date}.zip` },
+  });
 
   return new Response(zipStream(files) as unknown as BodyInit, {
     headers: {

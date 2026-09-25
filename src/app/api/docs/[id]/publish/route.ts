@@ -37,6 +37,9 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const doc = await getDoc(id).catch(() => null);
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (doc.status === "archived") {
+    return NextResponse.json({ error: "This page is archived. Restore it instead." }, { status: 409 });
+  }
 
   const body = (await req.json().catch(() => ({}))) as {
     space_id?: string | null;
@@ -89,7 +92,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     actorId: user.id,
     actorName,
     action: checkers.length > 0 ? "review_requested" : "approved",
-    metadata: { checkers },
+    // `published` tells the audit log this is a first publish, not a later
+    // approval by someone else.
+    metadata: { checkers, published: true },
   }).catch(() => {});
 
   return NextResponse.json({

@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getMyRole } from "@/lib/supabase/members";
 import { createApiKey, listApiKeys } from "@/lib/api-keys";
 import { normalizeScopes } from "@/lib/agent-scopes";
+import { recordAudit, humanActor } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
@@ -50,6 +51,13 @@ export async function POST(req: NextRequest) {
     // rather than trusted.
     scopes === undefined ? undefined : normalizeScopes(scopes),
   );
+  await recordAudit({
+    workspaceId: workspace_id,
+    actor: humanActor(user),
+    action: "api_key.created",
+    target: { type: "api_key", id: key.id, label: name },
+    metadata: { scopes: key.scopes ?? null, prefix: key.key_prefix ?? null },
+  });
   return NextResponse.json(
     { key, warning: "Store this key securely. It will not be shown again." },
     { status: 201 },

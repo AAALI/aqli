@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getMyRole } from "@/lib/supabase/members";
 import { createInvitation, listPendingInvitations } from "@/lib/supabase/invitations";
 import type { Role } from "@/types/invitation";
+import { recordAudit, humanActor } from "@/lib/audit";
 
 const ROLES: Role[] = ["admin", "editor", "viewer"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -47,5 +48,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
   const invitation = await createInvitation(workspace_id, email, finalRole, user.id);
+  await recordAudit({
+    workspaceId: workspace_id,
+    actor: humanActor(user),
+    action: "invitation.sent",
+    target: { type: "invitation", id: invitation.id, label: invitation.email },
+    metadata: { role: finalRole, expires_at: invitation.expires_at },
+  });
   return NextResponse.json({ invitation }, { status: 201 });
 }

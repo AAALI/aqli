@@ -13,6 +13,7 @@ import DocComments from "@/components/docs/DocComments";
 import DocAskAssistant from "@/components/docs/DocAskAssistant";
 import DocBodyClient from "@/components/docs/DocBodyClient";
 import ShareButton from "@/components/docs/ShareButton";
+import { ArchiveButton, RestoreButton, DeleteForeverButton } from "@/components/docs/DocLifecycle";
 import PhoneReadBar from "@/components/docs/PhoneReadBar";
 import { IconChevRight, IconEdit } from "@/components/aqli/icons";
 import CmdKButton from "@/components/cmdk/CmdKButton";
@@ -78,7 +79,18 @@ export default async function DocViewPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const canEdit = role === "admin" || role === "editor";
+  const isArchived = doc.status === "archived";
+  const canEdit = (role === "admin" || role === "editor") && !isArchived;
+  const canArchive = role === "admin" || role === "editor";
+  // Deleting for good is the owner's or an admin's, and only once archived.
+  const canDeleteForever = isArchived && (role === "admin" || doc.owner_id === user?.id);
+  const { count: subPages } = canArchive && !isArchived
+    ? await supabase
+        .from("docs")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_doc_id", doc.id)
+        .neq("status", "archived")
+    : { count: 0 };
   const nameOf = (userId: string | null) =>
     userId ? (userId === user?.id ? "you" : (owners[userId]?.name ?? "a teammate")) : null;
 
@@ -148,6 +160,14 @@ export default async function DocViewPage({
               Edit
             </Link>
           )}
+          {canArchive && !isArchived && (
+            <ArchiveButton
+              docId={doc.id}
+              hasSubPages={(subPages ?? 0) > 0}
+              redirectTo={doc.space ? `${base}/s/${doc.space.slug}` : base}
+              size="md"
+            />
+          )}
           <ShareButton />
           <CmdKButton />
         </div>
@@ -156,8 +176,40 @@ export default async function DocViewPage({
       <div className="main-body has-pbar">
         <div id="doc-scroll" className="doc-scroll">
           <article id="doc-article" className="doc-col">
+            {isArchived && (
+              <div
+                role="status"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  padding: "10px 14px",
+                  marginBottom: 22,
+                  borderRadius: 8,
+                  border: "1px solid var(--warn-border)",
+                  background: "var(--warn-bg)",
+                  color: "var(--warn-text)",
+                  fontSize: 13.5,
+                }}
+              >
+                <span style={{ flex: 1, minWidth: 200 }}>
+                  Archived
+                  {doc.archived_by ? ` by ${nameOf(doc.archived_by) ?? "a teammate"}` : ""}
+                  {doc.archived_at ? ` ${formatRelative(doc.archived_at)}` : ""}. It is out of the
+                  tree, search and agent context until someone restores it.
+                </span>
+                {canArchive && <RestoreButton docId={doc.id} />}
+                {canDeleteForever && (
+                  <DeleteForeverButton
+                    docId={doc.id}
+                    redirectTo={`${base}/settings/archive`}
+                  />
+                )}
+              </div>
+            )}
             <h1 className="dt">{doc.title}</h1>
-            {trust && <TrustLine docId={doc.id} trust={trust} />}
+            {trust && !isArchived && <TrustLine docId={doc.id} trust={trust} />}
 
             <div id="doc-body">
               <DocBodyClient bodyMd={doc.body_md} title={doc.title} />

@@ -26,6 +26,7 @@ type QueryBuilder = ReturnType<SupabaseClient["from"]>;
  */
 const SCOPE_COLUMN: Record<string, string | null> = {
   api_keys: "workspace_id",
+  audit_events: "workspace_id",
   asked_questions: "workspace_id",
   doc_reads: "workspace_id",
   doc_activity: "workspace_id",

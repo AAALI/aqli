@@ -3,7 +3,7 @@ import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getOwnerDirectory } from "@/lib/supabase/owners";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import AppTopBar from "@/components/layout/AppTopBar";
-import DeleteDraftButton from "@/components/docs/DeleteDraftButton";
+import { DiscardDraftButton } from "@/components/docs/DocLifecycle";
 import { IconFile } from "@/components/aqli/icons";
 import { whereLeftOff, shortDay } from "@/lib/home";
 import { toPlainText } from "@/lib/mentions";
@@ -81,7 +81,7 @@ export default async function DraftsPage({ params }: { params: Promise<{ workspa
       <div className="wrap">
         <div style={{ maxWidth: 760 }}>
           <h1 className="h1">{headline}</h1>
-          <p className="h1s">Nobody can see these but you. They stay drafts until you publish them.</p>
+          <p className="h1s">Nobody can see these but you. They stay drafts until you publish or discard them.</p>
 
           {mine.length > 0 && (
             <section className="sect">
@@ -99,11 +99,15 @@ export default async function DraftsPage({ params }: { params: Promise<{ workspa
                       </span>
                       <span className="m">{describe(d)}</span>
                     </span>
-                    {empty ? (
-                      <DeleteDraftButton docId={d.id} />
-                    ) : (
-                      <span className={`btn btn-sm ${i === 0 ? "btn-primary" : "btn-secondary"}`}>Keep writing</span>
-                    )}
+                    {/* Discard sits beside Keep writing on every draft: an
+                        abandoned idea should be as easy to let go of as to
+                        pick up. An empty one goes without a question. */}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <DiscardDraftButton docId={d.id} empty={empty} />
+                      {!empty && (
+                        <span className={`btn btn-sm ${i === 0 ? "btn-primary" : "btn-secondary"}`}>Keep writing</span>
+                      )}
+                    </span>
                   </Link>
                 );
               })}

@@ -54,7 +54,8 @@ export async function listAgentDocs(
     .order("updated_at", { ascending: false })
     .range(opts.offset, opts.offset + opts.limit - 1);
   if (opts.type) q = q.eq("type", opts.type);
-  if (opts.status) q = q.eq("status", opts.status);
+  // Archived pages are not context. An agent can still ask for them by status.
+  q = opts.status ? q.eq("status", opts.status) : q.neq("status", "archived");
   if (opts.parentId === "root") q = q.is("parent_doc_id", null);
   else if (opts.parentId) q = q.eq("parent_doc_id", opts.parentId);
   q = excludeBlockedSpaces(q, blocked);
@@ -87,7 +88,8 @@ export async function countChildDocs(
   let q = scoped(workspaceId)
     .from("docs")
     .select("id", { count: "exact", head: true })
-    .eq("parent_doc_id", docId);
+    .eq("parent_doc_id", docId)
+    .neq("status", "archived");
   q = excludeBlockedSpaces(q, blocked);
   const { count, error } = await q;
   if (error) throw error;

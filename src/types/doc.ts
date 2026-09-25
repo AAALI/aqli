@@ -69,6 +69,12 @@ export type Doc = {
   body_text: string;
   headings: string;
   current_revision_id: string | null;
+
+  // Archiving (20260925000000). `status` reads 'archived'; these say when, who,
+  // and what a restore goes back to.
+  archived_at?: string | null;
+  archived_by?: string | null;
+  status_before_archive?: DocStatus | null;
 };
 
 export type DocVersion = {

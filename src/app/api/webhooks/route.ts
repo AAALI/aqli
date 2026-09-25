@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getMyRole } from "@/lib/supabase/members";
+import { recordAudit, humanActor } from "@/lib/audit";
 
 /**
  * Outbound notification endpoints for a workspace (docs/adoption.md F-5).
@@ -68,6 +69,14 @@ export async function POST(req: NextRequest) {
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  await recordAudit({
+    workspaceId: workspaceId!,
+    actor: humanActor(user),
+    action: "webhook.created",
+    target: { type: "webhook", id: data.id, label: url },
+    metadata: { events },
+  });
+
   return NextResponse.json({ webhook: data }, { status: 201 });
 }
 
@@ -85,12 +94,27 @@ export async function DELETE(req: NextRequest) {
   if (gate.error) return gate.error;
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
+  const { data: hook } = await supabase
+    .from("workspace_webhooks")
+    .select("url")
+    .eq("id", id)
+    .eq("workspace_id", workspaceId!)
+    .maybeSingle();
   const { error } = await supabase
     .from("workspace_webhooks")
     .delete()
     .eq("id", id)
     .eq("workspace_id", workspaceId!);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  if (hook) {
+    await recordAudit({
+      workspaceId: workspaceId!,
+      actor: humanActor(user),
+      action: "webhook.deleted",
+      target: { type: "webhook", id, label: hook.url as string },
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

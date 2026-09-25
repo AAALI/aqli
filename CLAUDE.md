@@ -89,6 +89,18 @@ pnpm export     # the whole workspace as markdown + images, deterministic and re
   as `@[Name](user:<uuid>)` (`src/lib/mentions.ts`) and are **never** doc-body nodes: the
   markdown allowlist stays as small as it is on purpose.
 
+- **Putting things away** (`20260925000000`). A draft is *discarded* (deleted) by its writer.
+  A published page is *archived* — `set_doc_archived` takes its sub-pages along, keeps
+  `status_before_archive`, and a restore brings back what went together. Archived pages leave
+  the tree, search, Home, backlinks and agent listings, and their `doc_chunks` are dropped;
+  they live in Settings → Archive. Deleting for good is offered only on an archived page, to
+  its owner or an admin.
+- **Audit log** (`audit_events`, `src/lib/audit.ts`). Append-only in the database (a trigger
+  refuses update/delete from everyone except the workspace cascade), readable by admins, no
+  FK to what it describes so a deletion's record survives the deletion. Every `logActivity`
+  call is mirrored into it; non-doc actions (people, keys, spaces, webhooks, workspace,
+  import/export) call `recordAudit` directly. A new admin-facing action should too.
+
 ## Data model (Supabase)
 
 `workspaces` → `spaces` → `docs` (+ `revisions`, `proposals`, `doc_comments`), `members`

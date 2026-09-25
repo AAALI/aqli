@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSpaces, createSpace } from "@/lib/supabase/spaces";
 import { isUniqueViolation } from "@/lib/supabase/errors";
 import { slugify } from "@/lib/utils";
+import { recordAudit, humanActor } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
@@ -53,6 +54,14 @@ export async function POST(req: NextRequest) {
       name,
       slug,
       icon: body.icon,
+    });
+    await recordAudit({
+      workspaceId: body.workspace_id,
+      actor: humanActor(user),
+      action: "space.created",
+      target: { type: "space", id: space.id, label: space.name },
+      spaceId: space.id,
+      metadata: { slug: space.slug, icon: space.icon ?? null },
     });
     return NextResponse.json({ space }, { status: 201 });
   } catch (err) {

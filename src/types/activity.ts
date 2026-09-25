@@ -11,7 +11,9 @@ export type ActivityAction =
   | "commented"
   | "embedded"
   | "review_requested"
-  | "moved";
+  | "moved"
+  | "archived"
+  | "restored";
 
 export type DocActivity = {
   id: string;

@@ -4,6 +4,7 @@ import { unscoped } from "@/lib/db";
 import { getMyRole } from "@/lib/supabase/members";
 import { revokeApiKey, updateApiKeyScopes } from "@/lib/api-keys";
 import { normalizeScopes } from "@/lib/agent-scopes";
+import { recordAudit, humanActor } from "@/lib/audit";
 
 /**
  * Change what an agent key is allowed to do.
@@ -32,7 +33,7 @@ export async function PATCH(
   );
   const { data: key } = await service
     .from("api_keys")
-    .select("workspace_id, revoked_at")
+    .select("workspace_id, revoked_at, name, scopes")
     .eq("id", id)
     .single();
   if (!key) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -48,6 +49,13 @@ export async function PATCH(
 
   const scopes = normalizeScopes(body.scopes);
   await updateApiKeyScopes(id, scopes);
+  await recordAudit({
+    workspaceId: key.workspace_id,
+    actor: humanActor(user),
+    action: "api_key.updated",
+    target: { type: "api_key", id, label: key.name ?? null },
+    metadata: { from_scopes: key.scopes ?? null, to_scopes: scopes },
+  });
   return NextResponse.json({ scopes });
 }
 
@@ -69,7 +77,7 @@ export async function DELETE(
   );
   const { data: key } = await service
     .from("api_keys")
-    .select("workspace_id")
+    .select("workspace_id, name, key_prefix")
     .eq("id", id)
     .single();
   if (!key) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -79,5 +87,12 @@ export async function DELETE(
     return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
   await revokeApiKey(id);
+  await recordAudit({
+    workspaceId: key.workspace_id,
+    actor: humanActor(user),
+    action: "api_key.revoked",
+    target: { type: "api_key", id, label: key.name ?? null },
+    metadata: { prefix: key.key_prefix ?? null },
+  });
   return NextResponse.json({ success: true });
 }
