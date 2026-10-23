@@ -55,7 +55,7 @@ export default function CurateShelves({
       </button>
       {open && (
         <div className="scrim" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-          <div className="sheet" role="dialog" aria-modal="true" aria-label="Edit this space's shelves" style={{ width: 520 }}>
+          <div className="sheet" role="dialog" aria-modal="true" aria-label="Edit this space's shelves" style={{ width: 520, maxWidth: "100%" }}>
             <div className="sheet-h">
               <h3>What should people read first?</h3>
               <p>Up to three docs lead the space. The reading path is what a newcomer reads, in the order you tick them.</p>

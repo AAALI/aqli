@@ -132,6 +132,9 @@ html, body {
 /* In-app: fill viewport height */
 .aqli-screen.is-app {
   height: 100vh;
+  /* The browser chrome on a phone retracts and returns; `vh` measures the
+     tallest state, so the bottom of every scroll area sat under the URL bar. */
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -330,13 +333,17 @@ html, body {
 }
 .tb-crumb a { color: inherit; text-decoration: none; }
 .tb-crumb .crumb-sep { color: var(--text-muted); display: inline-flex; }
+.tb-crumb a, .tb-crumb > span:not(.crumb-sep) { white-space: nowrap; }
 .tb-crumb .crumb-cur {
   color: var(--text-primary);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex: 0 1 auto;
 }
+.tb-actions { flex: 0 0 auto; }
 /* The whole of the save affordance: a 5px accent dot and one muted word. */
 .tb-saved {
   font-size: 12px;
@@ -676,7 +683,7 @@ html, body {
 .d-add { background: var(--current-bg); color: var(--current-text); padding: 1px 3px; border-radius: 3px; }
 .dark .d-rem { background: #3A1F1C; color: #F5A788; }
 .ob-eb { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
-@media (max-width: 767px) { .hist-list { display: none; } }
+/* Under 768px the version list becomes a row across the top (see the phone block). */
 
 /* Space page: health bar and shelves. */
 .meter { display: flex; height: 6px; border-radius: 999px; overflow: hidden; background: var(--border); width: 220px; }
@@ -1056,43 +1063,48 @@ button.ob-skip:hover { color: var(--text-secondary); }
   opacity: 0.55;
   pointer-events: none;
 }
-.dbody th, .dbody td { position: relative; }/* ───────── Screen headers and empty states ─────────
-   Shared by every full-page view (see `components/aqli/page.tsx`). Before
-   this,
-each screen sized and spaced its own title {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 24px;
-}
-
-.eyebrow {
+.dbody th, .dbody td { position: relative; }
+/* A wide table scrolls in its own box rather than pushing the paper sideways
+   (the server renderer wraps every table; see `lib/markdown/render-html.ts`). */
+.dbody .tbl { overflow-x: auto; -webkit-overflow-scrolling: touch; overflow-wrap: normal; }
+.dbody .tbl table { min-width: 100%; }
+/* The callout kind, said in words: the marker line is stripped from the body,
+   so without this a `> [!WARNING]` reads as any other quote. */
+.dbody blockquote[data-callout]::before {
+  content: attr(data-callout);
+  display: block;
+  font-family: var(--font-sans);
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
   color: var(--text-muted);
-}/* "Nothing left to do" — a resolved state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 72px 24px;
-  text-align: center;
-  color: var(--text-muted);
-}/* Search: results beside the Aqli answer rail. The rail drops below the
-   results before it squeezes them {
-  display: flex;
-  gap: 28px;
-  align-items: flex-start;
 }
-/* The standard measure for a list-shaped screen. Wider than the 720px reading
-   column because rows carry metadata and actions {
-  max-width: 960px;
-  margin: 0 auto;
+.dbody blockquote[data-callout="WARNING"]::before,
+.dbody blockquote[data-callout="CAUTION"]::before { color: var(--ageing-text); }
+.dbody blockquote[data-callout="WARNING"],
+.dbody blockquote[data-callout="CAUTION"] { border-left-color: var(--ageing-border); }
+.dbody blockquote[data-callout="TIP"],
+.dbody blockquote[data-callout="NOTE"] { border-left-color: var(--current-border); }
+/* A static task list reads like the editor's: the box is just a mark, not a
+   greyed-out control. */
+.dbody ul[data-type="taskList"] input[type="checkbox"]:disabled { opacity: 1; cursor: default; }
+
+/* A diagram on the reading surface: the same frame `MermaidView` draws in the
+   editor — a label, the source until the SVG arrives, then the SVG. */
+.mmd { border: 1px solid var(--border); border-radius: 8px; margin: 1em 0; overflow: hidden; background: var(--bg-card); }
+.mmd-h {
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  border-bottom: 1px solid var(--border); background: var(--bg-sidebar);
+  font-family: var(--font-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-muted);
 }
+.mmd-err { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--danger-text); }
+.mmd .mmd-src { margin: 0; border: 0; border-radius: 0; font-size: 13px; }
+.mmd.is-drawn .mmd-src { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); margin: 0; padding: 0; }
+.mmd .mmd-out:empty { display: none; }
+.mmd .mmd-out { padding: 16px 12px; display: flex; justify-content: center; overflow-x: auto; }
+.mmd .mmd-out svg { max-width: 100%; height: auto; }
 
 /* ───────── Trust line ─────────
    One line, 16px under the title: the state, who checked it and when. The
@@ -1250,13 +1262,8 @@ each screen sized and spaced its own title {
 
 
 
-@media (prefers-reduced-motion: reduce) {.sb {
-    transition: none;
-  }
-}/* Home: the jump-back cards and the attention rows.
-   `auto-fit` rather than a fixed column count,
-so one {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+@media (prefers-reduced-motion: reduce) {
+  .sb { transition: none; }
 }
 
 
@@ -1267,6 +1274,7 @@ so one {
 .slash {
   position: absolute;
   width: 322px;
+  max-width: calc(100vw - 32px);
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
@@ -1522,11 +1530,6 @@ so one {
 }
 @media (prefers-reduced-motion: reduce) {
   .cmdk, .sheet, .aip, .slash, .rail { animation: none; }
-}/* ───────── Document rows ─────────
-   The row is a grid,
-and a grid item stretches to its track by default — which
-   turned the type and status pills into wide {
-  justify-self: start;
 }
 
 
@@ -1583,11 +1586,12 @@ and a grid item stretches to its track by default — which
     display: flex;
     position: fixed;
     left: 0; right: 0; bottom: 0;
-    height: 76px;
+    height: calc(76px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--border);
     background: var(--bg-card);
     align-items: flex-start;
     padding-top: 11px;
+    padding-bottom: env(safe-area-inset-bottom);
     z-index: 30;
   }
   .ptab {
@@ -1610,7 +1614,7 @@ and a grid item stretches to its track by default — which
     background: var(--accent); color: #fff;
     display: flex; align-items: center; justify-content: center; margin-top: -6px;
   }
-  .has-ptabs .wrap { padding-bottom: 100px; }
+  .has-ptabs .wrap { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
 
   /* Phone scale (frame 12): 15px titles, bare dots, tighter rows. */
   .wrap .h1 { font-size: 25px; }
@@ -1630,28 +1634,104 @@ and a grid item stretches to its track by default — which
     display: flex;
     position: fixed;
     left: 0; right: 0; bottom: 0;
-    height: 66px;
+    height: calc(66px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--border);
     background: var(--bg-card);
     align-items: center;
-    padding: 0 8px;
+    padding: 0 8px env(safe-area-inset-bottom);
     gap: 4px;
     z-index: 30;
   }
-  .pbar-read .btn { flex: 1; justify-content: center; }
-  .has-pbar .doc-col { padding-bottom: 120px; }
+  .pbar-read .btn { flex: 1; justify-content: center; min-width: 0; padding: 0 6px; }
+  .has-pbar .doc-col { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
 
   /* Writing (frame 14): a formatting bar that sits on the keyboard. */
   .pformat {
     display: flex;
     position: fixed;
     left: 0; right: 0; bottom: 0;
-    height: 52px;
+    height: calc(52px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--border);
     background: var(--bg-card);
     align-items: center;
     gap: 6px;
-    padding: 0 12px;
+    padding: 0 12px env(safe-area-inset-bottom);
     z-index: 30;
   }
+  /* With the keyboard up the bar sits on it, so the inset is already spent. */
+  .pformat.on-keyboard { height: 52px; padding-bottom: 0; }
+
+  /* ── The rest of the phone ── */
+
+  /* The top bar keeps the breadcrumb and search; everything else lives in the
+     bar at the bottom. Hide the actions the phone has elsewhere. */
+  .tb { gap: 8px; }
+  .tb .btn-ghost { padding: 0 8px; }
+
+  /* iOS zooms the page when a focused field is set below 16px. Keep the
+     design's 14px on desktop and let the phone have what it needs. */
+  .inp, select, textarea, .cmdk-in input { font-size: 16px; }
+  .inp { height: 40px; }
+
+  /* The paper: long URLs and identifiers break instead of widening the page,
+     and the code and table boxes scroll inside themselves. */
+  .dbody { overflow-wrap: anywhere; }
+  .dbody pre { max-width: 100%; }
+  /* A table with several columns keeps its columns and scrolls, rather than
+     breaking every word to fit the phone. */
+  .dbody .tbl table:has(th:nth-child(4), td:nth-child(4)) { min-width: 560px; }
+  .doc-scroll { overflow-x: hidden; }
+  .doc-col { padding-left: 18px; padding-right: 18px; }
+
+  /* Settings and History have a side list the phone has no room for. Rather
+     than hide it (and strand whoever arrives from a Home link), lay it across
+     the top as a scrolling row. */
+  .aqli-screen.is-app:has(> .set-nav) { flex-direction: column; }
+  .set-nav.sb {
+    display: flex !important;
+    flex-direction: row;
+    align-items: center;
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 8px 10px;
+    gap: 2px;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .set-nav.sb::-webkit-scrollbar { display: none; }
+  .set-nav.sb > div { display: contents; }
+  .set-nav.sb .sb-section-label { padding: 0 6px 0 12px !important; white-space: nowrap; }
+  .set-nav.sb .sb-item { white-space: nowrap; flex: 0 0 auto; padding: 6px 9px; }
+  .set-nav.sb button.sb-item { width: auto !important; }
+  .set-nav.sb > .btn { margin-bottom: 0 !important; flex: 0 0 auto; }
+  .main-body:has(> .hist-list) { flex-direction: column; }
+  .hist-list {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    width: 100%;
+    flex: 0 0 auto;
+    overflow-x: auto;
+    padding: 10px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .hist-list::-webkit-scrollbar { display: none; }
+  .hist-list .hist-i { width: auto; flex: 0 0 auto; min-width: 180px; max-width: 240px; }
+  .hist-list .hist-i b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+
+  /* Rows of settings controls stack instead of forcing a fixed grid. */
+  .keyrow { grid-template-columns: 1fr auto; }
+
+  /* Overlays take the width they are given. */
+  .scrim { padding: 12px; align-items: flex-end; }
+  .scrim .sheet, .scrim .cmdk { margin-bottom: env(safe-area-inset-bottom); }
+  .cmdk { margin-top: 0; }
+  .cmdk-l { max-height: min(392px, 55dvh); }
+  .rail { width: 100%; }
+  .aip { width: calc(100vw - 32px); right: 16px; }
 }

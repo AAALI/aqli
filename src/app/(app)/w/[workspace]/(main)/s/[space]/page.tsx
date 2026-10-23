@@ -6,7 +6,7 @@ import { getDocs, getSpaceTree } from "@/lib/supabase/docs";
 import { getOwnerDirectory } from "@/lib/supabase/owners";
 import { getMyRole } from "@/lib/supabase/members";
 import { readingPathProgress } from "@/lib/supabase/questions";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 import AppTopBar from "@/components/layout/AppTopBar";
 import DocTree from "@/components/docs/DocTree";
 import Status from "@/components/docs/Status";
@@ -39,10 +39,7 @@ export default async function SpacePage({
   const space = await getSpaceBySlug(workspace.id, spaceSlug).catch(() => null);
   if (!space) notFound();
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   const [all, owners, tree, role] = await Promise.all([
     getDocs(workspace.id, { spaceId: space.id, limit: 300 }),
     getOwnerDirectory(workspace.id),

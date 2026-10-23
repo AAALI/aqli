@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 import { getHome, type WaitingItem } from "@/lib/supabase/home";
 import { getSpaces } from "@/lib/supabase/spaces";
 import { getOwnerDirectory } from "@/lib/supabase/owners";
@@ -31,10 +31,7 @@ export default async function WorkspaceHome({
 }) {
   const { workspace: slug } = await params;
   const workspace = await getWorkspaceBySlug(slug);
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   const loaded = await loadOrDrift(() =>
     Promise.all([

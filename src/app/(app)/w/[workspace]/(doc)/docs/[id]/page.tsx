@@ -4,14 +4,14 @@ import { getDoc, getDocVersions, getBacklinks, getDocPath } from "@/lib/supabase
 import { getOwnerDirectory, ownerInfo } from "@/lib/supabase/owners";
 import { getDocCommentThread } from "@/lib/supabase/comments";
 import { listWorkspaceMembers, getMyRole } from "@/lib/supabase/members";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, getUser } from "@/lib/supabase/server";
 import { getDocActivity } from "@/lib/supabase/activity";
 import { recordRead } from "@/lib/supabase/questions";
 import TrustLine from "@/components/docs/TrustLine";
 import ReadingRail, { CitingDoc, type HistoryEntry } from "@/components/docs/ReadingRail";
 import DocComments from "@/components/docs/DocComments";
 import DocAskAssistant from "@/components/docs/DocAskAssistant";
-import DocBodyClient from "@/components/docs/DocBodyClient";
+import MermaidIslands from "@/components/docs/MermaidIslands";
 import ShareButton from "@/components/docs/ShareButton";
 import { ArchiveButton, RestoreButton, DeleteForeverButton } from "@/components/docs/DocLifecycle";
 import PhoneReadBar from "@/components/docs/PhoneReadBar";
@@ -20,6 +20,7 @@ import CmdKButton from "@/components/cmdk/CmdKButton";
 import { isPublished } from "@/lib/doc-status";
 import { trustFor } from "@/lib/trust";
 import { formatRelative } from "@/lib/utils";
+import { renderDocHtml } from "@/lib/markdown/render-html";
 
 type Loaded<T> = { data: T; failed: false } | { data: null; failed: true };
 
@@ -63,7 +64,7 @@ export default async function DocViewPage({
   // things in, and nobody but its author can see it (§3.2).
   if (!isPublished(doc.status)) redirect(`${base}/docs/${doc.id}/edit`);
 
-  const [versions, backlinks, owners, thread, members, role, activity, supabase] =
+  const [versions, backlinks, owners, thread, members, role, activity, user, supabase] =
     await Promise.all([
       getDocVersions(id).catch(() => []),
       getBacklinks(id, doc.workspace_id).catch(() => []),
@@ -72,13 +73,11 @@ export default async function DocViewPage({
       loadSection(listWorkspaceMembers(doc.workspace_id), "the member list"),
       getMyRole(doc.workspace_id),
       getDocActivity(doc.workspace_id, doc.id, 50).catch(() => []),
+      getUser(),
       createServerSupabaseClient(),
       // Once per person per doc — what reading-path completion counts.
       recordRead(doc.workspace_id, doc.id),
     ]);
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
   const isArchived = doc.status === "archived";
   const canEdit = (role === "admin" || role === "editor") && !isArchived;
   const canArchive = role === "admin" || role === "editor";
@@ -144,7 +143,7 @@ export default async function DocViewPage({
         <nav className="tb-crumb" aria-label="Breadcrumb">
           <Link href={spaceCrumb.href}>{spaceCrumb.label}</Link>
           {ancestors.map((a) => (
-            <span key={a.id} style={{ display: "contents" }}>
+            <span key={a.id} className="only-wide" style={{ display: "contents" }}>
               <span className="crumb-sep"><IconChevRight size={12} /></span>
               <Link href={`${base}/docs/${a.id}`}>{a.title}</Link>
             </span>
@@ -154,21 +153,25 @@ export default async function DocViewPage({
         </nav>
         <div className="tb-spacer" />
         <div className="tb-actions">
-          {canEdit && (
-            <Link href={`${base}/docs/${doc.id}/edit`} className="btn btn-ghost">
-              <IconEdit size={14} />
-              Edit
-            </Link>
-          )}
-          {canArchive && !isArchived && (
-            <ArchiveButton
-              docId={doc.id}
-              hasSubPages={(subPages ?? 0) > 0}
-              redirectTo={doc.space ? `${base}/s/${doc.space.slug}` : base}
-              size="md"
-            />
-          )}
-          <ShareButton />
+          {/* On a phone, Edit and Share are in the bar at the bottom (frame 13)
+              and archiving is a desktop job; only search stays up here. */}
+          <span className="only-wide tb-actions">
+            {canEdit && (
+              <Link href={`${base}/docs/${doc.id}/edit`} className="btn btn-ghost">
+                <IconEdit size={14} />
+                Edit
+              </Link>
+            )}
+            {canArchive && !isArchived && (
+              <ArchiveButton
+                docId={doc.id}
+                hasSubPages={(subPages ?? 0) > 0}
+                redirectTo={doc.space ? `${base}/s/${doc.space.slug}` : base}
+                size="md"
+              />
+            )}
+            <ShareButton />
+          </span>
           <CmdKButton />
         </div>
       </div>
@@ -211,9 +214,16 @@ export default async function DocViewPage({
             <h1 className="dt">{doc.title}</h1>
             {trust && !isArchived && <TrustLine docId={doc.id} trust={trust} />}
 
-            <div id="doc-body">
-              <DocBodyClient bodyMd={doc.body_md} title={doc.title} />
-            </div>
+            {/* The body arrives as HTML, rendered on the server from the
+                canonical markdown — no editor to download before the words
+                show (see `lib/markdown/render-html.ts`). Only diagrams need
+                the browser, and only once they scroll into view. */}
+            <div
+              id="doc-body"
+              className="dbody"
+              dangerouslySetInnerHTML={{ __html: renderDocHtml(doc.body_md, doc.title) }}
+            />
+            <MermaidIslands key={doc.id} scope="doc-body" />
 
             {/* Cited-by also lives at the foot, so the information exists
                 with the rail shut (§4). */}

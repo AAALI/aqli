@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { IconChevLeft } from "@/components/aqli/icons";
-import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   base: string;
@@ -51,6 +50,8 @@ export default function SettingsSidebar({ base, workspaceName, isAdmin = false }
   ];
 
   async function signOut() {
+    // Loaded on the click, not with the page (see `AccountMenu`).
+    const { createClient } = await import("@/lib/supabase/client");
     await createClient().auth.signOut();
     router.push("/login");
     router.refresh();

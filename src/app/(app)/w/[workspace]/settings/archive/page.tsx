@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getMyRole } from "@/lib/supabase/members";
 import { getOwnerDirectory } from "@/lib/supabase/owners";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, getUser } from "@/lib/supabase/server";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { RestoreButton, DeleteForeverButton } from "@/components/docs/DocLifecycle";
 import { IconFile } from "@/components/aqli/icons";
@@ -36,10 +36,10 @@ export default async function SettingsArchivePage({
   const base = `/w/${workspace.slug}`;
   const supabase = await createServerSupabaseClient();
 
-  const [role, owners, { data: { user } }, { data }] = await Promise.all([
+  const [role, owners, user, { data }] = await Promise.all([
     getMyRole(workspace.id),
     getOwnerDirectory(workspace.id),
-    supabase.auth.getUser(),
+    getUser(),
     supabase
       .from("docs")
       .select("id, title, owner_id, archived_at, archived_by, parent_doc_id, space:spaces(name, slug)")

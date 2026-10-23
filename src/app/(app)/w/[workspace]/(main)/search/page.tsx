@@ -4,7 +4,7 @@ import { getSpaces } from "@/lib/supabase/spaces";
 import { searchDocs, type SearchHit } from "@/lib/supabase/docs";
 import { getOwnerDirectory } from "@/lib/supabase/owners";
 import { getGaps } from "@/lib/supabase/questions";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 import AppTopBar from "@/components/layout/AppTopBar";
 import Status from "@/components/docs/Status";
 import { docState } from "@/lib/doc-status";
@@ -33,10 +33,7 @@ export default async function SearchPage({
   const { q = "", space: spaceFilter, current } = await searchParams;
   const workspace = await getWorkspaceBySlug(slug);
   const base = `/w/${workspace.slug}`;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   const query = q.trim();
 
   const [spaces, owners, hits, gaps] = await Promise.all([

@@ -1,7 +1,7 @@
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getPendingReviewDocs, getOpenProposals } from "@/lib/supabase/review";
 import { getOwnerDirectory } from "@/lib/supabase/owners";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, getUser } from "@/lib/supabase/server";
 import AppTopBar from "@/components/layout/AppTopBar";
 import ChecksClient, { type CheckItem } from "./ChecksClient";
 import { whatChanged, firstParagraph } from "@/lib/checks";
@@ -18,10 +18,8 @@ export default async function ChecksPage({ params }: { params: Promise<{ workspa
   const { workspace: wsSlug } = await params;
   const workspace = await getWorkspaceBySlug(wsSlug);
   const base = `/w/${workspace.slug}`;
+  const user = await getUser();
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const [proposals, docs, owners] = await Promise.all([
     getOpenProposals(workspace.id),

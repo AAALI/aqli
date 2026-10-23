@@ -24,24 +24,10 @@ import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import Image from "@tiptap/extension-image";
 import type { Schema } from "@tiptap/pm/model";
+import { isCalloutKind, type CalloutKind } from "./callouts";
 
-/** GFM alert kinds, the callout vocabulary from spec §4.1. */
-export const CALLOUT_KINDS = [
-  "NOTE",
-  "TIP",
-  "IMPORTANT",
-  "WARNING",
-  "CAUTION",
-] as const;
-
-export type CalloutKind = (typeof CALLOUT_KINDS)[number];
-
-export function isCalloutKind(value: unknown): value is CalloutKind {
-  return (
-    typeof value === "string" &&
-    (CALLOUT_KINDS as readonly string[]).includes(value)
-  );
-}
+export { CALLOUT_KINDS, isCalloutKind } from "./callouts";
+export type { CalloutKind } from "./callouts";
 
 /**
  * Callouts are a blockquote carrying an attribute, not a custom node type, so

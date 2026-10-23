@@ -10,8 +10,6 @@ import {
   IconWand,
   IconX,
 } from "@/components/aqli/icons";
-import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
-import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
 import type { CowriteMessage } from "@/components/editor/v2/types";
 
 /**
@@ -22,6 +20,11 @@ import type { CowriteMessage } from "@/components/editor/v2/types";
  * two of them fighting over the same corner. Co-write and Ask are now the two
  * modes of a single component: a surface mounts it once, with one mode, and
  * there is no arrangement of props that produces two pills.
+ *
+ * The markdown pipeline (and with it Tiptap and ProseMirror, ~190 KiB
+ * gzipped) is imported only when co-writing actually sends or inserts: the
+ * reading surface mounts this in "ask" mode and must not download an editor to
+ * show a chat box.
  */
 export type AssistantMode = "cowrite" | "ask";
 
@@ -290,6 +293,7 @@ function CowriteAssistant({
     async (history: CowriteMessage[]) => {
       setBusy(true);
       try {
+        const { tiptapToMarkdown } = await import("@/lib/markdown/tiptap-to-md");
         const res = await fetch("/api/ai/cowrite", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -345,9 +349,11 @@ function CowriteAssistant({
 
   const insert = useCallback(
     (md: string) => {
-      const content = markdownToTiptap(insertableMarkdown(md)).content ?? [];
-      if (content.length === 0) return;
-      editor.chain().focus().insertContentAt(editor.state.selection.to, content).run();
+      void import("@/lib/markdown/md-to-tiptap").then(({ markdownToTiptap }) => {
+        const content = markdownToTiptap(insertableMarkdown(md)).content ?? [];
+        if (content.length === 0 || editor.isDestroyed) return;
+        editor.chain().focus().insertContentAt(editor.state.selection.to, content).run();
+      });
     },
     [editor],
   );
