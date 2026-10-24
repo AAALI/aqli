@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerSupabaseClient } from "./server";
 import { submitProposal, type SubmitResult } from "@/lib/db/proposals";
 import { citingSection } from "@/lib/backlinks";
@@ -45,6 +46,24 @@ export async function getDocs(
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as DocWithSpace[];
+}
+
+/**
+ * How many drafts you have in a workspace — the sidebar's number.
+ *
+ * A count, not a fetch: the shell used to load up to 200 draft rows, markdown
+ * bodies included, on every page just to count the ones that were yours.
+ */
+export async function countMyDrafts(workspaceId: string, userId: string): Promise<number> {
+  const supabase = await createServerSupabaseClient();
+  const { count, error } = await supabase
+    .from("docs")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId)
+    .eq("status", "draft")
+    .eq("owner_id", userId);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 /**
@@ -115,7 +134,7 @@ export async function moveDoc(docId: string, parentId: string | null, position?:
   if (error) throw error;
 }
 
-export async function getDoc(id: string) {
+export const getDoc = cache(async (id: string) => {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("docs")
@@ -124,7 +143,7 @@ export async function getDoc(id: string) {
     .single();
   if (error) throw error;
   return data as DocWithSpace;
-}
+});
 
 /**
  * What a save did. `proposal` is null on the direct-write path (the merge

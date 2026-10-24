@@ -1,5 +1,5 @@
 import { redirect, notFound } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getSpaces } from "@/lib/supabase/spaces";
 import { createDocument } from "@/lib/supabase/docs";
@@ -33,10 +33,7 @@ export default async function WritePage({
   const workspace = await getWorkspaceBySlug(slug).catch(() => null);
   if (!workspace) notFound();
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/login");
 
   // A draft has to land somewhere, but the writer is not asked: it goes to the

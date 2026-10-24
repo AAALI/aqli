@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, getUser } from "@/lib/supabase/server";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getMyRole, listWorkspaceMembers } from "@/lib/supabase/members";
 import { listPendingInvitations } from "@/lib/supabase/invitations";
@@ -14,10 +14,8 @@ export default async function SettingsMembersPage({
   const workspace = await getWorkspaceBySlug(wsSlug);
   const base = `/w/${workspace.slug}`;
 
+  const user = await getUser();
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const [role, members, { data: owned }] = await Promise.all([
     getMyRole(workspace.id),

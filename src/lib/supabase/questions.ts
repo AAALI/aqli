@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "./server";
+import { createServerSupabaseClient, getUser } from "./server";
 
 /**
  * What people asked, and whether anything answered it (v3 §5.7, §5.11).
@@ -40,10 +40,8 @@ export async function recordQuestion(
   const normalized = normalizeQuestion(text);
   if (!normalized) return;
   try {
+    const user = await getUser();
     const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user) return;
     await supabase.from("asked_questions").insert({
       workspace_id: workspaceId,
@@ -141,10 +139,8 @@ export function groupGaps(rows: GapRow[]): Gap[] {
 /** Record that the viewer read a doc. Once per person per doc; best-effort. */
 export async function recordRead(workspaceId: string, docId: string): Promise<void> {
   try {
+    const user = await getUser();
     const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user) return;
     await supabase
       .from("doc_reads")
@@ -164,10 +160,8 @@ export async function readingPathProgress(
 ): Promise<{ finished: number; mine: Set<string> }> {
   if (path.length === 0) return { finished: 0, mine: new Set() };
   try {
+    const user = await getUser();
     const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("doc_reads")
       .select("doc_id, user_id")

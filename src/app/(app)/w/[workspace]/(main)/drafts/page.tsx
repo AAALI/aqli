@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getOwnerDirectory } from "@/lib/supabase/owners";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, getUser } from "@/lib/supabase/server";
 import AppTopBar from "@/components/layout/AppTopBar";
 import { DiscardDraftButton } from "@/components/docs/DocLifecycle";
 import { IconFile } from "@/components/aqli/icons";
@@ -24,10 +24,8 @@ const COUNT = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eig
 export default async function DraftsPage({ params }: { params: Promise<{ workspace: string }> }) {
   const { workspace: slug } = await params;
   const workspace = await getWorkspaceBySlug(slug);
+  const user = await getUser();
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
   const base = `/w/${workspace.slug}`;
 
   const [{ data: mineRaw }, { data: mentions }, owners] = await Promise.all([

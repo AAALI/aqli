@@ -3,7 +3,7 @@ import { getDoc } from "@/lib/supabase/docs";
 import { getSpaces } from "@/lib/supabase/spaces";
 import { listWorkspaceMembers } from "@/lib/supabase/members";
 import { ownerInfo } from "@/lib/supabase/owners";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 import DocEditorClientLoader from "./DocEditorClientLoader";
 
 export default async function DocEditPage({
@@ -17,15 +17,12 @@ export default async function DocEditPage({
   // An archived page is put away, not worked on. Restore it first.
   if (doc.status === "archived") redirect(`/w/${wsSlug}/docs/${doc.id}`);
 
-  const [spaces, members, supabase] = await Promise.all([
+  const [spaces, members, user] = await Promise.all([
     getSpaces(doc.workspace_id),
     // Non-fatal: the publish sheet simply drops its checker row if this fails.
     listWorkspaceMembers(doc.workspace_id).catch(() => []),
-    createServerSupabaseClient(),
+    getUser(),
   ]);
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   // Who can be asked to check something: everyone who could act on it, minus
   // yourself. Asking yourself to confirm your own doc is what publishing with

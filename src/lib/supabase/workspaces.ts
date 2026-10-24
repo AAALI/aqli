@@ -1,7 +1,12 @@
+import { cache } from "react";
 import { createServerSupabaseClient } from "./server";
 import type { Workspace } from "@/types/workspace";
 
-export async function getWorkspaceBySlug(slug: string) {
+/**
+ * Memoised per request: the workspace layout, the shell layout and the page
+ * each resolve the slug, and it is the same row.
+ */
+export const getWorkspaceBySlug = cache(async (slug: string) => {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("workspaces")
@@ -10,7 +15,7 @@ export async function getWorkspaceBySlug(slug: string) {
     .single();
   if (error) throw error;
   return data as Workspace;
-}
+});
 
 export async function getMyWorkspaces() {
   const supabase = await createServerSupabaseClient();

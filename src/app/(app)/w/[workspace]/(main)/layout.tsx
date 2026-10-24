@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 import { getWorkspaceBySlug } from "@/lib/supabase/workspaces";
 import { getSpaces, getSpaceDocCounts } from "@/lib/supabase/spaces";
 import { getReviewCount, getOpenProposalCount } from "@/lib/supabase/review";
-import { getDocs } from "@/lib/supabase/docs";
+import { countMyDrafts } from "@/lib/supabase/docs";
 import Sidebar from "@/components/layout/Sidebar";
 import PhoneTabs from "@/components/layout/PhoneTabs";
 import SchemaBehind from "@/components/preflight/SchemaBehind";
@@ -20,10 +20,7 @@ export default async function MainShell({
   const workspace = await getWorkspaceBySlug(slug).catch(() => null);
   if (!workspace) notFound();
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   // Checks counts everything waiting on a person: open proposals plus the
   // documents the pre-proposals flow left at `status = 'review'`.
@@ -33,17 +30,16 @@ export default async function MainShell({
       getOpenProposalCount(workspace.id),
       getReviewCount(workspace.id),
       getSpaceDocCounts(workspace.id),
-      getDocs(workspace.id, { status: "draft", limit: 200 }),
+      // Your drafts, not the workspace's: nobody can see these but you, so a
+      // count of everyone's would be a number you cannot open.
+      user ? countMyDrafts(workspace.id, user.id) : Promise.resolve(0),
     ]),
   );
   if (!counts.ok) {
     return <SchemaBehind drift={counts.drift} healthHref={`/w/${slug}/settings/health`} />;
   }
-  const [spaces, proposalCount, legacyReviewCount, spaceCounts, drafts] = counts.data;
+  const [spaces, proposalCount, legacyReviewCount, spaceCounts, draftsCount] = counts.data;
   const checksCount = proposalCount + legacyReviewCount;
-  // Your drafts, not the workspace's: nobody can see these but you, so a count
-  // of everyone's would be a number you cannot open.
-  const draftsCount = user ? drafts.filter((d) => d.owner_id === user.id).length : 0;
   const userName =
     (user?.user_metadata?.full_name as string | undefined) ||
     user?.email?.split("@")[0] ||

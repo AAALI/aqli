@@ -381,7 +381,7 @@ function NewKeyModal({
   onCreate: () => void;
 }) {
   return (
-    <div style={{ ...MODAL_SHELL, width: 480 }}>
+    <div style={{ ...MODAL_SHELL, width: 480, maxWidth: "calc(100vw - 32px)" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <h2 style={{ margin: 0, fontFamily: "var(--font-serif)", fontWeight: 400, fontSize: 22, letterSpacing: "-0.01em", color: "var(--text-primary)" }}>Create API key</h2>
         <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>Generate a key for a new agent. You&apos;ll see the full key once.</p>
@@ -452,7 +452,7 @@ function RevealModal({ name, secret, agentBase, mcpUrl, onClose }: { name: strin
     setTimeout(() => setCopied(false), 1500);
   }
   return (
-    <div style={{ ...MODAL_SHELL, width: 540 }}>
+    <div style={{ ...MODAL_SHELL, width: 540, maxWidth: "calc(100vw - 32px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "var(--warn-bg)", border: "1px solid var(--warn-border)", borderRadius: 8 }}>
         <span style={{ color: "var(--warn-text)", display: "flex" }}><IconWarn size={18} /></span>
         <div style={{ flex: 1, fontSize: 13, color: "var(--warn-text)", lineHeight: 1.5 }}>

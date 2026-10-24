@@ -1,7 +1,8 @@
+import { cache } from "react";
 import { createServerSupabaseClient } from "./server";
 import type { Space } from "@/types/space";
 
-export async function getSpaces(workspaceId: string) {
+export const getSpaces = cache(async (workspaceId: string) => {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("spaces")
@@ -10,7 +11,7 @@ export async function getSpaces(workspaceId: string) {
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data ?? []) as Space[];
-}
+});
 
 /**
  * Published docs per space, for the sidebar's mono count.

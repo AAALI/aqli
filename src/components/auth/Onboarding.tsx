@@ -594,7 +594,7 @@ export default function Onboarding() {
         {step === "spaces" && (
           <form
             className="ob-card"
-            style={{ width: 520 }}
+            style={{ width: 520, maxWidth: "100%" }}
             onSubmit={(e) => {
               e.preventDefault();
               if (newSpaceCount === 0 || spacesFailed.length) finish(spacesFailed.length ? "spaces-partial" : "spaces");

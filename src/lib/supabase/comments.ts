@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "./server";
+import { createServerSupabaseClient, getUser } from "./server";
 import { getOwnerDirectory } from "./owners";
 import { listWorkspaceMembers } from "./members";
 import { extractMentionedMembers } from "@/lib/mentions";
@@ -93,11 +93,9 @@ export async function createDocComment(
   if (text.length > MAX_BODY)
     throw new CommentError(400, `A comment cannot be longer than ${MAX_BODY} characters.`);
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) throw new CommentError(401, "Unauthorized");
+  const supabase = await createServerSupabaseClient();
 
   // Resolve mentions against the member list. Anyone named who is not a member
   // stays in the text and gets no notification — see `extractMentionedMembers`.

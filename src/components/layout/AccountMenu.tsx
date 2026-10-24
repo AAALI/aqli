@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import {
   IconChevDown,
   IconGear,
@@ -40,8 +39,10 @@ export default function AccountMenu({
 
   async function signOut() {
     setBusy(true);
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    // The browser Supabase client (55 KiB gzipped) exists in this shell for
+    // this one click, so it is fetched on the click rather than with the page.
+    const { createClient } = await import("@/lib/supabase/client");
+    await createClient().auth.signOut();
     router.push("/login");
     router.refresh();
   }

@@ -6,10 +6,11 @@ import type React from "react";
 /**
  * Loads the document editor without putting Tiptap in the Cloudflare worker.
  *
- * Same reasoning as `components/docs/DocBodyClient.tsx`: `DocEditorClient`
- * mounts Tiptap with `immediatelyRender: false`, so the server pass renders
- * nothing — but the module graph still dragged ProseMirror and the whole
- * markdown schema into the worker, ~450 KiB per route, against a 3 MiB budget.
+ * `DocEditorClient` mounts Tiptap with `immediatelyRender: false`, so the
+ * server pass renders nothing — but the module graph still dragged ProseMirror
+ * and the whole markdown schema into the worker, ~450 KiB per route, against a
+ * 3 MiB budget. (The reading surface no longer mounts Tiptap at all: it is
+ * rendered to HTML on the server by `lib/markdown/render-html.ts`.)
  *
  * `ssr: false` has to be set inside a Client Component; Next 16 rejects it in a
  * Server Component. That is the only reason this file exists.

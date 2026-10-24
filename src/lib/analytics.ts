@@ -8,23 +8,25 @@
  * runtime already spends two thirds of.
  *
  * So the import happens at call time, in the browser, and never on the server.
- * `instrumentation-client.ts` still does the eager `init` — it is a
- * client-only entrypoint by Next convention and never enters the worker graph.
+ * `lib/posthog-browser.ts` owns the load and the `init`; `instrumentation-
+ * client.ts` kicks it off once the page is idle, and a `capture` that arrives
+ * before then simply waits for it.
  *
  * Every function here is fire-and-forget. Analytics must not be able to fail
  * a user action, and a rejected import is not worth a console line on every
  * click for people running an ad blocker.
  */
 
+import { loadPosthog } from "@/lib/posthog-browser";
+
 type Props = Record<string, unknown>;
 
-async function client() {
-  if (typeof window === "undefined") return null;
-  try {
-    return (await import("posthog-js")).default;
-  } catch {
-    return null;
-  }
+/**
+ * The SDK, loaded and initialised on first use (`lib/posthog-browser.ts`), or
+ * `null` on the server and wherever the import was blocked.
+ */
+function client() {
+  return loadPosthog();
 }
 
 /**

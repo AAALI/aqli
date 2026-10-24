@@ -71,6 +71,13 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#FAFAF8",
+  // Let the page run under the notch and home indicator; the bars at the
+  // bottom pad themselves with `env(safe-area-inset-bottom)`.
+  viewportFit: "cover",
+  // When the keyboard opens, shrink the layout viewport so fixed bars and
+  // `dvh` heights sit above it instead of underneath it (Chrome on Android;
+  // iOS is handled by `PhoneFormatBar` watching the visual viewport).
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
