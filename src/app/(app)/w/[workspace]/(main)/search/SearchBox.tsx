@@ -33,6 +33,7 @@ export default function SearchBox({ base, initial }: { base: string; initial: st
         }}
         placeholder="Ask anything your team has written down"
         aria-label="Search"
+        className="search-q"
         style={{ flex: 1, border: 0, outline: "none", background: "none", fontFamily: "var(--font-serif)", fontSize: 27, letterSpacing: "-0.015em", color: "var(--text-primary)" }}
       />
       {value && <span className="kbd">esc to clear</span>}

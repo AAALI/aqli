@@ -7,7 +7,7 @@ import { IconChevDown } from "@/components/aqli/icons";
  */
 export function SettingsHeader({ title, sub, action }: { title: string; sub?: string; action?: ReactNode }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 26 }}>
+    <div className="set-head" style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 26 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <h1 className="h1">{title}</h1>
         {sub && <p className="h1s" style={{ maxWidth: 560 }}>{sub}</p>}

@@ -76,7 +76,12 @@ export default function SelectionToolbar({
         from,
         to,
         top: start.top - rect.top + container.scrollTop - 10,
-        left: Math.min(Math.max((start.left + end.left) / 2 - rect.left, 130), rect.width - 130),
+        // Centred on the selection, kept inside the column. A phone column is
+        // narrower than the bar, so there it sits in the middle and scrolls.
+        left:
+          rect.width < 520
+            ? rect.width / 2
+            : Math.min(Math.max((start.left + end.left) / 2 - rect.left, 130), rect.width - 130),
       });
       setCiteResults(null);
     };
@@ -218,6 +223,8 @@ export default function SelectionToolbar({
           boxShadow: "0 12px 28px -8px rgba(20,20,18,0.32), 0 2px 6px rgba(20,20,18,0.10)",
           whiteSpace: "nowrap",
           position: "relative",
+          maxWidth: "calc(100vw - 24px)",
+          overflowX: "auto",
         }}
       >
         {busy ? (
@@ -264,6 +271,7 @@ export default function SelectionToolbar({
               >
                 {a.label}
                 <kbd
+                  className="only-wide"
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 10,

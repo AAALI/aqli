@@ -210,6 +210,7 @@ export default function SpacePoliciesClient({
             return (
               <div
                 key={space.id}
+                className="policy-row"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "36px 1fr 150px 210px",

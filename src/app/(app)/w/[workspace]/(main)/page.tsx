@@ -145,7 +145,7 @@ function LeftOff({ base, doc }: { base: string; doc: DocWithSpace }) {
       : `last written in “${section}”`
     : "not started yet";
   return (
-    <div className="card" style={{ marginTop: 26, display: "flex", alignItems: "center", gap: 18, padding: "16px 18px" }}>
+    <div className="card leftoff" style={{ marginTop: 26, display: "flex", alignItems: "center", gap: 18, padding: "16px 18px" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p className="eyebrow-s">Where you left off</p>
         <p style={{ margin: "6px 0 0", fontFamily: "var(--font-serif)", fontSize: 19, fontWeight: 500, letterSpacing: "-0.008em" }}>

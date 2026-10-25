@@ -406,9 +406,12 @@ export default function DocEditorClient({
           <IconChevLeft size={16} />
           {spaceCrumb.label}
         </Link>
-        <span className={`tb-saved${saveError ? " is-error" : ""}`}>
+        {/* On a phone the dot is the whole affordance (its title says the
+            rest): the label, Discard and Publish do not all fit in 390px, and
+            Publish is the one that must. */}
+        <span className={`tb-saved${saveError ? " is-error" : ""}`} title={savedLabel}>
           <i />
-          {savedLabel}
+          <span className="only-wide">{savedLabel}</span>
         </span>
         <div className="tb-spacer" />
         <div className="tb-actions">
@@ -423,7 +426,9 @@ export default function DocEditorClient({
           {/* Publish only exists while it is a draft. A published doc is
               edited and saved, not re-published. */}
           {!isPublished(doc.status) && canDiscard && (
-            <DiscardDraftButton docId={doc.id} redirectTo={`${base}/drafts`} size="md" />
+            <span className="only-wide" style={{ display: "contents" }}>
+              <DiscardDraftButton docId={doc.id} redirectTo={`${base}/drafts`} size="md" />
+            </span>
           )}
           {!isPublished(doc.status) && (
             <button type="button" className="btn btn-primary" onClick={() => setPublishOpen(true)}>
