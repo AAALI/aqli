@@ -1128,6 +1128,8 @@ button.ob-skip:hover { color: var(--text-secondary); }
 .tline:hover .re,
 .tline:focus-within .re,
 .tline .re.is-pinned { visibility: visible; }
+/* No hover on a touch screen: the action is simply there. */
+@media (hover: none) { .tline .re { visibility: visible; } }
 
 /* ───────── Reading rail ─────────
    Ships closed: a 40px strip on the right edge. Open, it is 312px and slides
@@ -1735,6 +1737,44 @@ button.ob-skip:hover { color: var(--text-secondary); }
   .cmdk { margin-top: 0; }
   .cmdk-l { max-height: min(392px, 55dvh); }
   .rail { width: 100%; }
+
+  /* ── Text fields ──
+     iOS zooms the page the moment a field under 16px is focused, and the page
+     stays zoomed. Many fields set their size inline, so this has to win over
+     those. The exceptions are the fields whose design size is already large:
+     the doc title (29px here) and the search question. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(.search-q),
+  textarea:not(.dt),
+  select { font-size: 16px !important; }
+  .search-q { font-size: 22px !important; }
+
+  /* A focused field scrolls clear of the bar at the bottom, and while someone
+     is typing on the reading surface the bar steps out of the way entirely —
+     the keyboard already has the bottom of the screen. */
+  .doc-scroll, .wrap, .content { scroll-padding-bottom: 150px; }
+  .main-body:has(textarea:focus, input:focus) ~ .pbar-read { display: none; }
+
+  /* Breadcrumb links truncate too, not only the current page — and before
+     it: a short current crumb ("History") keeps its word while the links
+     give way; a long one (a doc title) is capped and truncates. */
+  .tb-crumb a { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .tb-crumb .crumb-cur { flex-shrink: 0; max-width: 72%; }
+
+  /* Settings pages: the desktop gutters and the side-by-side header. */
+  .content { padding: 22px 16px !important; }
+  .set-head { flex-direction: column; align-items: stretch !important; }
+  .set-head .btn { align-self: flex-start; }
+  .keyrow b, .keyrow p { overflow-wrap: anywhere; }
+  .policy-row { grid-template-columns: 36px 1fr !important; gap: 10px 14px !important; padding: 14px !important; }
+  .policy-row > div:nth-child(3), .policy-row > div:nth-child(4) { grid-column: 1 / -1; justify-self: stretch !important; }
+  .policy-row select { width: 100%; }
+
+  /* Home: the jump-back card stacks, the button under the words. */
+  .leftoff { flex-direction: column; align-items: flex-start !important; gap: 12px !important; }
+  .leftoff > div { width: 100%; }
+
+  /* Search: the filter chips drop under the heading instead of crushing it. */
+  .sect-h { flex-wrap: wrap; row-gap: 10px; }
 
   /* The AI panel: fixed to the screen, not to the paper, above the bottom
      bar — which steps aside while the panel is open, so the composer is never

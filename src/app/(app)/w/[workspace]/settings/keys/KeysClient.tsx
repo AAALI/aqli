@@ -310,7 +310,7 @@ function KeyRow({
   const meta = [
     scopeWords(k.scopes),
     k.wrote ? `wrote ${k.wrote} doc${k.wrote === 1 ? "" : "s"}` : null,
-    k.last_used_at ? `last used ${fmtWhen(k.last_used_at)}` : "never used",
+    k.last_used_at ? fmtWhen(k.last_used_at).replace(/^Last/, "last") : "never used",
   ]
     .filter(Boolean)
     .join(" · ");
