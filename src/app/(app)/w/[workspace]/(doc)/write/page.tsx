@@ -30,10 +30,13 @@ export default async function WritePage({
   const { workspace: slug } = await params;
   const { space: spaceSlug, type, title } = await searchParams;
 
-  const workspace = await getWorkspaceBySlug(slug).catch(() => null);
+  // Two round trips that do not depend on each other, made together: this
+  // page is one tap on a phone, and every serial await here is felt.
+  const [workspace, user] = await Promise.all([
+    getWorkspaceBySlug(slug).catch(() => null),
+    getUser(),
+  ]);
   if (!workspace) notFound();
-
-  const user = await getUser();
   if (!user) redirect("/login");
 
   // A draft has to land somewhere, but the writer is not asked: it goes to the

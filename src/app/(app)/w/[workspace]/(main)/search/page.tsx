@@ -58,7 +58,7 @@ export default async function SearchPage({
 
   return (
     <>
-      <AppTopBar crumbs={[{ label: "Search" }]} actions={<span className="kbd">⌘K for the quick version</span>} />
+      <AppTopBar crumbs={[{ label: "Search" }]} actions={<span className="kbd only-wide">⌘K for the quick version</span>} />
       <div className="wrap">
         <div className="wrap-in">
           <SearchBox base={base} initial={query} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useKeyboardInset } from "@/components/editor/useKeyboardInset";
 import Link from "next/link";
 import type { Editor } from "@tiptap/react";
 import {
@@ -114,8 +115,21 @@ function AssistantPanel({
   closeTitle: string;
   children: React.ReactNode;
 }) {
+  // On a phone the panel is fixed above the bottom bar, and the bar steps
+  // aside while it is open (`.has-aip`, see the phone block in globals.css):
+  // the two were sharing the bottom edge and the bar hid the panel's input.
+  // With the keyboard up, iOS overlays it without resizing the page, so the
+  // panel lifts itself by the keyboard's height like `PhoneFormatBar` does.
+  useEffect(() => {
+    document.body.classList.add("has-aip");
+    return () => document.body.classList.remove("has-aip");
+  }, []);
+  const inset = useKeyboardInset();
   return (
-    <div className="aip">
+    <div
+      className="aip"
+      style={inset ? { bottom: inset + 12, maxHeight: `calc(100dvh - ${inset + 24}px)` } : undefined}
+    >
       <div className="aip-h">
         <span style={{ color: "var(--accent)", display: "inline-flex" }}>{icon}</span>
         <span>{title}</span>
