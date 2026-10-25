@@ -20,6 +20,7 @@ import { aqliExtensions } from "@/lib/markdown/schema";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
 import { isPublished } from "@/lib/doc-status";
+import { pumpSaveQueue, type SavePumpState } from "@/lib/save-pump";
 import {
   hasTitleHeading,
   prependTitleHeading,
@@ -83,8 +84,10 @@ export default function DocEditorClient({
   // Unsent (or failed) field updates, merged across edits. Cleared only after
   // the PUT that carried them succeeds, so the unload warning and the
   // unmount/next-edit retry stay armed on failure.
-  const pendingUpdates = useRef<Record<string, unknown> | null>(null);
-  const saveInFlight = useRef(false);
+  const saveQueue = useRef<SavePumpState<Record<string, unknown>>>({
+    pending: null,
+    inFlight: null,
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
@@ -190,32 +193,17 @@ export default function DocEditorClient({
     [doc.id],
   );
 
-  // Single-flight save pump: one PUT at a time, always carrying the latest
-  // merged snapshot, so an older request can never land after a newer one.
-  // On failure the snapshot is restored (newer edits win field-by-field) for
-  // the unmount flush / unload warning / next-edit retry.
+  // Concurrent callers join the same drain, so publishing can wait until all
+  // queued updates have either saved or failed.
   const pumpSaves = useCallback(async () => {
-    if (saveInFlight.current) return;
-    saveInFlight.current = true;
-    try {
-      while (pendingUpdates.current) {
-        const updates = pendingUpdates.current;
-        pendingUpdates.current = null;
-        const ok = await persistOnce(updates);
-        if (!ok) {
-          pendingUpdates.current = { ...updates, ...(pendingUpdates.current ?? {}) };
-          break;
-        }
-      }
-    } finally {
-      saveInFlight.current = false;
-    }
+    return pumpSaveQueue(saveQueue.current, persistOnce);
   }, [persistOnce]);
 
   // Merge field updates into the pending snapshot; sending happens via the
   // pump (immediately, or debounced by the caller's timer).
   const queueUpdates = useCallback((updates: Record<string, unknown>) => {
-    pendingUpdates.current = { ...(pendingUpdates.current ?? {}), ...updates };
+    const pending = saveQueue.current.pending;
+    saveQueue.current.pending = { ...(pending ?? {}), ...updates };
   }, []);
 
   // Declared before `useEditor` because its handlers go into `editorProps`,
@@ -291,7 +279,7 @@ export default function DocEditorClient({
   // edits are unsent or a save is still in flight.
   useEffect(() => {
     function onBeforeUnload(e: BeforeUnloadEvent) {
-      if (pendingUpdates.current || saveInFlight.current) e.preventDefault();
+      if (saveQueue.current.pending || saveQueue.current.inFlight) e.preventDefault();
     }
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
@@ -364,7 +352,9 @@ export default function DocEditorClient({
         // doc that is missing the last two seconds of typing would be worse
         // than a slow button.
         if (saveTimer.current) clearTimeout(saveTimer.current);
-        await pumpSaves();
+        if (!(await pumpSaves())) {
+          throw new Error("Your latest edits couldn't be saved. Retry before publishing.");
+        }
         const res = await fetch(`/api/docs/${doc.id}/publish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
