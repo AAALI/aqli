@@ -106,6 +106,8 @@
 }
 
 * { box-sizing: border-box; }
+/* No double-tap-to-zoom wait on anything tappable. */
+a, button, input, label, select, textarea, [role="button"] { touch-action: manipulation; }
 
 html, body {
   margin: 0;
@@ -1733,5 +1735,21 @@ button.ob-skip:hover { color: var(--text-secondary); }
   .cmdk { margin-top: 0; }
   .cmdk-l { max-height: min(392px, 55dvh); }
   .rail { width: 100%; }
-  .aip { width: calc(100vw - 32px); right: 16px; }
+
+  /* The AI panel: fixed to the screen, not to the paper, above the bottom
+     bar — which steps aside while the panel is open, so the composer is never
+     under it. `FloatingAssistant` lifts the panel over the keyboard itself. */
+  .aip {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 72px);
+    z-index: 40;
+  }
+  /* 16px, or iOS zooms the page the moment the composer is tapped. Inline
+     styles set the desktop size, hence the override. */
+  .aip input, .aip textarea { font-size: 16px !important; }
+  .has-aip .pformat, .has-aip .pbar-read, .has-aip .ptabs { display: none; }
 }
