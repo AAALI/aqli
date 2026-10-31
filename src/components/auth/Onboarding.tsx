@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { AqliMark } from "@/components/aqli/AqliMark";
 import SpaceIcon from "@/components/aqli/SpaceIcon";
 import { IconCheckCircle, IconLink } from "@/components/aqli/icons";
+import EmailAuthForm from "@/components/auth/EmailAuthForm";
+import { authPageHref, emailCallbackUrl, safeAuthNext } from "@/lib/auth/email";
 import {
   CUSTOM_SPACE_ICON,
   ONBOARDING_STEPS,
@@ -79,8 +81,7 @@ export default function Onboarding() {
   const [booting, setBooting] = useState(true);
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const authNext = safeAuthNext(searchParams.get("next"), "/signup?step=workspace");
 
   // Pre-filled from the email domain until the person types (§5.2).
   const [nameInput, setNameInput] = useState<string | null>(null);
@@ -105,7 +106,6 @@ export default function Onboarding() {
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   // Spaces that failed to create. Kept so the user can move on rather than
   // being held on the step by an error that tells them to move on.
   const [spacesFailed, setSpacesFailed] = useState<string[]>([]);
@@ -138,6 +138,13 @@ export default function Onboarding() {
         const { data } = await supabase.auth.getUser();
         const user = data.user;
         if (user) setEmail(user.email ?? "");
+        // Search-only navigation keeps this component mounted, so its entry
+        // effect would never rerun. Resolve same-route onboarding below.
+        const nextRoute = new URL(authNext, "https://aqli.invalid").pathname.replace(/\/+$/, "");
+        if (user && searchParams.get("next") && nextRoute !== "/signup") {
+          router.replace(authNext);
+          return;
+        }
 
         const workspaces: WorkspaceRow[] = user
           ? await fetch("/api/workspaces")
@@ -203,99 +210,6 @@ export default function Onboarding() {
     // Runs once: this is the entry decision, not a subscription.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  /**
-   * Pick the session up as soon as it exists, whichever tab confirmed it.
-   *
-   * With email confirmation on, this tab is otherwise inert: the copy promises
-   * the link "brings you straight back here", but opening it in a second tab
-   * left this one sitting on "Check your inbox" with a "Log in" button as the
-   * only way forward — a second password entry to reach a session this browser
-   * already had.
-   *
-   * It polls rather than listening to `onAuthStateChange`. This app builds its
-   * browser client with `@supabase/ssr`, which keeps the session in **cookies**
-   * so the server can read it — not in localStorage. That means no `storage`
-   * event and no cross-tab broadcast to subscribe to. Cookies are shared across
-   * tabs of the same origin, so asking is what works. (Confirming in a
-   * different browser or on a phone still needs a log in; nothing in this tab
-   * can know about that.)
-   */
-  useEffect(() => {
-    if (!awaitingConfirmation) return;
-    let stop = false;
-    const timer = setInterval(async () => {
-      const { data } = await supabase.auth.getUser();
-      if (stop || !data.user) return;
-      clearInterval(timer);
-      setAwaitingConfirmation(false);
-      setEmail(data.user.email ?? "");
-      setNotice(null);
-      setError(null);
-      setStep("workspace");
-    }, 2500);
-    return () => {
-      stop = true;
-      clearInterval(timer);
-    };
-  }, [awaitingConfirmation, supabase]);
-
-  async function submitAccount(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setNotice(null);
-    setBusy(true);
-    try {
-      // Email and password, and nothing else is asked (§5.1). Until a name is
-      // set, the app greets people by the first part of their email.
-      const name = email.split("@")[0] ?? "";
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          // The confirmation email lands on /auth/callback, which exchanges the
-          // code for a session and resumes onboarding at the workspace step.
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/signup?step=workspace")}`,
-        },
-      });
-      if (error) throw error;
-      if (!data.session) {
-        // Email confirmation is on. Nothing more can happen in this tab until
-        // the link is opened, so say so plainly and offer a resend rather than
-        // leaving a live "Continue" button that only ever errors.
-        setAwaitingConfirmation(true);
-        return;
-      }
-      analytics.identify(data.user!.id, { email, name });
-      analytics.capture("user_signed_up", { email, name });
-      setStep("workspace");
-    } catch (err) {
-      analytics.captureException(err);
-      setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function resendConfirmation() {
-    setBusy(true);
-    setError(null);
-    try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/signup?step=workspace")}`,
-        },
-      });
-      if (error) throw error;
-      setNotice("Sent. Check your inbox again.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not resend");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function submitWorkspace(e: React.FormEvent) {
     e.preventDefault();
@@ -427,7 +341,7 @@ export default function Onboarding() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/signup?step=workspace")}`,
+        redirectTo: emailCallbackUrl(window.location.origin, authNext),
       },
     });
     if (error) setError(error.message);
@@ -442,7 +356,7 @@ export default function Onboarding() {
           <AqliMark size={20} />
           <span>aqli</span>
         </Link>
-        <div className="ob-steps" aria-label={`Step ${stepIndex(step) + 1} of ${ONBOARDING_STEPS.length}`}>
+        <div className="ob-steps" role="img" aria-label={`Step ${stepIndex(step) + 1} of ${ONBOARDING_STEPS.length}`}>
           {ONBOARDING_STEPS.map((s, i) => (
             <span
               key={s.key}
@@ -453,73 +367,29 @@ export default function Onboarding() {
       </div>
 
       <div className="ob-mid">
-        {step === "account" &&
-          (awaitingConfirmation ? (
-            <div className="ob-card">
-              <p className="ob-eb">Check your inbox</p>
-              <h1 className="ob-q">Confirm your email.</h1>
-              <p className="ob-s">
-                We sent a link to {email}. Opening it brings you straight back here — you can close this tab safely.
-              </p>
-              {error && <p className="ob-err" role="alert">{error}</p>}
-              {notice && <p className="ob-note">{notice}</p>}
-              <div className="ob-acts">
-                <button type="button" className="btn btn-secondary btn-lg" onClick={resendConfirmation} disabled={busy}>
-                  {busy ? "Sending…" : "Send it again"}
-                </button>
-                <Link href="/login" className="ob-skip">Already confirmed? Sign in</Link>
-              </div>
-            </div>
-          ) : (
-            <form className="ob-card" onSubmit={submitAccount}>
-              <p className="ob-eb">{stepEyebrow("account")}</p>
-              <h1 className="ob-q">Let&apos;s get you writing.</h1>
-              <p className="ob-s">Two minutes from here to a published doc. You can change everything later.</p>
-              <div className="ob-f">
-                {googleSso && (
+        {step === "account" && (
+          <div className="ob-card">
+            <EmailAuthForm
+              next={authNext} shouldCreateUser
+              title="Let's get you writing." eyebrow={stepEyebrow("account") ?? "Create an account"}
+              description="Start with your email. We'll send a sign-in link and a code, no password needed."
+              initialEmail={email}
+              beforeEmail={googleSso ? (
                   <>
                     <button type="button" className="btn btn-secondary btn-lg" style={{ justifyContent: "center" }} onClick={continueWithGoogle}>
                       <GoogleMark /> Continue with Google
                     </button>
                     <div className="ob-or"><hr /><span>or</span><hr /></div>
                   </>
-                )}
-                <input
-                  className="inp lg"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@company.com"
-                  aria-label="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoFocus
-                />
-                <input
-                  className="inp lg"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Password — at least 8 characters"
-                  aria-label="Password"
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              {error && <p className="ob-err" role="alert">{error}</p>}
-              <div className="ob-acts">
-                <button type="submit" className="btn btn-primary btn-lg" disabled={busy || !email || password.length < 8}>
-                  {busy ? "Creating…" : "Continue"}
-                  {!busy && <span className="kbd kbd-on-accent">⏎</span>}
-                </button>
-                <span className="ob-skip">
+              ) : undefined}
+              footer={<span className="ob-skip">
                   Already have an account?{" "}
-                  <Link href="/login" style={{ color: "var(--accent)", textDecoration: "none" }}>Sign in</Link>
-                </span>
-              </div>
-            </form>
-          ))}
+                  <Link href={authPageHref("/login", authNext)} style={{ color: "var(--accent)", textDecoration: "underline" }}>Sign in</Link>
+                </span>}
+            />
+            {error && <p className="ob-err" role="alert">{error}</p>}
+          </div>
+        )}
 
         {step === "workspace" && (
           <form className="ob-card" onSubmit={submitWorkspace}>
@@ -653,8 +523,13 @@ export default function Onboarding() {
             </div>
             {error && <p className="ob-err" role="alert">{error}</p>}
             <div className="ob-acts">
+              {spacesFailed.length > 0 && (
+                <button type="button" className="btn btn-secondary btn-lg" disabled={busy || leaving} onClick={() => void submitSpaces()}>
+                  Retry spaces
+                </button>
+              )}
               <button type="submit" className="btn btn-primary btn-lg" disabled={busy || leaving}>
-                {busy ? "Making spaces…" : leaving ? "Opening…" : "Start writing"}
+                {busy ? "Making spaces…" : leaving ? "Opening…" : spacesFailed.length ? "Carry on" : "Start writing"}
                 {!busy && !leaving && <span className="kbd kbd-on-accent">⏎</span>}
               </button>
               <button type="button" className="ob-skip" disabled={busy || leaving} onClick={() => finish("skip")}>

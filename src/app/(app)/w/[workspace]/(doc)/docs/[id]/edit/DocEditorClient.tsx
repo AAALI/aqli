@@ -56,11 +56,13 @@ export default function DocEditorClient({
   spaces,
   people,
   canDiscard = false,
+  canPublish = false,
 }: {
   doc: DocWithSpace;
   workspaceSlug: string;
   /** The draft is yours to throw away (drafts are private to their writer). */
   canDiscard?: boolean;
+  canPublish?: boolean;
   /** Where it could live — asked at publish, never here. */
   spaces: Space[];
   /** Who could be asked to check it — likewise. */
@@ -81,6 +83,7 @@ export default function DocEditorClient({
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const publishingRef = useRef(false);
   // Unsent (or failed) field updates, merged across edits. Cleared only after
   // the PUT that carried them succeeds, so the unload warning and the
   // unmount/next-edit retry stay armed on failure.
@@ -88,6 +91,11 @@ export default function DocEditorClient({
     pending: null,
     inFlight: null,
   });
+  // Whether the latest successful save was accepted as a review proposal
+  // (202) rather than applied. Set where the response arrives, in persistOnce;
+  // publish reads it after the flush so queued content is never treated as
+  // current.
+  const queuedForReviewRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
@@ -177,7 +185,8 @@ export default function DocEditorClient({
         if (!res.ok) throw new Error(`Save failed (${res.status})`);
         // 202: accepted as a proposal, not applied. The write is safely
         // recorded, so this counts as sent — but it is not "saved".
-        setQueuedForReview(res.status === 202);
+        queuedForReviewRef.current = res.status === 202;
+        setQueuedForReview(queuedForReviewRef.current);
         setSaveError(false);
         return true;
       } catch (err) {
@@ -294,33 +303,35 @@ export default function DocEditorClient({
         setChatOpen((o) => !o);
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !isPublished(doc.status) && canPublish) {
         e.preventDefault();
         setPublishOpen(true);
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [doc.status, canPublish]);
 
   const saveTitle = useCallback(
-    (raw: string) => {
+    (raw: string, immediate = true) => {
       const newTitle = singleLine(raw).trim() || "Untitled";
       titleValue.current = newTitle;
       // Against the last value sent, not the prop: `doc` is the server's
       // snapshot from page load, so renaming A -> B -> A would match it and
       // skip the PUT, leaving the document stored as B.
-      if (newTitle === persistedTitle.current) return;
-      persistedTitle.current = newTitle;
-      // Through the same queue so a title PUT can't race a body PUT.
-      queueUpdates({ title: newTitle });
-      // A body that carries the title as its first heading has to be rewritten
-      // too, or the markdown keeps asserting the old name.
-      if (carriesTitleRef.current && editor) {
-        const json = bodyWithTitle(editor.getJSON() as Record<string, unknown>);
-        queueUpdates({ body_json: json, body_md: tiptapToMarkdown(json) });
+      if (newTitle !== persistedTitle.current) {
+        persistedTitle.current = newTitle;
+        // Through the same queue so a title PUT can't race a body PUT.
+        queueUpdates({ title: newTitle });
+        // Keep a title heading in canonical markdown in step with the field.
+        if (carriesTitleRef.current && editor) {
+          const json = bodyWithTitle(editor.getJSON() as Record<string, unknown>);
+          queueUpdates({ body_json: json, body_md: tiptapToMarkdown(json) });
+        }
       }
-      void pumpSaves();
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (immediate) void pumpSaves();
+      else saveTimer.current = setTimeout(() => void pumpSaves(), 2000);
     },
     [queueUpdates, pumpSaves, editor, bodyWithTitle],
   );
@@ -345,16 +356,18 @@ export default function DocEditorClient({
 
   const publish = useCallback(
     async ({ spaceId, checkerIds }: { spaceId: string | null; checkerIds: string[] }) => {
+      if (publishingRef.current) return;
+      publishingRef.current = true;
       setPublishing(true);
       setPublishError(null);
       try {
         // Whatever is still in the debounce window goes first — publishing a
         // doc that is missing the last two seconds of typing would be worse
         // than a slow button.
+        if (images.uploading > 0) throw new Error("Wait for the images to finish uploading, then publish again.");
         if (saveTimer.current) clearTimeout(saveTimer.current);
-        if (!(await pumpSaves())) {
-          throw new Error("Your latest edits couldn't be saved. Retry before publishing.");
-        }
+        if (!(await pumpSaves())) throw new Error("Your latest changes could not be saved. Try publishing again.");
+        if (queuedForReviewRef.current) throw new Error("Your changes were sent for review. Wait for them to be confirmed before publishing.");
         const res = await fetch(`/api/docs/${doc.id}/publish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -368,9 +381,10 @@ export default function DocEditorClient({
         // The sheet stays open with the reason above the footer (§4).
         setPublishError(err instanceof Error ? err.message : "Couldn't publish. Try again.");
         setPublishing(false);
+        publishingRef.current = false;
       }
     },
-    [doc.id, base, router, pumpSaves],
+    [doc.id, base, router, pumpSaves, images.uploading],
   );
 
   const savedLabel =
@@ -379,7 +393,7 @@ export default function DocEditorClient({
       : saving
         ? "Saving…"
         : saveError
-          ? "Not saved — retrying"
+          ? "Not saved"
           : queuedForReview
             ? "Sent for review"
             : "Saved";
@@ -403,6 +417,11 @@ export default function DocEditorClient({
           <i />
           <span className="only-wide">{savedLabel}</span>
         </span>
+        {saveError && (
+          <button type="button" className="btn btn-ghost btn-sm" disabled={saving} onClick={() => void pumpSaves()}>
+            Retry save
+          </button>
+        )}
         <div className="tb-spacer" />
         <div className="tb-actions">
           <button
@@ -420,7 +439,7 @@ export default function DocEditorClient({
               <DiscardDraftButton docId={doc.id} redirectTo={`${base}/drafts`} size="md" />
             </span>
           )}
-          {!isPublished(doc.status) && (
+          {!isPublished(doc.status) && canPublish && (
             <button type="button" className="btn btn-primary" onClick={() => setPublishOpen(true)}>
               Publish
             </button>
@@ -438,7 +457,11 @@ export default function DocEditorClient({
               ref={titleRef}
               rows={1}
               value={title}
-              onChange={(e) => setTitle(singleLine(e.target.value))}
+              onChange={(e) => {
+                const value = singleLine(e.target.value);
+                setTitle(value);
+                saveTitle(value, false);
+              }}
               onBlur={(e) => saveTitle(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -539,6 +562,7 @@ export default function DocEditorClient({
           spaces={spaces}
           people={people}
           initialSpaceId={doc.space_id}
+          docClass={doc.doc_class}
           busy={publishing}
           error={publishError}
           onCancel={() => {

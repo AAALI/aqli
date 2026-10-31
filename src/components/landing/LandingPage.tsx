@@ -11,7 +11,7 @@
 // hydration flash, even before the structural switch kicks in.
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { AqliMark } from "@/components/aqli/AqliMark";
 import {
@@ -665,13 +665,17 @@ function miniBtn(kind: keyof typeof miniBtnStyles): React.CSSProperties {
     borderRadius: 5,
     fontSize: 10.5,
     fontWeight: 500,
-    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   };
 }
 
 function PrimMockReview() {
   return (
     <div
+      role="img"
+      aria-label="Example review: a proposed payout retry fix, with reject, request changes, and approve choices"
       style={{
         background: "var(--bg-base)",
         border: "1px solid var(--border)",
@@ -710,9 +714,9 @@ function PrimMockReview() {
         <span style={{ color: "#993C1D" }}>− Retry only on 408 timeouts</span>
       </div>
       <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-        <button style={miniBtn("danger")}>Reject</button>
-        <button style={miniBtn("warn")}>Request changes</button>
-        <button style={miniBtn("primary")}>Approve</button>
+        <span style={miniBtn("danger")}>Reject</span>
+        <span style={miniBtn("warn")}>Request changes</span>
+        <span style={miniBtn("primary")}>Approve</span>
       </div>
     </div>
   );
@@ -1206,6 +1210,7 @@ export function LandingPage() {
   return (
     <div
       style={{
+        "--text-muted": "var(--text-secondary)",
         background: "var(--bg-base)",
         color: "var(--text-primary)",
         fontFamily: "var(--font-sans)",
@@ -1213,7 +1218,7 @@ export function LandingPage() {
         flexDirection: "column",
         minHeight: "100vh",
         overflowX: "hidden",
-      }}
+      } as CSSProperties}
     >
       <LandingNav isMobile={isMobile} />
       <Hero isMobile={isMobile} />

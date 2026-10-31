@@ -47,10 +47,14 @@ pnpm dev
 Open http://localhost:3000 and sign up — this creates your workspace with a
 default Company space; pick spaces for your teams during onboarding.
 
-> **Dev note:** disable "Confirm email" in your Supabase project (Auth → Providers)
-> so signup returns an immediate session during local development. Turn it back
-> on before anyone else signs up — `pnpm preflight` fails on it in production,
-> because with it off anyone can sign up as any address.
+> **Auth setup:** sign-in and signup use an email link or six-digit code.
+> Configure the Supabase email templates and a working mail transport first,
+> following [docs/authentication.md](docs/authentication.md). Existing users can
+> still choose **Use password instead** on sign-in.
+>
+> **Dev note:** keep "Confirm email" enabled. Disabling it does not bypass the
+> passwordless email step, and is unsafe in production. For local testing, use
+> your Supabase mail inbox/mail catcher or a tested SMTP provider.
 
 ## Agent API Quick Start
 
@@ -153,6 +157,15 @@ Aqli is MIT-licensed and self-hostable from this repository: bring your own
 Supabase project (apply the migrations in `supabase/migrations/`) and OpenAI
 API key, fill in `.env.example`, and deploy the Next.js app wherever you like
 (we deploy to Cloudflare Workers via OpenNext — see `wrangler.jsonc`).
+
+Passwordless login depends on mail delivery. Configure and test custom SMTP,
+the auth redirect allowlist, and both the **Confirm signup** and **Magic link**
+email templates. Each message must contain a sign-in link **and**
+`{{ .Token }}` for the code fallback. Supabase's built-in mail service is not
+intended for production and restricts recipients/rates. See
+[authentication setup and rollout checks](docs/authentication.md) before relying
+on email-only access. SMTP credentials belong in Supabase, not in browser
+environment variables.
 
 Then check the instance before you invite anyone:
 

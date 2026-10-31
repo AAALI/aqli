@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getDoc } from "@/lib/supabase/docs";
 import { getSpaces } from "@/lib/supabase/spaces";
-import { listWorkspaceMembers } from "@/lib/supabase/members";
+import { getMyRole, listWorkspaceMembers } from "@/lib/supabase/members";
 import { ownerInfo } from "@/lib/supabase/owners";
 import { getUser } from "@/lib/supabase/server";
 import DocEditorClientLoader from "./DocEditorClientLoader";
@@ -16,6 +16,11 @@ export default async function DocEditPage({
   if (!doc) notFound();
   // An archived page is put away, not worked on. Restore it first.
   if (doc.status === "archived") redirect(`/w/${wsSlug}/docs/${doc.id}`);
+  const role = await getMyRole(doc.workspace_id);
+  if (role !== "admin" && role !== "editor") {
+    if (doc.status === "draft") notFound();
+    redirect(`/w/${wsSlug}/docs/${doc.id}`);
+  }
 
   const [spaces, members, user] = await Promise.all([
     getSpaces(doc.workspace_id),
@@ -38,6 +43,7 @@ export default async function DocEditPage({
       workspaceSlug={wsSlug}
       spaces={spaces}
       people={people}
+      canPublish={doc.owner_id === user?.id || role === "admin"}
       // The server decides too; this only keeps the button off drafts someone
       // else started and shared with you. A legacy ownerless draft is an admin's.
       canDiscard={

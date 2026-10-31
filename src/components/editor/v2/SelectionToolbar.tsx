@@ -42,6 +42,7 @@ export default function SelectionToolbar({
   const [bar, setBar] = useState<ToolbarState | null>(null);
   const [busy, setBusy] = useState<RewriteAction | "cite" | null>(null);
   const [citeResults, setCiteResults] = useState<RelatedResult[] | null>(null);
+  const [failure, setFailure] = useState<{ action: RewriteAction | "cite"; message: string } | null>(null);
   const barRef = useRef<ToolbarState | null>(null);
   const busyRef = useRef<typeof busy>(null);
 
@@ -53,6 +54,7 @@ export default function SelectionToolbar({
   const close = useCallback(() => {
     setBar(null);
     setCiteResults(null);
+    setFailure(null);
   }, []);
 
   useEffect(() => {
@@ -84,6 +86,7 @@ export default function SelectionToolbar({
             : Math.min(Math.max((start.left + end.left) / 2 - rect.left, 130), rect.width - 130),
       });
       setCiteResults(null);
+      setFailure(null);
     };
     editor.on("selectionUpdate", onSelection);
     return () => {
@@ -96,7 +99,10 @@ export default function SelectionToolbar({
       const range = barRef.current;
       if (!range || busyRef.current) return;
       const text = editor.state.doc.textBetween(range.from, range.to, "\n");
+      busyRef.current = action;
       setBusy(action);
+      setFailure(null);
+      setCiteResults(null);
       try {
         const res = await fetch("/api/ai/rewrite", {
           method: "POST",
@@ -108,7 +114,9 @@ export default function SelectionToolbar({
             doc_title: docTitle,
           }),
         });
-        const data = await res.json();
+        const data = (await res.json().catch(() => null)) as { text?: string; error?: string } | null;
+        if (!res.ok) throw new Error(data?.error ?? "Could not rewrite this passage. Try again.");
+        if (typeof data?.text !== "string" || !data.text.trim()) throw new Error("The rewrite returned no text. Try again.");
         if (typeof data.text === "string" && data.text.trim()) {
           const nodes = markdownToTiptap(data.text).content ?? [];
           // A single paragraph replaces the selection inline; anything
@@ -122,12 +130,14 @@ export default function SelectionToolbar({
             .focus()
             .insertContentAt({ from: range.from, to: range.to }, content)
             .run();
+          close();
         }
-      } catch {
-        // Leave the passage untouched on failure.
+      } catch (err) {
+        // Keep both the passage and its retry action in place.
+        setFailure({ action, message: err instanceof Error ? err.message : "Could not rewrite this passage. Try again." });
       } finally {
+        busyRef.current = null;
         setBusy(null);
-        close();
       }
     },
     [editor, workspaceId, docTitle, close],
@@ -137,7 +147,9 @@ export default function SelectionToolbar({
     const range = barRef.current;
     if (!range || busyRef.current) return;
     const text = editor.state.doc.textBetween(range.from, range.to, "\n");
+    busyRef.current = "cite";
     setBusy("cite");
+    setFailure(null);
     setCiteResults([]);
     try {
       const res = await fetch("/api/ai/related", {
@@ -145,11 +157,15 @@ export default function SelectionToolbar({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspace_id: workspaceId, doc_id: docId, text }),
       });
-      const data = await res.json();
-      setCiteResults(data.results ?? []);
-    } catch {
-      setCiteResults([]);
+      const data = (await res.json().catch(() => null)) as { results?: RelatedResult[]; error?: string } | null;
+      if (!res.ok) throw new Error(data?.error ?? "Could not find related docs. Try again.");
+      if (!Array.isArray(data?.results)) throw new Error("Could not read the related docs. Try again.");
+      setCiteResults(data.results);
+    } catch (err) {
+      setCiteResults(null);
+      setFailure({ action: "cite", message: err instanceof Error ? err.message : "Could not find related docs. Try again." });
     } finally {
+      busyRef.current = null;
       setBusy(null);
     }
   }, [editor, workspaceId, docId]);
@@ -301,6 +317,18 @@ export default function SelectionToolbar({
           }}
         />
       </div>
+
+      {failure && !busy && (
+        <div
+          role="alert"
+          style={{ marginTop: 8, width: 320, maxWidth: "calc(100vw - 24px)", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", color: "var(--danger-text)", fontSize: 12.5 }}
+        >
+          <p style={{ margin: "0 0 8px" }}>{failure.message}</p>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => failure.action === "cite" ? runCite() : runRewrite(failure.action)}>
+            Try again
+          </button>
+        </div>
+      )}
 
       {citeResults !== null && !busy && (
         <div

@@ -24,10 +24,12 @@ export default function TrustLine({ docId, trust }: { docId: string; trust: Trus
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function act() {
-    if (!trust.action) return;
+    if (!trust.action || busy) return;
     setBusy(true);
+    setError(null);
     try {
       const res = await fetch(
         trust.action === "nudge" ? `/api/docs/${docId}/nudge` : `/api/docs/${docId}/reviewed`,
@@ -37,7 +39,7 @@ export default function TrustLine({ docId, trust }: { docId: string; trust: Trus
       if (trust.action === "nudge") setDone("Nudged");
       router.refresh();
     } catch {
-      setDone("Didn't go through — try again");
+      setError("Didn't go through. Try again.");
     } finally {
       setBusy(false);
     }
@@ -64,7 +66,8 @@ export default function TrustLine({ docId, trust }: { docId: string; trust: Trus
         {trust.tail}
       </span>
       {trust.action && (
-        <span className={`re${done ? " is-pinned" : ""}`}>
+        <span className={`re${done || error ? " is-pinned" : ""}`}>
+          {error && <span role="alert" style={{ fontSize: 12, color: "var(--danger-text)" }}>{error}</span>}
           {done ? (
             <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{done}</span>
           ) : (

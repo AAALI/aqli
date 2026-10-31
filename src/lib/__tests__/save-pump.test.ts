@@ -53,4 +53,38 @@ describe("pumpSaveQueue", () => {
     expect(persist).toHaveBeenLastCalledWith({ title: "Draft", body_md: "New body" });
     expect(queue.pending).toBeNull();
   });
+
+  test("merges title and body queued before a flush into one save, latest values winning", async () => {
+    const queue = state(null);
+    queue.pending = { title: "A", body_md: "Old body" };
+    queue.pending = { ...queue.pending, title: "B" };
+    queue.pending = { ...queue.pending, body_md: "New body" };
+    const persist = vi.fn(async () => true);
+
+    await expect(pumpSaveQueue(queue, persist)).resolves.toBe(true);
+    expect(persist).toHaveBeenCalledExactlyOnceWith({ title: "B", body_md: "New body" });
+    expect(queue.pending).toBeNull();
+  });
+
+  test("sends nothing when the queue is empty", async () => {
+    const persist = vi.fn(async () => true);
+
+    await expect(pumpSaveQueue(state(null), persist)).resolves.toBe(true);
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  test("preserves the snapshot for retry when persist throws", async () => {
+    const queue = state({ title: "Do not lose me" });
+    const persist = vi
+      .fn<(updates: Updates) => Promise<boolean>>()
+      .mockRejectedValueOnce(new Error("Offline"))
+      .mockResolvedValueOnce(true);
+
+    await expect(pumpSaveQueue(queue, persist)).resolves.toBe(false);
+    expect(queue.pending).toEqual({ title: "Do not lose me" });
+
+    await expect(pumpSaveQueue(queue, persist)).resolves.toBe(true);
+    expect(persist).toHaveBeenLastCalledWith({ title: "Do not lose me" });
+    expect(queue.pending).toBeNull();
+  });
 });

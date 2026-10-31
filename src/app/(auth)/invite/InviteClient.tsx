@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { AuthStage } from "@/components/auth/AuthShell";
+import EmailAuthForm from "@/components/auth/EmailAuthForm";
 import type { InvitationDetails, Role } from "@/types/invitation";
 import * as analytics from "@/lib/analytics";
 
@@ -14,13 +15,11 @@ const ROLE_WORDS: Record<Role, string> = {
   viewer: "to read",
 };
 
-type Mode = "signup" | "signin";
-
 export default function InviteClient() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token") ?? "";
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [details, setDetails] = useState<InvitationDetails | null>(null);
   const [loadError, setLoadError] = useState<string | null>(
@@ -29,12 +28,9 @@ export default function InviteClient() {
   const [loading, setLoading] = useState(Boolean(token));
   const [signedIn, setSignedIn] = useState(false);
 
-  const [mode, setMode] = useState<Mode>("signup");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -61,7 +57,10 @@ export default function InviteClient() {
         setEmail(userData.user.email ?? row?.email ?? "");
       }
       setLoading(false);
-    })();
+    })().catch(() => {
+      setLoadError("Couldn't open your invitation. Check your connection and reload to try again.");
+      setLoading(false);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -77,42 +76,6 @@ export default function InviteClient() {
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not join the workspace");
-      setBusy(false);
-    }
-  }
-
-  async function authThenAccept(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            // The confirmation email returns the user to this invite so they
-            // can accept it with a live session.
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/invite?token=${token}`)}`,
-          },
-        });
-        if (error) throw error;
-        if (!data.session) {
-          setNotice("Account created — check your email. The confirmation link brings you back to this invite to join.");
-          setBusy(false);
-          return;
-        }
-        analytics.identify(data.user!.id, { email });
-        analytics.capture("user_signed_up", { email, via: "invite" });
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        if (data.user) analytics.identify(data.user.id, { email });
-      }
-      await accept();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
       setBusy(false);
     }
   }
@@ -147,37 +110,12 @@ export default function InviteClient() {
           </div>
         </>
       ) : (
-        <form onSubmit={authThenAccept}>
-          <p className="ob-eb">You&apos;re invited</p>
-          <h1 className="ob-q">Join {ws}.</h1>
-          <p className="ob-s">
-            You&apos;ve been invited {ROLE_WORDS[role]}.{" "}
-            {mode === "signup" ? "Set a password and you're in." : "Sign in with your existing account."}
-          </p>
-          <div className="ob-f">
-            <input className="inp lg" type="email" aria-label="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input className="inp lg" type="password" aria-label="Password" placeholder="Password" autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
-          </div>
-          {error && <p className="ob-err" role="alert">{error}</p>}
-          {notice && <p className="ob-note">{notice}</p>}
-          <div className="ob-acts">
-            <button type="submit" disabled={busy} className="btn btn-primary btn-lg">
-              {busy ? "Joining…" : `Join ${ws}`}
-              {!busy && <span className="kbd kbd-on-accent">⏎</span>}
-            </button>
-            <button
-              type="button"
-              className="ob-skip"
-              onClick={() => {
-                setMode(mode === "signup" ? "signin" : "signup");
-                setError(null);
-                setNotice(null);
-              }}
-            >
-              {mode === "signup" ? "Already have an account? Sign in" : "New to Aqli? Create an account"}
-            </button>
-          </div>
-        </form>
+        <EmailAuthForm
+          next={`/invite?${new URLSearchParams({ token })}`}
+          shouldCreateUser allowPassword initialEmail={email}
+          title={`Join ${ws}.`} eyebrow="You're invited"
+          description={`You've been invited ${ROLE_WORDS[role]}. Sign in with an email link or code, then join the workspace.`}
+        />
       )}
     </AuthStage>
   );

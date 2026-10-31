@@ -4,6 +4,7 @@ import { createWorkspace, getMyWorkspaces } from "@/lib/supabase/workspaces";
 import { isUniqueViolation } from "@/lib/supabase/errors";
 import { normalizeSlug, validateSlug } from "@/lib/onboarding/plan";
 import { seedStarterDocs } from "@/lib/onboarding/seed";
+import { workspaceForClient } from "@/lib/workspace-settings";
 
 export async function GET() {
   const supabase = await createServerSupabaseClient();
@@ -14,7 +15,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const workspaces = await getMyWorkspaces();
-  return NextResponse.json({ workspaces });
+  return NextResponse.json({ workspaces: workspaces.map(workspaceForClient) });
 }
 
 export async function POST(req: NextRequest) {
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
       console.error("could not seed the starter documents:", err);
     });
 
-    return NextResponse.json({ workspace }, { status: 201 });
+    return NextResponse.json({ workspace: workspaceForClient(workspace) }, { status: 201 });
   } catch (err) {
     // `workspaces.slug` is unique across the whole install, so a common name is
     // gone as soon as one team takes it. This used to escape as a 500, which

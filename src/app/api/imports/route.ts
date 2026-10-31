@@ -60,6 +60,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const { data: workspace, error: workspaceError } = await supabase
+    .from("workspaces")
+    .select("slug")
+    .eq("id", workspaceId)
+    .single();
+  if (workspaceError || !workspace) {
+    return NextResponse.json({ error: "Could not load the workspace" }, { status: 500 });
+  }
+  const docHref = (id: string) => `/w/${workspace.slug}/docs/${id}`;
+
   let source;
   try {
     source = markdownZipSource(new Uint8Array(await file.arrayBuffer()), `zip:${file.name}`);
@@ -75,12 +85,12 @@ export async function POST(req: NextRequest) {
     importDeps({ workspaceId, spaceMap: {}, authorMap: {}, defaultSpaceId }),
     {
       workspaceId,
-      docHref: (id) => `/docs/${id}`,
+      docHref,
       dryRun: !apply,
     },
   );
 
-  const markdown = renderImportReport(report, (id) => `/docs/${id}`);
+  const markdown = renderImportReport(report, docHref);
 
   // The report belongs where the team is, not in a download nobody opens
   // again: the cleanup pass is a checklist, and this is the checklist.

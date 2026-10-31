@@ -87,26 +87,26 @@ export default async function DraftsPage({ params }: { params: Promise<{ workspa
               {mine.map((d, i) => {
                 const empty = !(d.body_md ?? "").trim() && !d.title.trim();
                 return (
-                  <Link key={d.id} href={`${base}/docs/${d.id}/edit`} className="row">
+                  <div key={d.id} className="row">
                     <span style={{ color: empty ? "var(--text-muted)" : "var(--text-secondary)", display: "flex" }}>
                       <IconFile size={16} />
                     </span>
-                    <span>
+                    <Link href={`${base}/docs/${d.id}/edit`} style={{ color: "inherit", textDecoration: "none", flex: 1, minWidth: 0 }}>
                       <span className="t" style={empty ? { color: "var(--text-secondary)" } : undefined}>
                         {d.title || "Untitled"}
                       </span>
                       <span className="m">{describe(d)}</span>
-                    </span>
+                    </Link>
                     {/* Discard sits beside Keep writing on every draft: an
                         abandoned idea should be as easy to let go of as to
                         pick up. An empty one goes without a question. */}
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <DiscardDraftButton docId={d.id} empty={empty} />
                       {!empty && (
-                        <span className={`btn btn-sm ${i === 0 ? "btn-primary" : "btn-secondary"}`}>Keep writing</span>
+                        <Link href={`${base}/docs/${d.id}/edit`} className={`btn btn-sm ${i === 0 ? "btn-primary" : "btn-secondary"}`}>Keep writing</Link>
                       )}
                     </span>
-                  </Link>
+                  </div>
                 );
               })}
             </section>

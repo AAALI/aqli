@@ -44,6 +44,7 @@ const MERGE_ERRORS: Record<string, string> = {
   stale_base: "The doc changed since this was written. Confirming it would undo the newer change — send it back instead.",
   proposal_not_open: "Someone else got here first, or a newer change replaced this one.",
   forbidden: "You need editor or admin rights to confirm changes.",
+  not_a_reviewer: "This space names its own reviewers, and you are not one of them.",
   document_not_found: "The doc this change was for no longer exists.",
 };
 
@@ -63,6 +64,7 @@ export default function ChecksClient({ items, base }: { items: CheckItem[]; base
       : `Reading time${items.length > 1 ? ", all together" : ""}: about ${MINUTES[total] ?? `${total} minutes`}.`;
 
   async function post(key: string, url: string, body?: unknown) {
+    if (busy !== null) return;
     setBusy(key);
     setErrors((e) => ({ ...e, [key]: "" }));
     try {
@@ -72,11 +74,15 @@ export default function ChecksClient({ items, base }: { items: CheckItem[]; base
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!res.ok) {
-        const b = (await res.json().catch(() => ({}))) as { error?: string };
-        setErrors((e) => ({ ...e, [key]: MERGE_ERRORS[b.error ?? ""] ?? b.error ?? "That didn't go through. Try again." }));
+        const b = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+        setErrors((e) => ({ ...e, [key]: MERGE_ERRORS[b.error ?? ""] ?? b.message ?? b.error ?? "That didn't go through. Try again." }));
         return;
       }
+      setSending(null);
+      setNote("");
       router.refresh();
+    } catch {
+      setErrors((e) => ({ ...e, [key]: "Could not reach the server. Try again." }));
     } finally {
       setBusy(null);
     }
@@ -175,7 +181,7 @@ export default function ChecksClient({ items, base }: { items: CheckItem[]; base
 
                 {sending === item.id ? (
                   <form
-                    style={{ marginTop: 16, display: "flex", gap: 9 }}
+                    style={{ marginTop: 16, display: "flex", gap: 9, flexWrap: "wrap" }}
                     onSubmit={(e) => {
                       e.preventDefault();
                       if (note.trim()) void post(item.id, `/api/proposals/${item.id}`, { action: "reject", note: note.trim() });
@@ -188,11 +194,13 @@ export default function ChecksClient({ items, base }: { items: CheckItem[]; base
                       onChange={(e) => setNote(e.target.value)}
                       placeholder="What should change before it's ready?"
                       aria-label="What should change"
+                      disabled={busy !== null}
+                      style={{ flex: "1 1 220px", minWidth: 0 }}
                     />
-                    <button type="submit" className="btn btn-primary" disabled={!note.trim() || busy === item.id}>
+                    <button type="submit" className="btn btn-primary" disabled={!note.trim() || busy !== null}>
                       Send back
                     </button>
-                    <button type="button" className="btn btn-ghost" onClick={() => setSending(null)}>
+                    <button type="button" className="btn btn-ghost" disabled={busy !== null} onClick={() => setSending(null)}>
                       Cancel
                     </button>
                   </form>
@@ -208,14 +216,14 @@ export default function ChecksClient({ items, base }: { items: CheckItem[]; base
                       </Link>
                       <span style={{ flex: 1 }} />
                       {item.askedYou && (
-                        <button type="button" className="btn btn-ghost" disabled={busy === item.id} onClick={() => post(item.id, `/api/docs/${item.id}/decline`)}>
+                        <button type="button" className="btn btn-ghost" disabled={busy !== null} onClick={() => post(item.id, `/api/docs/${item.id}/decline`)}>
                           Not my call
                         </button>
                       )}
                     </>
                   ) : reading === item.id ? (
                     <>
-                      <button type="button" className="btn btn-primary" disabled={busy === item.id} onClick={() => post(item.id, `/api/proposals/${item.id}`, { action: "approve" })}>
+                      <button type="button" className="btn btn-primary" disabled={busy !== null} onClick={() => post(item.id, `/api/proposals/${item.id}`, { action: "approve" })}>
                         {busy === item.id ? "Confirming…" : "Confirm it"}
                       </button>
                       <button type="button" className="btn btn-secondary" onClick={() => setReading(null)}>
@@ -227,11 +235,11 @@ export default function ChecksClient({ items, base }: { items: CheckItem[]; base
                       <button type="button" className="btn btn-primary" onClick={() => setReading(item.id)}>
                         Read it, then confirm
                       </button>
-                      <button type="button" className="btn btn-secondary" disabled={busy === item.id} onClick={() => { setSending(item.id); setNote(""); }}>
+                      <button type="button" className="btn btn-secondary" disabled={busy !== null} onClick={() => { setSending(item.id); setNote(""); }}>
                         Send it back
                       </button>
                       <span style={{ flex: 1 }} />
-                      <button type="button" className="btn btn-ghost" disabled={busy === item.id} onClick={() => post(item.id, `/api/proposals/${item.id}`, { action: "reject", note: "Deleted from Checks." })}>
+                      <button type="button" className="btn btn-ghost" disabled={busy !== null} onClick={() => post(item.id, `/api/proposals/${item.id}`, { action: "reject", note: "Deleted from Checks." })}>
                         Delete
                       </button>
                     </>

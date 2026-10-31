@@ -32,7 +32,6 @@ export default async function SettingsIntegrationsPage({ params }: { params: Pro
 
   const available = [
     ...(!github ? [{ href: `${s}/integrations/github`, name: "GitHub", line: "Write a fix note into a space every time a PR merges." }] : []),
-    ...(!linear ? [{ href: `${s}/integrations/linear`, name: "Linear", line: "Match merged PRs to the doc their issue belongs to." }] : []),
     { href: `${s}/import`, name: "Notion", line: "One-way import, links and headings intact." },
     { href: `${s}/import`, name: "Confluence", line: "One-way import, per space." },
   ];
@@ -73,9 +72,10 @@ export default async function SettingsIntegrationsPage({ params }: { params: Pro
                   logo={providerLogo("linear", 34)}
                   name="Linear"
                   href={`${s}/integrations/linear`}
-                  says={<>Reads issues and projects so a merged PR updates the doc its issue belongs to, instead of starting a new one.</>}
+                  says={<>Linear enrichment is unavailable. Pull requests can still match existing docs by issue key, but issue titles and descriptions are not fetched.</>}
                   numbers={[linear.last_event_at ? `last used ${formatRelative(linear.last_event_at)}` : null]}
                   error={linear.last_error}
+                  unavailable
                 />
               )}
             </section>
@@ -105,6 +105,7 @@ function Connection({
   says,
   numbers,
   error,
+  unavailable = false,
 }: {
   logo: React.ReactNode;
   name: string;
@@ -112,6 +113,7 @@ function Connection({
   says: React.ReactNode;
   numbers: (string | null)[];
   error: string | null | undefined;
+  unavailable?: boolean;
 }) {
   const facts = numbers.filter(Boolean).join(" · ");
   return (
@@ -125,9 +127,9 @@ function Connection({
         )}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 7, alignItems: "flex-end" }}>
-        <span className={`tl ${error ? "tl-ageing" : "tl-current"}`}>
+        <span className={`tl ${unavailable ? "tl-unverified" : error ? "tl-ageing" : "tl-current"}`}>
           <i aria-hidden />
-          {error ? "Needs a look" : "Active"}
+          {unavailable ? "Unavailable" : error ? "Needs a look" : "Active"}
         </span>
         <Link href={href} className="btn btn-sm btn-ghost">Configure</Link>
       </div>

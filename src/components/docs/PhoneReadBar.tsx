@@ -12,6 +12,7 @@ import { IconChat, IconEdit, IconShare } from "@/components/aqli/icons";
  */
 export default function PhoneReadBar({ editHref }: { editHref: string | null }) {
   const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
   return (
     <nav className="pbar-read" aria-label="Doc actions">
       <button type="button" className="btn btn-ghost" onClick={() => window.dispatchEvent(new CustomEvent("aqli:open-rail"))}>
@@ -33,7 +34,10 @@ export default function PhoneReadBar({ editHref }: { editHref: string | null }) 
       <button
         type="button"
         className="btn btn-ghost"
+        aria-live="polite"
+        title={failed ? "Could not share the link. Try again, or copy it from your browser's address bar." : undefined}
         onClick={async () => {
+          setFailed(false);
           try {
             if (navigator.share) await navigator.share({ url: window.location.href, title: document.title });
             else {
@@ -41,13 +45,14 @@ export default function PhoneReadBar({ editHref }: { editHref: string | null }) 
               setCopied(true);
               setTimeout(() => setCopied(false), 1600);
             }
-          } catch {
-            // Share sheet dismissed.
+          } catch (err) {
+            // Cancelling the native sheet is not a failed action.
+            if (!(err instanceof Error && err.name === "AbortError")) setFailed(true);
           }
         }}
       >
         <IconShare size={15} />
-        {copied ? "Copied" : "Share"}
+        {copied ? "Copied" : failed ? "Retry" : "Share"}
       </button>
     </nav>
   );
