@@ -20,7 +20,7 @@ import { aqliExtensions } from "@/lib/markdown/schema";
 import { tiptapToMarkdown } from "@/lib/markdown/tiptap-to-md";
 import { markdownToTiptap } from "@/lib/markdown/md-to-tiptap";
 import { isPublished } from "@/lib/doc-status";
-import { createEditorSaveQueue } from "@/lib/editor-save-queue";
+import { pumpSaveQueue, type SavePumpState } from "@/lib/save-pump";
 import {
   hasTitleHeading,
   prependTitleHeading,
@@ -84,6 +84,18 @@ export default function DocEditorClient({
   const [publishError, setPublishError] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const publishingRef = useRef(false);
+  // Unsent (or failed) field updates, merged across edits. Cleared only after
+  // the PUT that carried them succeeds, so the unload warning and the
+  // unmount/next-edit retry stay armed on failure.
+  const saveQueue = useRef<SavePumpState<Record<string, unknown>>>({
+    pending: null,
+    inFlight: null,
+  });
+  // Whether the latest successful save was accepted as a review proposal
+  // (202) rather than applied. Set where the response arrives, in persistOnce;
+  // publish reads it after the flush so queued content is never treated as
+  // current.
+  const queuedForReviewRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
@@ -162,7 +174,7 @@ export default function DocEditorClient({
   );
 
   const persistOnce = useCallback(
-    async (updates: Record<string, unknown>): Promise<boolean | "queued"> => {
+    async (updates: Record<string, unknown>): Promise<boolean> => {
       setSaving(true);
       try {
         const res = await fetch(`/api/docs/${doc.id}`, {
@@ -173,9 +185,10 @@ export default function DocEditorClient({
         if (!res.ok) throw new Error(`Save failed (${res.status})`);
         // 202: accepted as a proposal, not applied. The write is safely
         // recorded, so this counts as sent — but it is not "saved".
-        setQueuedForReview(res.status === 202);
+        queuedForReviewRef.current = res.status === 202;
+        setQueuedForReview(queuedForReviewRef.current);
         setSaveError(false);
-        return res.status === 202 ? "queued" : true;
+        return true;
       } catch (err) {
         // Expired session, RLS denial, offline — the next edit retries, but
         // the label must not claim "Saved" in the meantime.
@@ -189,9 +202,18 @@ export default function DocEditorClient({
     [doc.id],
   );
 
-  const saveQueue = useMemo(() => createEditorSaveQueue(persistOnce), [persistOnce]);
-  const pumpSaves = saveQueue.flush;
-  const queueUpdates = saveQueue.enqueue;
+  // Concurrent callers join the same drain, so publishing can wait until all
+  // queued updates have either saved or failed.
+  const pumpSaves = useCallback(async () => {
+    return pumpSaveQueue(saveQueue.current, persistOnce);
+  }, [persistOnce]);
+
+  // Merge field updates into the pending snapshot; sending happens via the
+  // pump (immediately, or debounced by the caller's timer).
+  const queueUpdates = useCallback((updates: Record<string, unknown>) => {
+    const pending = saveQueue.current.pending;
+    saveQueue.current.pending = { ...(pending ?? {}), ...updates };
+  }, []);
 
   // Declared before `useEditor` because its handlers go into `editorProps`,
   // which is read when the editor is created.
@@ -266,11 +288,11 @@ export default function DocEditorClient({
   // edits are unsent or a save is still in flight.
   useEffect(() => {
     function onBeforeUnload(e: BeforeUnloadEvent) {
-      if (saveQueue.hasUnsavedChanges()) e.preventDefault();
+      if (saveQueue.current.pending || saveQueue.current.inFlight) e.preventDefault();
     }
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [saveQueue]);
+  }, []);
 
   // ⌘J opens the one AI affordance; ⌘⏎ opens the publish sheet (§4). The sheet
   // owns ⌘⏎ once it is open, so this only ever opens it.
@@ -345,7 +367,7 @@ export default function DocEditorClient({
         if (images.uploading > 0) throw new Error("Wait for the images to finish uploading, then publish again.");
         if (saveTimer.current) clearTimeout(saveTimer.current);
         if (!(await pumpSaves())) throw new Error("Your latest changes could not be saved. Try publishing again.");
-        if (saveQueue.needsReview()) throw new Error("Your changes were sent for review. Wait for them to be confirmed before publishing.");
+        if (queuedForReviewRef.current) throw new Error("Your changes were sent for review. Wait for them to be confirmed before publishing.");
         const res = await fetch(`/api/docs/${doc.id}/publish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -362,7 +384,7 @@ export default function DocEditorClient({
         publishingRef.current = false;
       }
     },
-    [doc.id, base, router, pumpSaves, saveQueue, images.uploading],
+    [doc.id, base, router, pumpSaves, images.uploading],
   );
 
   const savedLabel =
