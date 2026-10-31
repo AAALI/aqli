@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { IconChevLeft } from "@/components/aqli/icons";
 
@@ -18,6 +19,8 @@ type Props = {
 export default function SettingsSidebar({ base, workspaceName, isAdmin = false }: Props) {
   const pathname = usePathname();
   const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const s = `${base}/settings`;
 
   const groups: { label: string; items: { href: string; label: string; exact?: boolean }[] }[] = [
@@ -50,11 +53,19 @@ export default function SettingsSidebar({ base, workspaceName, isAdmin = false }
   ];
 
   async function signOut() {
+    setBusy(true);
+    setError(null);
     // Loaded on the click, not with the page (see `AccountMenu`).
-    const { createClient } = await import("@/lib/supabase/client");
-    await createClient().auth.signOut();
-    router.push("/login");
-    router.refresh();
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const { error } = await createClient().auth.signOut();
+      if (error) throw error;
+      router.push("/login");
+      router.refresh();
+    } catch {
+      setError("Couldn't sign out. Try again.");
+      setBusy(false);
+    }
   }
 
   return (
@@ -78,9 +89,10 @@ export default function SettingsSidebar({ base, workspaceName, isAdmin = false }
           </div>
         ))}
         <div className="sb-section-label" style={{ padding: "16px 10px 6px" }}>You</div>
-        <button type="button" className="sb-item" onClick={signOut} style={{ background: "none", border: 0, width: "100%", textAlign: "left", fontFamily: "inherit", fontSize: 13 }}>
-          Sign out
+        <button type="button" className="sb-item" onClick={signOut} disabled={busy} style={{ background: "none", border: 0, width: "100%", textAlign: "left", fontFamily: "inherit", fontSize: 13 }}>
+          {busy ? "Signing out…" : "Sign out"}
         </button>
+        {error && <p role="alert" style={{ margin: "6px 10px", fontSize: 12, color: "var(--danger-text)" }}>{error}</p>}
       </aside>
     </>
   );

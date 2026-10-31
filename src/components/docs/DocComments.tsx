@@ -139,7 +139,7 @@ export default function DocComments({
    * loaders and repopulates the `@` menu in the same click.
    */
   async function retry() {
-    if (retrying) return;
+    if (retrying || busy || deleting) return;
     setRetrying(true);
     setError(null);
     try {
@@ -163,7 +163,7 @@ export default function DocComments({
   async function post() {
     const text = draft.trim();
     // A post landing mid-deletion would be dropped by that deletion's rollback.
-    if (!text || busy || deleting) return;
+    if (!text || busy || deleting || retrying || loadFailed) return;
     setBusy(true);
     setError(null);
     try {
@@ -200,7 +200,7 @@ export default function DocComments({
   }
 
   async function remove(id: string) {
-    if (deleting) return;
+    if (deleting || busy || retrying) return;
     const previous = comments;
     setDeleting(id);
     setError(null);
@@ -327,7 +327,7 @@ export default function DocComments({
                     {(mine || canModerate) && !trail && (
                       <button
                         onClick={() => remove(c.id)}
-                        disabled={deleting !== null}
+                        disabled={deleting !== null || busy || retrying}
                         aria-label="Delete comment"
                         title="Delete comment"
                         style={{
@@ -365,6 +365,9 @@ export default function DocComments({
         </div>
       )}
 
+      {error && (
+        <p role="alert" style={{ margin: "0 0 8px", fontSize: 12, color: "var(--danger-text)" }}>{error}</p>
+      )}
       {canComment ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <MentionTextarea
@@ -373,24 +376,21 @@ export default function DocComments({
             onMention={remember}
             onSubmit={post}
             candidates={candidates}
-            disabled={busy}
+            disabled={busy || retrying || loadFailed}
             placeholder={
               membersFailed
                 ? "Add a comment."
                 : "Add a comment. Type @ to mention a teammate."
             }
           />
-          {error && (
-            <span style={{ fontSize: 12, color: "var(--danger-text)" }}>{error}</span>
-          )}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
               {membersFailed ? (
                 <>
                   The member list could not be loaded, so @mentions are unavailable.{" "}
                   <button
                     onClick={retry}
-                    disabled={retrying}
+                    disabled={retrying || busy || deleting !== null}
                     style={{
                       border: 0,
                       background: "transparent",
@@ -411,7 +411,7 @@ export default function DocComments({
             <button
               className="btn btn-primary"
               onClick={post}
-              disabled={busy || deleting !== null || draft.trim().length === 0}
+              disabled={busy || retrying || loadFailed || deleting !== null || draft.trim().length === 0}
             >
               {busy ? "Posting…" : "Comment"}
             </button>

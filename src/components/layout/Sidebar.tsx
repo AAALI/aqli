@@ -42,9 +42,10 @@ export default function Sidebar({
   const pathname = usePathname();
   const base = `/w/${workspaceSlug}`;
   const isHome = pathname === base;
-  const isDrafts = pathname.startsWith(`${base}/drafts`);
-  const isSearch = pathname.startsWith(`${base}/search`);
-  const isChecks = pathname.startsWith(`${base}/checks`);
+  const isAt = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const isDrafts = isAt(`${base}/drafts`);
+  const isSearch = isAt(`${base}/search`);
+  const isChecks = isAt(`${base}/checks`);
 
   return (
     <>
@@ -57,7 +58,7 @@ export default function Sidebar({
         </div>
 
         <div className="sb-nav">
-          <Link href={base} className={`sb-item ${isHome ? "is-active" : ""}`}>
+          <Link href={base} aria-label="Home" title="Home" aria-current={isHome ? "page" : undefined} className={`sb-item ${isHome ? "is-active" : ""}`}>
             <span className="sb-icon"><IconHome /></span>
             <span>Home</span>
           </Link>
@@ -65,15 +66,17 @@ export default function Sidebar({
               off to /search when the answer needs its sources shown. */}
           <button
             type="button"
+            aria-label="Search"
+            title="Search"
             onClick={() => window.dispatchEvent(new CustomEvent("aqli:open-cmdk"))}
             className={`sb-item ${isSearch ? "is-active" : ""}`}
-            style={{ background: "transparent", border: 0, width: "100%", textAlign: "left", fontFamily: "inherit" }}
+            style={{ background: isSearch ? undefined : "transparent", border: 0, width: "100%", textAlign: "left", fontFamily: "inherit" }}
           >
             <span className="sb-icon"><IconSearch /></span>
             <span>Search</span>
             <span className="sb-key">⌘K</span>
           </button>
-          <Link href={`${base}/drafts`} className={`sb-item ${isDrafts ? "is-active" : ""}`}>
+          <Link href={`${base}/drafts`} aria-label="Drafts" title="Drafts" aria-current={isDrafts ? "page" : undefined} className={`sb-item ${isDrafts ? "is-active" : ""}`}>
             <span className="sb-icon"><IconEdit /></span>
             <span>Drafts</span>
             {draftsCount > 0 && <span className="sb-count">{draftsCount}</span>}
@@ -81,7 +84,7 @@ export default function Sidebar({
           {/* Checks only exists when something is waiting: an empty queue is
               not a destination, and a zero is not information. */}
           {checksCount > 0 && (
-            <Link href={`${base}/checks`} className={`sb-item ${isChecks ? "is-active" : ""}`}>
+            <Link href={`${base}/checks`} aria-label="Checks" title="Checks" aria-current={isChecks ? "page" : undefined} className={`sb-item ${isChecks ? "is-active" : ""}`}>
               <span className="sb-icon"><IconCheck /></span>
               <span>Checks</span>
               <span className="sb-count is-due">{checksCount}</span>
@@ -92,13 +95,13 @@ export default function Sidebar({
         <div className="sb-section-label">Spaces</div>
         <div className="sb-nav" style={{ paddingTop: 0, overflowY: "auto" }}>
           {spaces.map((s) => {
-            const active = pathname.startsWith(`${base}/s/${s.slug}`);
+            const active = isAt(`${base}/s/${s.slug}`);
             // An empty space counts 0 rather than showing nothing — frame 04's
             // first-run sidebar reads "Company 0", and a missing number would
             // look like a number that failed to load.
             const count = spaceCounts ? (spaceCounts[s.id] ?? 0) : undefined;
             return (
-              <Link key={s.id} href={`${base}/s/${s.slug}`} className={`sb-item ${active ? "is-active" : ""}`}>
+              <Link key={s.id} href={`${base}/s/${s.slug}`} aria-label={s.name} title={s.name} aria-current={active ? "page" : undefined} className={`sb-item ${active ? "is-active" : ""}`}>
                 <span className="sb-emoji"><SpaceIcon icon={s.icon} /></span>
                 <span>{s.name}</span>
                 {count !== undefined && <span className="sb-count">{count}</span>}

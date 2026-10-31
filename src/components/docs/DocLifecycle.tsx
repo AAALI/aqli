@@ -41,6 +41,7 @@ function useAction(redirectTo?: string) {
     }
     if (redirectTo) router.push(redirectTo);
     router.refresh();
+    setBusy(false);
   }
   return { busy, error, run };
 }
@@ -101,10 +102,11 @@ function Confirm({
     <span
       role="group"
       aria-label={question}
-      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}
       onClick={stop}
     >
-      <span style={{ fontSize: 12.5, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{question}</span>
+      {error && <span role="alert" style={{ fontSize: 12, color: "var(--danger-text)" }}>{error}</span>}
+      <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>{question}</span>
       <button
         type="button"
         className={`btn btn-secondary${sm}${tone}`}

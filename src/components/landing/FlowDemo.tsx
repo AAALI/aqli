@@ -1,13 +1,13 @@
 "use client";
 
 // Landing page · The Aqli Loop — playable five-step walkthrough of the
-// agent-augmented knowledge loop. Auto-advances, pauses on hover,
+// agent-augmented knowledge loop. Auto-advances, has a pause control and
 // clickable step tabs. Ported from the LP1 design handoff.
 //
 // Performance: React state changes only once per step (every 5.2s).
 // All intra-step motion — reveals, the pill progress fill, the connector
 // pulse — is pure CSS animation (keyframes in globals.css), so nothing
-// re-renders per frame. Hovering pauses via `animation-play-state` plus
+// re-renders per frame. Pausing uses `animation-play-state` plus
 // the step timer.
 
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
@@ -101,13 +101,13 @@ export function FlowDemo() {
   const [step, setStep] = useState(0);
   const [paused, setPaused] = useState(false);
 
-  // Always auto-plays. Reduced-motion users navigate via the pills.
+  // Reduced-motion users navigate via the pills without autoplay.
   const reducedMotion = useSyncExternalStore(subscribeReducedMotion, getReducedMotion, getReducedMotionServer);
   const playing = !reducedMotion && !paused;
   const isMobile = useIsMobile();
 
   // Step timer. CSS animations carry all intra-step motion; this only
-  // advances the step. Pause must survive across hover, so we track how
+  // advances the step. Pause must survive across toggles, so we track how
   // much of the current step already elapsed.
   const pausedElapsedRef = useRef(0);
   const advancedRef = useRef(false);
@@ -126,7 +126,7 @@ export function FlowDemo() {
         advancedRef.current = false;
         pausedElapsedRef.current = 0;
       } else {
-        // Paused (hover) — remember where we were
+        // Paused — remember where we were
         pausedElapsedRef.current = Math.min(STEP_DURATION_MS, performance.now() - startedAt);
       }
     };
@@ -151,9 +151,7 @@ export function FlowDemo() {
         display: "flex",
         justifyContent: "center",
         position: "relative",
-        cursor: paused ? "pointer" : undefined,
       }}
-      onClick={() => setPaused((p) => !p)}
     >
       {/* Soft glow — the gradient is its own blur; a filter here doubles paint cost */}
       <div
@@ -182,6 +180,13 @@ export function FlowDemo() {
 
         {/* Step rail */}
         <FlowStepRail steps={FLOW_STEPS} current={step} onGoto={goto} isMobile={isMobile} />
+        {!reducedMotion && (
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPaused((p) => !p)}>
+              {paused ? "Play demo" : "Pause demo"}
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -332,6 +337,9 @@ function FlowStepRail({
           return (
             <button
               key={s.id}
+              type="button"
+              aria-label={`Step ${i + 1}: ${PILL_LABELS[s.id]}`}
+              aria-current={isCurrent ? "step" : undefined}
               onClick={() => onGoto(i)}
               style={{
                 position: "relative",
@@ -420,6 +428,9 @@ function StepPill({
   const isDone = state === "done";
   return (
     <button
+      type="button"
+      aria-label={`Step ${Number(n)}: ${label}`}
+      aria-current={isCurrent ? "step" : undefined}
       onClick={onClick}
       style={{
         position: "relative",
@@ -1430,7 +1441,7 @@ function ReviewBtn({
         border: `1px solid ${s.border}`,
         fontSize: 12.5,
         fontWeight: 500,
-        cursor: "pointer",
+        cursor: "default",
       }}
     >
       {/* Glow ring painted once; only its opacity animates */}
@@ -1550,7 +1561,7 @@ function FlowStage_Know({ isMobile }: { isMobile: boolean }) {
             <strong style={{ color: "var(--text-primary)" }}>Verified</strong> just now by Ali · cites 3 approved
             docs ·{" "}
           </span>
-          <a style={{ color: "var(--accent)", fontWeight: 500, cursor: "pointer" }}>Re-verify in 30d</a>
+          <span style={{ color: "var(--accent)", fontWeight: 500 }}>Re-verify in 30d</span>
         </div>
 
         <h2

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconX } from "@/components/aqli/icons";
 import { avatarColor, formatRelative } from "@/lib/utils";
+import { copyText } from "@/lib/clipboard";
 import type { Role, WorkspaceMember } from "@/types/invitation";
 
 type InviteRow = {
@@ -70,8 +71,10 @@ export default function MembersClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Couldn't invite them.");
-      await navigator.clipboard?.writeText(linkFor(data.invitation.token)).catch(() => {});
-      setNotice({ tone: "ok", text: `Invited ${email.trim()}. Their link is on your clipboard.` });
+      const copied = await copyText(linkFor(data.invitation.token));
+      setNotice({ tone: "ok", text: copied
+        ? `Invited ${email.trim()}. Their link is on your clipboard.`
+        : `Invited ${email.trim()}. Copy their invite link from the list below to share it.` });
       setEmail("");
       router.refresh();
     } catch (err) {
@@ -84,6 +87,7 @@ export default function MembersClient({
   async function act(key: string, run: () => Promise<Response>) {
     setBusyId(key);
     setMenu(null);
+    setNotice(null);
     try {
       const res = await run();
       if (!res.ok) {
@@ -91,6 +95,8 @@ export default function MembersClient({
         setNotice({ tone: "error", text: b?.error ?? "That didn't go through." });
       }
       router.refresh();
+    } catch {
+      setNotice({ tone: "error", text: "Couldn't reach the server. Try again." });
     } finally {
       setBusyId(null);
     }
@@ -149,7 +155,7 @@ export default function MembersClient({
                 </span>
                 <span style={{ position: "relative" }}>
                   {editable ? (
-                    <button type="button" className="iconbtn" aria-label={`Change ${name}`} aria-expanded={menu === m.user_id} onClick={() => setMenu(menu === m.user_id ? null : m.user_id)}>
+                    <button type="button" className="iconbtn" aria-label={`Change ${name}`} aria-expanded={menu === m.user_id} disabled={busyId !== null} onClick={() => setMenu(menu === m.user_id ? null : m.user_id)}>
                       ⋯
                     </button>
                   ) : (
@@ -211,15 +217,21 @@ export default function MembersClient({
                 type="button"
                 className="btn btn-sm btn-secondary"
                 onClick={async () => {
-                  await navigator.clipboard?.writeText(linkFor(inv.token)).catch(() => {});
-                  setNotice({ tone: "ok", text: `${inv.email}'s invite link is on your clipboard.` });
+                  const copied = await copyText(linkFor(inv.token));
+                  setNotice(copied
+                    ? { tone: "ok", text: `${inv.email}'s invite link is on your clipboard.` }
+                    : { tone: "error", text: "Couldn't copy the invite link. Select the link below and copy it manually." });
+                  setMenu(copied ? null : inv.id);
                 }}
               >
                 Copy link
               </button>
-              <button type="button" className="iconbtn" aria-label={`Withdraw the invite to ${inv.email}`} onClick={() => act(inv.id, () => fetch(`/api/invitations/${inv.id}`, { method: "DELETE" }))}>
+              <button type="button" className="iconbtn" disabled={busyId !== null} aria-label={`Withdraw the invite to ${inv.email}`} onClick={() => act(inv.id, () => fetch(`/api/invitations/${inv.id}`, { method: "DELETE" }))}>
                 <IconX size={14} />
               </button>
+              {menu === inv.id && (
+                <input className="inp" aria-label={`Invite link for ${inv.email}`} readOnly value={linkFor(inv.token)} onFocus={(e) => e.currentTarget.select()} style={{ gridColumn: "1 / -1", width: "100%" }} />
+              )}
             </div>
           ))}
         </section>

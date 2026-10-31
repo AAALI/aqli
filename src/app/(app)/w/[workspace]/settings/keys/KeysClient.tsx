@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   IconKey,
   IconCheck,
@@ -8,6 +8,7 @@ import {
 } from "@/components/aqli/icons";
 import { FormField } from "@/components/settings/primitives";
 import { DEFAULT_AGENT_SCOPES } from "@/lib/agent-scopes";
+import { copyText } from "@/lib/clipboard";
 import type { AgentScope } from "@/lib/merge/disposition";
 
 type KeyRowData = {
@@ -108,6 +109,8 @@ const chipStyle: React.CSSProperties = {
 
 type Modal = null | "new" | "reveal";
 
+const subscribeToOrigin = () => () => {};
+
 function fmtWhen(iso: string | null): string {
   if (!iso) return "Never used";
   return "Last used " + new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -133,13 +136,19 @@ export default function KeysClient({
   const [newScopes, setNewScopes] = useState<AgentScope[]>(DEFAULT_AGENT_SCOPES);
   const [busy, setBusy] = useState(false);
   const [scopeBusy, setScopeBusy] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
   const [revealName, setRevealName] = useState("");
   const dim = modal !== null;
 
-  const agentBase = `${appUrl}/api/agent`;
-  const mcpUrl = `${appUrl}/api/mcp`;
+  const origin = useSyncExternalStore(
+    subscribeToOrigin,
+    () => (appUrl || window.location.origin).replace(/\/+$/, ""),
+    () => appUrl.replace(/\/+$/, ""),
+  );
+  const agentBase = `${origin}/api/agent`;
+  const mcpUrl = `${origin}/api/mcp`;
 
   function openNew() {
     setName("");
@@ -177,7 +186,7 @@ export default function KeysClient({
   }
 
   async function createKey() {
-    if (!name.trim()) return;
+    if (!name.trim() || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -215,9 +224,22 @@ export default function KeysClient({
   }
 
   async function revoke(id: string, keyName: string) {
+    if (revokingId) return;
     if (!window.confirm(`Revoke “${keyName}”? Any agent using this key will immediately lose access. This cannot be undone.`)) return;
-    const res = await fetch(`/api/keys/${id}`, { method: "DELETE" });
-    if (res.ok) setKeys((prev) => prev.filter((k) => k.id !== id));
+    setRevokingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/keys/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null) as { error?: string } | null;
+        throw new Error(data?.error ?? "Could not revoke this key");
+      }
+      setKeys((prev) => prev.filter((k) => k.id !== id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not revoke this key");
+    } finally {
+      setRevokingId(null);
+    }
   }
 
   return (
@@ -253,7 +275,8 @@ export default function KeysClient({
                 key={k.id}
                 k={k}
                 canManage={canManage}
-                scopeBusy={scopeBusy === k.id}
+                scopeBusy={scopeBusy === k.id || revokingId !== null}
+                revoking={revokingId === k.id}
                 onScopeToggle={(scope, next) =>
                   setScopes(k, next ? [...k.scopes, scope] : k.scopes.filter((s) => s !== scope))
                 }
@@ -271,7 +294,7 @@ export default function KeysClient({
 
       {dim && (
         <>
-          <div style={{ position: "absolute", inset: 0, background: "rgba(20,20,18,0.32)", zIndex: 50 }} onClick={() => setModal(null)} />
+          <div style={{ position: "absolute", inset: 0, background: "rgba(20,20,18,0.32)", zIndex: 50 }} onClick={() => { if (modal === "new" && !busy) setModal(null); }} />
           {modal === "new" && (
             <NewKeyModal
               name={name}
@@ -297,12 +320,14 @@ function KeyRow({
   k,
   canManage,
   scopeBusy,
+  revoking,
   onScopeToggle,
   onRevoke,
 }: {
   k: KeyRowData;
   canManage: boolean;
   scopeBusy: boolean;
+  revoking: boolean;
   onScopeToggle: (scope: AgentScope, next: boolean) => void;
   onRevoke: () => void;
 }) {
@@ -322,8 +347,8 @@ function KeyRow({
         {canManage && (
           <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <ScopeChips scopes={k.scopes} editable busy={scopeBusy} onToggle={onScopeToggle} />
-            <button type="button" className="btn btn-sm btn-ghost btn-ghost-danger" onClick={onRevoke}>
-              Revoke
+            <button type="button" className="btn btn-sm btn-ghost btn-ghost-danger" disabled={scopeBusy} onClick={onRevoke}>
+              {revoking ? "Revoking…" : "Revoke"}
             </button>
           </div>
         )}
@@ -389,6 +414,7 @@ function NewKeyModal({
       <FormField label="Name" hint="Pick something specific — agent + machine helps if a key needs to be revoked.">
         <input
           autoFocus
+          disabled={busy}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onCreate()}
@@ -433,9 +459,9 @@ function NewKeyModal({
           })}
         </div>
       </FormField>
-      {error && <p style={{ margin: 0, fontSize: 13, color: "#993C1D" }}>{error}</p>}
+      {error && <p role="alert" style={{ margin: 0, fontSize: 13, color: "#993C1D" }}>{error}</p>}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-        <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+        <button className="btn btn-ghost" onClick={onCancel} disabled={busy}>Cancel</button>
         <button className="btn btn-primary" onClick={onCreate} disabled={busy || !name.trim()}>
           <IconKey size={13} /><span>{busy ? "Creating…" : "Create key"}</span>
         </button>
@@ -446,10 +472,12 @@ function NewKeyModal({
 
 function RevealModal({ name, secret, agentBase, mcpUrl, onClose }: { name: string; secret: string; agentBase: string; mcpUrl: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
-  function copy() {
-    navigator.clipboard?.writeText(secret);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  const [error, setError] = useState<string | null>(null);
+  async function copy() {
+    const ok = await copyText(secret);
+    setCopied(ok);
+    setError(ok ? null : "Couldn't copy the key. Select it and copy it manually.");
+    if (ok) setTimeout(() => setCopied(false), 1500);
   }
   return (
     <div style={{ ...MODAL_SHELL, width: 540, maxWidth: "calc(100vw - 32px)" }}>
@@ -461,20 +489,24 @@ function RevealModal({ name, secret, agentBase, mcpUrl, onClose }: { name: strin
       </div>
       <Label>{name}</Label>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ flex: 1, background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text-primary)", wordBreak: "break-all" }}>
+        <div style={{ flex: 1, background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text-primary)", wordBreak: "break-all", userSelect: "all" }}>
           {secret}
         </div>
         <button className="btn btn-secondary" onClick={copy}>{copied ? "Copied" : "Copy"}</button>
       </div>
+      {error && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: "var(--danger-text)" }}>{error}</p>}
       {/* Two ways in, both with this key. The MCP line comes first because it
           is the one most people need: connecting an assistant used to mean
           reading the README, which is a rollout only engineering completes
           (docs/adoption.md F-2). */}
       <Label>Connect an assistant</Label>
+      <p style={{ margin: 0, fontSize: 12, color: "var(--text-secondary)" }}>
+        Set AQLI_API_KEY to the full key above in your shell before running these commands.
+      </p>
       <CodeBlock
         value={[
           `claude mcp add --transport http aqli ${mcpUrl} \\`,
-          `  --header "Authorization: Bearer ${secret.slice(0, 16)}…"`,
+          '  --header "Authorization: Bearer $AQLI_API_KEY"',
         ]}
       />
       <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
@@ -487,7 +519,7 @@ function RevealModal({ name, secret, agentBase, mcpUrl, onClose }: { name: strin
       <CodeBlock
         value={[
           `curl ${agentBase}/context \\`,
-          `  -H "Authorization: Bearer ${secret.slice(0, 16)}…" \\`,
+          '  -H "Authorization: Bearer $AQLI_API_KEY" \\',
           '  -G --data-urlencode "query=payout retry"',
         ]}
       />

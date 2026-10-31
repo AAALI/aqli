@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import SpaceIcon from "@/components/aqli/SpaceIcon";
 import { avatarColor } from "@/lib/utils";
 import type { Space } from "@/types/space";
+import type { DocClass } from "@/types/doc";
 
 export type Checker = { id: string; name: string };
 
@@ -17,14 +18,14 @@ export type Checker = { id: string; name: string };
  *
  * Two fields, not three. The prototype and frame 22 both ask only where it
  * lives and who should check it; doc type is carried from the pattern the
- * writer started with and stays editable from the reading surface, rather than
- * putting eleven more chips in a 440px sheet.
+ * writer started with, rather than putting eleven more chips in a 440px sheet.
  */
 export default function PublishSheet({
   title,
   spaces,
   people,
   initialSpaceId,
+  docClass = "canon",
   busy,
   error,
   onCancel,
@@ -34,6 +35,7 @@ export default function PublishSheet({
   spaces: Space[];
   people: Checker[];
   initialSpaceId: string | null;
+  docClass?: DocClass;
   busy: boolean;
   error: string | null;
   onCancel: () => void;
@@ -43,6 +45,7 @@ export default function PublishSheet({
   // every time the sheet is raised — no effect syncing them back to the props.
   const [spaceId, setSpaceId] = useState<string | null>(initialSpaceId ?? spaces[0]?.id ?? null);
   const [checkerIds, setCheckerIds] = useState<string[]>([]);
+  const requiresReview = docClass !== "record" && spaces.find((s) => s.id === spaceId)?.review_policy === "review_all";
 
   const chosen = useMemo(
     () => people.filter((p) => checkerIds.includes(p.id)).map((p) => p.name),
@@ -56,25 +59,25 @@ export default function PublishSheet({
   // ⌘⏎ from inside the sheet publishes; Esc closes it.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !busy) {
         e.preventDefault();
         onCancel();
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !busy) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !busy && !requiresReview) {
         e.preventDefault();
         onPublish({ spaceId, checkerIds });
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [busy, spaceId, checkerIds, onCancel, onPublish]);
+  }, [busy, requiresReview, spaceId, checkerIds, onCancel, onPublish]);
 
   return (
     <div
       className="scrim"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel();
+        if (e.target === e.currentTarget && !busy) onCancel();
       }}
     >
       <div className="sheet" role="dialog" aria-modal="true" aria-label="Publish">
@@ -93,6 +96,7 @@ export default function PublishSheet({
                   key={s.id}
                   aria-pressed={spaceId === s.id}
                   className={`pick${spaceId === s.id ? " is-on" : ""}`}
+                  disabled={busy}
                   onClick={() => setSpaceId(s.id)}
                 >
                   <span className="em"><SpaceIcon icon={s.icon} /></span>
@@ -117,6 +121,7 @@ export default function PublishSheet({
                     key={p.id}
                     aria-pressed={checkerIds.includes(p.id)}
                     className={`pick${checkerIds.includes(p.id) ? " is-on" : ""}`}
+                    disabled={busy}
                     onClick={() => toggleChecker(p.id)}
                   >
                     <span
@@ -137,12 +142,19 @@ export default function PublishSheet({
               {error}
             </p>
           )}
+          {requiresReview && (
+            <p role="status" style={{ margin: 0, fontSize: 12.5, color: "var(--ageing-text)" }}>
+              This space requires review. Direct publishing is unavailable. Choose another space or keep this as a draft.
+            </p>
+          )}
         </div>
 
         <div className="sheet-f">
           {/* The consequence, in the same words the trust line will use. */}
           <span className="hint">
-            {chosen.length > 0 ? (
+            {requiresReview ? (
+              <>Keep as a draft until it can be sent for review.</>
+            ) : chosen.length > 0 ? (
               <>
                 Publishes now.{" "}
                 <b style={{ color: "var(--text-secondary)", fontWeight: 600 }}>{listNames(chosen)}</b>{" "}
@@ -159,7 +171,7 @@ export default function PublishSheet({
           <button
             type="button"
             className="btn btn-primary"
-            disabled={busy}
+            disabled={busy || requiresReview}
             onClick={() => onPublish({ spaceId, checkerIds })}
           >
             {busy ? "Publishing…" : "Publish"}

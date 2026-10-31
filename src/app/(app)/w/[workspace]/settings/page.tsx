@@ -18,7 +18,11 @@ export default async function SettingsGeneralPage({
       <AppTopBar base={base} crumbs={[{ label: "Settings", href: `${base}/settings` }, { label: "General" }]} />
       <div className="content" style={{ padding: "32px 44px" }}>
         <div style={{ maxWidth: 760, margin: "0 auto" }}>
-          <SettingsGeneralClient workspace={workspace} isAdmin={role === "admin"} />
+          <SettingsGeneralClient
+            workspace={{ id: workspace.id, name: workspace.name, slug: workspace.slug }}
+            isAdmin={role === "admin"}
+            aiConfigured={Boolean(process.env.OPENAI_API_KEY)}
+          />
         </div>
       </div>
     </>

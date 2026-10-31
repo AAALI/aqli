@@ -50,7 +50,12 @@ export default function CurateShelves({
 
   return (
     <>
-      <button type="button" className="sect-a" style={{ background: "none", border: 0, cursor: "pointer", fontFamily: "inherit" }} onClick={() => setOpen(true)}>
+      <button type="button" className="sect-a" style={{ background: "none", border: 0, cursor: "pointer", fontFamily: "inherit" }} onClick={() => {
+        setStart(startHere);
+        setPath(readingPath);
+        setError(null);
+        setOpen(true);
+      }}>
         Edit
       </button>
       {open && (

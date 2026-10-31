@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getMyRole } from "@/lib/supabase/members";
 import { slugify } from "@/lib/utils";
 import { recordAudit, humanActor } from "@/lib/audit";
+import { workspaceForClient } from "@/lib/workspace-settings";
 
 export async function PATCH(
   req: NextRequest,
@@ -76,5 +77,5 @@ export async function PATCH(
     },
   });
 
-  return NextResponse.json({ workspace: data });
+  return NextResponse.json({ workspace: workspaceForClient(data) });
 }

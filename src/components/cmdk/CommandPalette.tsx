@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconChat, IconEdit, IconSearch } from "@/components/aqli/icons";
 import SpaceIcon from "@/components/aqli/SpaceIcon";
@@ -38,6 +38,32 @@ const PATTERNS = [
   { type: "brief", name: "Brief" },
 ];
 
+/** Cancel both the debounce and any response belonging to an older query. */
+export function searchPaletteDocs(
+  workspaceId: string,
+  query: string,
+  onResults: (docs: DocLite[]) => void,
+  onError: () => void,
+): () => void {
+  const controller = new AbortController();
+  let live = true;
+  const timer = setTimeout(async () => {
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&workspace_id=${workspaceId}`, { signal: controller.signal });
+      if (!res.ok) throw new Error("Search unavailable");
+      const data = await res.json();
+      if (live) onResults(data.results ?? []);
+    } catch {
+      if (live) onError();
+    }
+  }, 160);
+  return () => {
+    live = false;
+    controller.abort();
+    clearTimeout(timer);
+  };
+}
+
 /**
  * ⌘K (v3 §2, §4, frame 23): jump to a doc, ask a question, or start writing.
  *
@@ -63,9 +89,12 @@ export default function CommandPalette({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<DocLite[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const listId = useId();
 
   const spaceName = useMemo(() => {
     const m = new Map(spaces.map((s) => [s.id, s.name]));
@@ -81,11 +110,19 @@ export default function CommandPalette({
   );
 
   const openPalette = useCallback(() => {
+    triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setQuery("");
+    setResults([]);
+    setSearchError(null);
     setActive(0);
     setOpen(true);
-    requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    inputRef.current?.focus();
+    return () => triggerRef.current?.focus();
+  }, [open]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -109,19 +146,20 @@ export default function CommandPalette({
   // list never blanks while the next query is in flight (§4).
   useEffect(() => {
     const q = query.trim();
-    if (!q) return;
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&workspace_id=${workspaceId}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setResults(data.results ?? []);
-      } catch {
-        // Keep what is showing.
-      }
-    }, 160);
-    return () => clearTimeout(t);
-  }, [query, workspaceId]);
+    if (!q || !open) return;
+    return searchPaletteDocs(
+      workspaceId,
+      q,
+      (docs) => {
+        setResults(docs);
+        setSearchError(null);
+      },
+      () => {
+        setResults([]);
+        setSearchError("Search is unavailable. Try again, or open the full search.");
+      },
+    );
+  }, [query, workspaceId, open]);
 
   const writeHref = useCallback(
     (extra: Record<string, string> = {}) => {
@@ -196,21 +234,28 @@ export default function CommandPalette({
     }
     return out;
   }, [query, results, recentDocs, spaces, currentUserId, spaceName, base, go, writeHref]);
+  const selected = Math.min(active, items.length - 1);
 
   // Keep the keyboard-selected row in view.
   useEffect(() => {
-    listRef.current?.querySelector<HTMLElement>(`[data-i="${active}"]`)?.scrollIntoView({ block: "nearest" });
-  }, [active]);
+    listRef.current?.querySelector<HTMLElement>(`[data-i="${selected}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
 
   if (!open) return null;
 
   function onInputKey(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive((a) => (items.length ? (a + 1) % items.length : 0));
+      setActive(items.length ? (selected + 1) % items.length : 0);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActive((a) => (items.length ? (a - 1 + items.length) % items.length : 0));
+      setActive(items.length ? (selected - 1 + items.length) % items.length : 0);
+    } else if (e.key === "Tab") {
+      // The combobox is the dialog's only tab stop. Keep focus in the palette.
+      e.preventDefault();
+    } else if (e.key === "Escape") {
+      e.stopPropagation();
+      setOpen(false);
     } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       // The editor listens for ⌘⏎ on the window to open Publish; inside the
@@ -220,7 +265,7 @@ export default function CommandPalette({
       go(writeHref(q ? { title: q } : {}));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      items[Math.min(active, items.length - 1)]?.run();
+      items[selected]?.run();
     }
   }
 
@@ -242,16 +287,23 @@ export default function CommandPalette({
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
+              setSearchError(null);
               setActive(0);
             }}
             onKeyDown={onInputKey}
             placeholder="Search, ask a question, or start writing…"
             aria-label="Search, ask a question, or start writing"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded="true"
+            aria-controls={listId}
+            aria-activedescendant={items[selected] ? `${listId}-${items[selected].id}` : undefined}
             autoComplete="off"
           />
           <span className="kbd">esc</span>
         </div>
-        <div className="cmdk-l" ref={listRef} role="listbox">
+        {searchError && <p role="status" style={{ margin: 0, padding: "10px 16px", fontSize: 12.5, color: "var(--text-muted)" }}>{searchError}</p>}
+        <div className="cmdk-l" id={listId} ref={listRef} role="listbox" aria-label="Search results and actions">
           {groups.map((g) => {
             const inGroup = items.filter((i) => i.group === g);
             if (!inGroup.length) return null;
@@ -263,10 +315,11 @@ export default function CommandPalette({
                   return (
                     <div
                       key={item.id}
+                      id={`${listId}-${item.id}`}
                       data-i={idx}
                       role="option"
-                      aria-selected={idx === active}
-                      className={`ci${idx === active ? " is-on" : ""}`}
+                      aria-selected={idx === selected}
+                      className={`ci${idx === selected ? " is-on" : ""}`}
                       onMouseMove={() => setActive(idx)}
                       onClick={item.run}
                     >

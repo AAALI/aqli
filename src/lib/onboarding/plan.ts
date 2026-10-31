@@ -27,7 +27,7 @@ export type OnboardingStep = {
  * action is "Start writing", and it lands on the editor.
  */
 export const ONBOARDING_STEPS: OnboardingStep[] = [
-  { key: "account", label: "Account", hint: "Email and password" },
+  { key: "account", label: "Account", hint: "Email link or code" },
   { key: "workspace", label: "Workspace", hint: "Your company or team" },
   { key: "spaces", label: "Spaces", hint: "Optional" },
 ];

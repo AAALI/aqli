@@ -16,10 +16,6 @@ import { useKeyboardInset } from "./useKeyboardInset";
  * The bar watches the visual viewport and lifts itself by the difference.
  */
 export default function PhoneFormatBar({ editor, onAsk }: { editor: Editor; onAsk: () => void }) {
-  const tap = (run: () => void) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    run();
-  };
   const inset = useKeyboardInset();
   return (
     <div
@@ -27,24 +23,25 @@ export default function PhoneFormatBar({ editor, onAsk }: { editor: Editor; onAs
       role="toolbar"
       aria-label="Formatting"
       style={inset ? { bottom: inset } : undefined}
+      onMouseDown={(e) => e.preventDefault()}
     >
-      <button type="button" className="iconbtn" aria-label="Heading" onMouseDown={tap(() => editor.chain().focus().toggleHeading({ level: 2 }).run())} style={{ fontFamily: "var(--font-serif)", fontSize: 16, fontWeight: 600 }}>
+      <button type="button" className="iconbtn" aria-label="Heading" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} style={{ fontFamily: "var(--font-serif)", fontSize: 16, fontWeight: 600 }}>
         H
       </button>
-      <button type="button" className="iconbtn" aria-label="Bold" onMouseDown={tap(() => editor.chain().focus().toggleBold().run())} style={{ fontWeight: 700 }}>
+      <button type="button" className="iconbtn" aria-label="Bold" onClick={() => editor.chain().focus().toggleBold().run()} style={{ fontWeight: 700 }}>
         B
       </button>
-      <button type="button" className="iconbtn" aria-label="Italic" onMouseDown={tap(() => editor.chain().focus().toggleItalic().run())} style={{ fontStyle: "italic", fontFamily: "var(--font-serif)" }}>
+      <button type="button" className="iconbtn" aria-label="Italic" onClick={() => editor.chain().focus().toggleItalic().run()} style={{ fontStyle: "italic", fontFamily: "var(--font-serif)" }}>
         I
       </button>
-      <button type="button" className="iconbtn" aria-label="Bulleted list" onMouseDown={tap(() => editor.chain().focus().toggleBulletList().run())}>
+      <button type="button" className="iconbtn" aria-label="Bulleted list" onClick={() => editor.chain().focus().toggleBulletList().run()}>
         •
       </button>
-      <button type="button" className="iconbtn" aria-label="Numbered list" onMouseDown={tap(() => editor.chain().focus().toggleOrderedList().run())} style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+      <button type="button" className="iconbtn" aria-label="Numbered list" onClick={() => editor.chain().focus().toggleOrderedList().run()} style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
         1.
       </button>
       <span style={{ flex: 1 }} />
-      <button type="button" className="iconbtn" aria-label="Ask Aqli" onMouseDown={tap(onAsk)} style={{ color: "var(--accent)" }}>
+      <button type="button" className="iconbtn" aria-label="Ask Aqli" onClick={onAsk} style={{ color: "var(--accent)" }}>
         <IconSparkle size={16} />
       </button>
     </div>

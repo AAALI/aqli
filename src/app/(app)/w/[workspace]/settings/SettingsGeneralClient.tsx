@@ -27,37 +27,19 @@ const monoInputStyle: React.CSSProperties = {
   fontSize: 12.5,
 };
 
-const selectStyle: React.CSSProperties = {
-  ...inputStyle,
-  cursor: "pointer",
-  appearance: "none" as const,
-  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-  backgroundRepeat: "no-repeat",
-  backgroundPosition: "right 10px center",
-  paddingRight: 32,
-};
-
-type Settings = {
-  stale_days?: number;
-  openai_key?: string;
-};
-
 export default function SettingsGeneralClient({
   workspace,
   isAdmin,
+  aiConfigured,
 }: {
-  workspace: Workspace;
+  workspace: Pick<Workspace, "id" | "name" | "slug">;
   isAdmin: boolean;
+  aiConfigured: boolean;
 }) {
   const router = useRouter();
-  const settings = (workspace.settings ?? {}) as Settings;
 
   const [name, setName] = useState(workspace.name);
   const [slug, setSlug] = useState(workspace.slug);
-  // Carried through on save so an existing value is not lost. Nothing reads
-  // it: how long a doc stays Current is its own cadence (lib/verify-cadence).
-  const staleDays = settings.stale_days ?? 90;
-  const [openaiKey, setOpenaiKey] = useState(settings.openai_key ?? "");
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -79,10 +61,6 @@ export default function SettingsGeneralClient({
         body: JSON.stringify({
           name,
           slug,
-          settings: {
-            stale_days: staleDays,
-            ...(openaiKey ? { openai_key: openaiKey } : {}),
-          },
         }),
       });
       const data = await res.json();
@@ -156,20 +134,14 @@ export default function SettingsGeneralClient({
       </SettingsCard>
 
 
-      <SettingsCard title="AI provider" sub="Embeddings and AI features use this key. Your key is stored encrypted and never logged.">
-        <FormField label="OpenAI API key" hint="Used for embeddings and AI question answering. Leave blank to disable AI features.">
-          <input
-            type="password"
-            value={openaiKey}
-            onChange={(e) => setOpenaiKey(e.target.value)}
-            disabled={!isAdmin}
-            placeholder={settings.openai_key ? "sk-••••••••••••••••" : "sk-..."}
-            autoComplete="off"
-            style={monoInputStyle}
-          />
-        </FormField>
+      <SettingsCard title="AI provider" sub="AI features use the OpenAI key configured by whoever runs this installation, not a workspace setting.">
+        <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          {aiConfigured ? "An OpenAI key is configured for this installation." : "No OpenAI key is configured for this installation."}{" "}
+          To enable or disable AI features, ask your deployment administrator to set or remove{" "}
+          <code>OPENAI_API_KEY</code> in the server environment and redeploy.
+        </p>
         <FormField label="Embedding model">
-          <div style={{ ...selectStyle, background: "var(--bg-base)", fontSize: 12.5, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+          <div style={{ ...monoInputStyle, color: "var(--text-secondary)" }}>
             text-embedding-3-small <span style={{ fontSize: 11.5, marginLeft: 6, fontFamily: "var(--font-sans)" }}>(fixed)</span>
           </div>
         </FormField>

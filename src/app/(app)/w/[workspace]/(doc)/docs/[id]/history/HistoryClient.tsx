@@ -51,22 +51,36 @@ export default function HistoryClient({
     (initial && versions.some((v) => v.id === initial) ? initial : versions[0]?.id) ?? null,
   );
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [queuedId, setQueuedId] = useState<string | null>(null);
   const selected = versions.find((v) => v.id === selectedId) ?? null;
   const isLatest = selected?.id === versions[0]?.id;
 
   const blocks = useMemo(() => (selected ? toBlocks(diffLines(selected.before ?? "", selected.body_md)) : []), [selected]);
 
   async function restore() {
-    if (!selected) return;
+    if (!selected || busy || queuedId === selected.id) return;
     setBusy(true);
+    setError(null);
     try {
-      await fetch(`/api/docs/${docId}`, {
+      const res = await fetch(`/api/docs/${docId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body_md: selected.body_md, body_json: markdownToTiptap(selected.body_md) }),
       });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Could not restore this version. Try again.");
+      }
+      if (res.status === 202) {
+        setQueuedId(selected.id);
+        router.refresh();
+        return;
+      }
       router.push(`${base}/docs/${docId}`);
       router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not restore this version. Try again.");
     } finally {
       setBusy(false);
     }
@@ -105,7 +119,11 @@ export default function HistoryClient({
                 key={v.id}
                 className={`bl hist-i${v.id === selectedId ? " is-on" : ""}`}
                 aria-current={v.id === selectedId}
-                onClick={() => setSelectedId(v.id)}
+                disabled={busy}
+                onClick={() => {
+                  setSelectedId(v.id);
+                  setError(null);
+                }}
               >
                 <b>
                   v{v.n} · {v.label}
@@ -151,9 +169,15 @@ export default function HistoryClient({
               </div>
 
               {canRestore && !isLatest && (
-                <div style={{ marginTop: 32, display: "flex", gap: 9 }}>
-                  <button type="button" className="btn btn-secondary" disabled={busy} onClick={restore}>
-                    {busy ? "Restoring…" : "Restore this version"}
+                <div style={{ marginTop: 32, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 9 }}>
+                  {error && <p role="alert" style={{ margin: 0, fontSize: 13, color: "var(--danger-text)" }}>{error}</p>}
+                  {queuedId === selected.id && (
+                    <p role="status" style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)" }}>
+                      Restoration sent for review. The current doc has not changed.
+                    </p>
+                  )}
+                  <button type="button" className="btn btn-secondary" disabled={busy || queuedId === selected.id} onClick={restore}>
+                    {busy ? "Restoring…" : queuedId === selected.id ? "Sent for review" : "Restore this version"}
                   </button>
                 </div>
               )}

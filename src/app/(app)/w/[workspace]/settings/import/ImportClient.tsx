@@ -95,10 +95,13 @@ export default function ImportClient({
         <input
           type="file"
           accept=".zip,application/zip"
+          disabled={busy}
           onChange={(e) => {
             setFile(e.target.files?.[0] ?? null);
             setSummary(null);
             setReport(null);
+            setReportDocId(null);
+            setError(null);
           }}
           style={{ fontSize: 13, marginBottom: 16, display: "block" }}
         />
@@ -110,7 +113,14 @@ export default function ImportClient({
             </label>
             <select
               value={spaceId}
-              onChange={(e) => setSpaceId(e.target.value)}
+              disabled={busy}
+              onChange={(e) => {
+                setSpaceId(e.target.value);
+                setSummary(null);
+                setReport(null);
+                setReportDocId(null);
+                setError(null);
+              }}
               style={{
                 fontSize: 13,
                 padding: "6px 8px",

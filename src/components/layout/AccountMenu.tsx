@@ -26,6 +26,7 @@ export default function AccountMenu({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const initial = userName.trim().charAt(0).toUpperCase() || "Y";
 
@@ -39,12 +40,19 @@ export default function AccountMenu({
 
   async function signOut() {
     setBusy(true);
+    setError(null);
     // The browser Supabase client (55 KiB gzipped) exists in this shell for
     // this one click, so it is fetched on the click rather than with the page.
-    const { createClient } = await import("@/lib/supabase/client");
-    await createClient().auth.signOut();
-    router.push("/login");
-    router.refresh();
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const { error } = await createClient().auth.signOut();
+      if (error) throw error;
+      router.push("/login");
+      router.refresh();
+    } catch {
+      setError("Couldn't sign out. Try again.");
+      setBusy(false);
+    }
   }
 
   return (
@@ -66,6 +74,7 @@ export default function AccountMenu({
           fontFamily: "var(--font-sans)",
         }}
         aria-label="Account menu"
+        aria-expanded={open}
       >
         <span className="avatar" style={{ background: avatarColor(userName) }}>{initial}</span>
         <span className="meta">
@@ -111,6 +120,7 @@ export default function AccountMenu({
             <IconLogOut size={14} />
             {busy ? "Signing out..." : "Sign out"}
           </button>
+          {error && <p role="alert" style={{ margin: "6px 8px", fontSize: 12, color: "var(--danger-text)" }}>{error}</p>}
         </div>
       )}
     </div>

@@ -64,6 +64,7 @@ export default function GitHubRepoPicker({
   }
 
   async function save() {
+    if (loading || loadError || saving) return;
     setSaving(true);
     setSaved(null);
     try {
@@ -181,13 +182,13 @@ export default function GitHubRepoPicker({
           )}
         </div>
         <span style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.4 }}>
-          Composio creates one pull-request trigger per selected repo.
+          Aqli creates one pull-request webhook per selected repository.
         </span>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)" }}>Default destination space</span>
-        <select value={spaceId} onChange={(e) => { setSpaceId(e.target.value); setSaved(null); }} style={controlStyle}>
+        <select value={spaceId} disabled={loading || !!loadError || saving} onChange={(e) => { setSpaceId(e.target.value); setSaved(null); }} style={controlStyle}>
           {spaces.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <span style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.4 }}>
@@ -196,7 +197,7 @@ export default function GitHubRepoPicker({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button type="button" className="btn btn-primary" style={{ width: "fit-content" }} onClick={save} disabled={saving || loading}>
+        <button type="button" className="btn btn-primary" style={{ width: "fit-content" }} onClick={save} disabled={saving || loading || !!loadError}>
           {saving ? "Saving…" : "Save repositories"}
         </button>
         {saved && <span style={{ fontSize: 12.5, color: saved.startsWith("Saved") ? "var(--ok-text)" : "#993C1D" }}>{saved}</span>}

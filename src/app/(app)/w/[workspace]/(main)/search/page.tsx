@@ -36,16 +36,20 @@ export default async function SearchPage({
   const user = await getUser();
   const query = q.trim();
 
-  const [spaces, owners, hits, gaps] = await Promise.all([
+  const [spaces, owners, search, gaps] = await Promise.all([
     getSpaces(workspace.id).catch(() => []),
     getOwnerDirectory(workspace.id),
-    query ? searchDocs(workspace.id, query, user?.id ?? null).catch(() => [] as SearchHit[]) : Promise.resolve([] as SearchHit[]),
+    query
+      ? searchDocs(workspace.id, query, user?.id ?? null)
+          .then((hits) => ({ hits, failed: false }))
+          .catch(() => ({ hits: [] as SearchHit[], failed: true }))
+      : Promise.resolve({ hits: [] as SearchHit[], failed: false }),
     query ? getGaps(workspace.id, { sinceDays: 30, limit: 3, match: query }) : Promise.resolve([]),
   ]);
 
   const spaceById = new Map(spaces.map((s) => [s.id, s]));
   const activeSpace = spaces.find((s) => s.slug === spaceFilter) ?? null;
-  const matches = hits.filter(
+  const matches = search.hits.filter(
     (h) => (!activeSpace || h.space_id === activeSpace.id) && (!current || docState(h) === "current"),
   );
   const chipHref = (next: { space?: string | null; current?: boolean }) => {
@@ -61,7 +65,7 @@ export default async function SearchPage({
       <AppTopBar crumbs={[{ label: "Search" }]} actions={<span className="kbd only-wide">⌘K for the quick version</span>} />
       <div className="wrap">
         <div className="wrap-in">
-          <SearchBox base={base} initial={query} />
+          <SearchBox key={query} base={base} initial={query} />
 
           {!query ? (
             <p className="h1s" style={{ marginTop: 22 }}>
@@ -73,7 +77,7 @@ export default async function SearchPage({
 
               <section className="sect">
                 <div className="sect-h">
-                  <h2>Matches · {matches.length}</h2>
+                  <h2>Matches{!search.failed && ` · ${matches.length}`}</h2>
                   <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <Link href={chipHref({})} className={`pick${!activeSpace && !current ? " is-on" : ""}`} style={{ height: 27, fontSize: 12 }}>
                       Everywhere
@@ -88,7 +92,14 @@ export default async function SearchPage({
                     </Link>
                   </div>
                 </div>
-                {matches.length === 0 ? (
+                {search.failed ? (
+                  <p role="alert" className="h1s" style={{ margin: "4px 0 0" }}>
+                    Couldn&apos;t search your docs.{" "}
+                    <a href={chipHref({ space: activeSpace?.slug, current: Boolean(current) })} style={{ color: "var(--accent)", fontWeight: 600 }}>
+                      Try again
+                    </a>
+                  </p>
+                ) : matches.length === 0 ? (
                   <p className="h1s" style={{ margin: "4px 0 0" }}>No doc mentions that.</p>
                 ) : (
                   matches.map((h) => {

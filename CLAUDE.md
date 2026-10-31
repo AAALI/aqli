@@ -47,7 +47,9 @@ pnpm export     # the whole workspace as markdown + images, deterministic and re
 
 ## Architecture decisions worth knowing
 
-- **Auth model:** Supabase Auth (email/password) via `@supabase/ssr`. `middleware.ts`
+- **Auth model:** Supabase Auth (email link/code first; existing passwords remain
+  a secondary sign-in option) via `@supabase/ssr`. See `docs/authentication.md`
+  for required SMTP and dual link/code email templates. `middleware.ts`
   refreshes the session and gates `/w/*` routes. There is **no NextAuth** — Supabase
   handles auth directly.
 - **RLS-first data access:** `src/lib/supabase/*` use the **request-scoped, RLS-respecting**
@@ -124,7 +126,8 @@ and refuse to apply without it — see `20260805040000_body_md_canonical.sql`, a
 
 ## Local setup
 
-1. Copy `.env.example` to `.env.local` and fill in your Supabase URL + anon key. For
-   full local auth, disable "Confirm email" in Supabase → Auth → Providers (dev only)
-   so signup yields an immediate session.
+1. Copy `.env.example` to `.env.local` and fill in your Supabase URL + anon key.
+   Configure email templates and a mail transport/inbox as described in
+   `docs/authentication.md`. Keep "Confirm email" enabled; disabling it does not
+   skip passwordless verification.
 2. `pnpm dev`, open http://localhost:3000, sign up (creates a workspace + default spaces).

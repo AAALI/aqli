@@ -72,6 +72,8 @@ export default function SlashMenu({
   const [selected, setSelected] = useState(0);
   const [citeResults, setCiteResults] = useState<RelatedResult[] | null>(null);
   const [citeLoading, setCiteLoading] = useState(false);
+  const [citeError, setCiteError] = useState<string | null>(null);
+  const citeRequestRef = useRef(0);
   const menuRef = useRef<MenuState | null>(null);
   const selectedRef = useRef(0);
   const citeRef = useRef<RelatedResult[] | null>(null);
@@ -88,6 +90,8 @@ export default function SlashMenu({
     setSelected(0);
     setCiteResults(null);
     setCiteLoading(false);
+    setCiteError(null);
+    citeRequestRef.current += 1;
   }, []);
 
   // Detect a trailing "/query" before the caret on every transaction.
@@ -148,6 +152,34 @@ export default function SlashMenu({
     filteredRef.current = filtered;
   }, [filtered]);
 
+  const searchCitations = useCallback(async () => {
+    const request = ++citeRequestRef.current;
+    setCiteLoading(true);
+    setCiteError(null);
+    setCiteResults([]);
+    setSelected(0);
+    const { $from } = editor.state.selection;
+    const blockText = $from.parent.textContent.trim();
+    try {
+      const res = await fetch("/api/ai/related", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_id: workspaceId, doc_id: docId, text: blockText || "overview" }),
+      });
+      const data = (await res.json().catch(() => null)) as { results?: RelatedResult[]; error?: string } | null;
+      if (request !== citeRequestRef.current) return;
+      if (!res.ok) throw new Error(data?.error ?? "Could not find related docs. Try again.");
+      if (!Array.isArray(data?.results)) throw new Error("Could not read the related docs. Try again.");
+      setCiteResults(data.results);
+    } catch (err) {
+      if (request === citeRequestRef.current) {
+        setCiteError(err instanceof Error ? err.message : "Could not find related docs. Try again.");
+      }
+    } finally {
+      if (request === citeRequestRef.current) setCiteLoading(false);
+    }
+  }, [editor, workspaceId, docId]);
+
   const runCommand = useCallback(
     (cmd: Cmd) => {
       const m = menuRef.current;
@@ -183,33 +215,19 @@ export default function SlashMenu({
           onAskAgent();
           break;
         case "cite": {
+          // The deletion emits a transaction synchronously. Enter cite mode
+          // first so that transaction cannot close the now-slashless picker.
+          citeRef.current = [];
           chain.run();
           // Switch the popover into cite-picker mode, searching with the
           // text of the block the user is writing in.
-          setCiteLoading(true);
-          setCiteResults([]);
-          setSelected(0);
-          const { $from } = editor.state.selection;
-          const blockText = $from.parent.textContent.trim();
-          fetch("/api/ai/related", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              workspace_id: workspaceId,
-              doc_id: docId,
-              text: blockText || "overview",
-            }),
-          })
-            .then((r) => r.json())
-            .then((data) => setCiteResults(data.results ?? []))
-            .catch(() => setCiteResults([]))
-            .finally(() => setCiteLoading(false));
+          void searchCitations();
           return; // keep the menu open in cite mode
         }
       }
       if (cmd.id !== "cite") close();
     },
-    [editor, workspaceId, docId, onAskAgent, close],
+    [editor, onAskAgent, close, searchCitations],
   );
 
   const insertCitation = useCallback(
@@ -254,6 +272,10 @@ export default function SlashMenu({
           return true;
         case "Enter": {
           if (inCite) {
+            if (citeError) {
+              void searchCitations();
+              return true;
+            }
             const r = citeRef.current?.[selectedRef.current];
             if (r) insertCitationRef.current(r);
             else close();
@@ -271,7 +293,7 @@ export default function SlashMenu({
           return false;
       }
     });
-  }, [keyRegistry, close]);
+  }, [keyRegistry, close, citeError, searchCitations]);
 
   if (!menu) return null;
   if (citeResults === null && filtered.length === 0) return null;
@@ -288,6 +310,13 @@ export default function SlashMenu({
       {citeResults !== null ? (
         citeLoading ? (
           <p className="si-empty">Searching…</p>
+        ) : citeError ? (
+          <div role="alert" className="si-empty">
+            <p style={{ margin: "0 0 8px" }}>{citeError}</p>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void searchCitations()}>
+              Try again
+            </button>
+          </div>
         ) : citeResults.length === 0 ? (
           <p className="si-empty">Nobody has written this down.</p>
         ) : (
