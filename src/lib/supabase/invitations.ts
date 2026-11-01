@@ -15,19 +15,30 @@ export async function createInvitation(
 ): Promise<Invitation> {
   const supabase = await createServerSupabaseClient();
   const token = crypto.randomBytes(24).toString("base64url");
+  const address = email.toLowerCase().trim();
 
-  const { data, error } = await supabase
+  // Inviting the same address twice is a re-send, not a second invitation:
+  // the pending row gets a fresh token, role and expiry, and the old link
+  // stops working. Otherwise People fills up with duplicates of one person.
+  const { data: existing } = await supabase
     .from("invitations")
-    .insert({
-      workspace_id: workspaceId,
-      email: email.toLowerCase().trim(),
-      role,
-      token,
-      invited_by: invitedBy,
-    })
-    .select()
-    .single();
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("email", address)
+    .eq("status", "pending")
+    .limit(1)
+    .maybeSingle();
 
+  const query = existing
+    ? supabase
+        .from("invitations")
+        .update({ role, token, invited_by: invitedBy, expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString() })
+        .eq("id", existing.id)
+    : supabase
+        .from("invitations")
+        .insert({ workspace_id: workspaceId, email: address, role, token, invited_by: invitedBy });
+
+  const { data, error } = await query.select().single();
   if (error) throw error;
   return data as Invitation;
 }

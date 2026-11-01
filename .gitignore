@@ -62,3 +62,8 @@ reports/*.csv
 
 # design handoff archives (the extracted handoff is what we track)
 *.zip
+
+# playwright
+/test-results/
+/playwright-report/
+/e2e/.auth/

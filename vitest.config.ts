@@ -12,6 +12,6 @@ export default defineConfig({
     // The markdown round-trip properties run tens of thousands of cases.
     testTimeout: 120_000,
     include: ["**/__tests__/**/*.test.ts", "**/*.test.ts"],
-    exclude: ["**/node_modules/**", ".next/**", ".open-next/**", ".claude/**"],
+    exclude: ["**/node_modules/**", ".next/**", ".open-next/**", ".claude/**", "e2e/**"],
   },
 });
