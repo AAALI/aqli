@@ -114,7 +114,7 @@ export default function InviteClient() {
           next={`/invite?${new URLSearchParams({ token })}`}
           shouldCreateUser allowPassword initialEmail={email}
           title={`Join ${ws}.`} eyebrow="You're invited"
-          description={`You've been invited ${ROLE_WORDS[role]}. Sign in with an email link or code, then join the workspace.`}
+          description={`You've been invited ${ROLE_WORDS[role]}. Sign in with an email link, then join the workspace.`}
         />
       )}
     </AuthStage>

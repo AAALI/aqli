@@ -23,9 +23,9 @@ export function emailAuthError(error: unknown, operation: "send" | "verify" | "p
       ? "New accounts aren't enabled on this installation. Ask your admin for access."
       : "No account is available for this email. Create an account or use your workspace invitation.";
   }
-  if (details.code === "otp_expired" || details.code === "otp_invalid") return "That code or link is invalid, expired, or already used. Request a new email and use the latest code.";
+  if (details.code === "otp_expired" || details.code === "otp_invalid") return "That link is invalid, expired, or already used. Request a new email and use the latest link.";
   if (details.name === "AuthRetryableFetchError" || error instanceof TypeError) return "Couldn't reach the sign-in service. Check your connection and try again.";
-  if (operation === "verify") return "That code couldn't be verified. Check the latest email, or request a new one.";
+  if (operation === "verify") return "That link couldn't be verified. Request a new email and use the latest one.";
   if (operation === "password") return "Couldn't sign in with that email and password. Try again or use an email link instead.";
   return "Couldn't send the sign-in email. Try again, or contact your workspace admin if it keeps happening.";
 }

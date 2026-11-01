@@ -531,7 +531,10 @@ export async function searchDocs(
     .select(
       // `last_reviewed_at` + `frontmatter` come along because every surface a
       // doc appears on renders the same status dot, and `docState` needs both.
-      "id, title, type, status, space_id, owner_id, author_type, agent_id, updated_at, last_reviewed_at, frontmatter, body_text, parent_doc_id, parent:docs!docs_parent_doc_id_fkey(id, title)",
+      // The parent is embedded through the column, not the constraint name: on
+      // a self-referencing table PostgREST does not resolve the `!fkey` hint
+      // and the whole search fails with PGRST200.
+      "id, title, type, status, space_id, owner_id, author_type, agent_id, updated_at, last_reviewed_at, frontmatter, body_text, parent_doc_id, parent:parent_doc_id(id, title)",
     )
     .eq("workspace_id", workspaceId)
     .neq("status", "archived")

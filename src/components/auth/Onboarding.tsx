@@ -372,7 +372,7 @@ export default function Onboarding() {
             <EmailAuthForm
               next={authNext} shouldCreateUser
               title="Let's get you writing." eyebrow={stepEyebrow("account") ?? "Create an account"}
-              description="Start with your email. We'll send a sign-in link and a code, no password needed."
+              description="Start with your email. We'll send you a sign-in link, no password needed."
               initialEmail={email}
               beforeEmail={googleSso ? (
                   <>

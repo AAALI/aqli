@@ -1,10 +1,14 @@
 import { cache } from "react";
+import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "./server";
 import type { Workspace } from "@/types/workspace";
 
 /**
  * Memoised per request: the workspace layout, the shell layout and the page
- * each resolve the slug, and it is the same row.
+ * each resolve the slug, and it is the same row. A slug that resolves to
+ * nothing (unknown, or a workspace the caller is not a member of, which RLS
+ * makes look the same) is a 404 from whichever caller gets there first, so a
+ * page that reads `workspace.id` without catching cannot hit the error boundary.
  */
 export const getWorkspaceBySlug = cache(async (slug: string) => {
   const supabase = await createServerSupabaseClient();
@@ -12,8 +16,9 @@ export const getWorkspaceBySlug = cache(async (slug: string) => {
     .from("workspaces")
     .select("*")
     .eq("slug", slug)
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  if (!data) notFound();
   return data as Workspace;
 });
 
