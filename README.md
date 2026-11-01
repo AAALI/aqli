@@ -47,7 +47,7 @@ pnpm dev
 Open http://localhost:3000 and sign up — this creates your workspace with a
 default Company space; pick spaces for your teams during onboarding.
 
-> **Auth setup:** sign-in and signup use an email link or six-digit code.
+> **Auth setup:** sign-in and signup use an emailed sign-in link.
 > Configure the Supabase email templates and a working mail transport first,
 > following [docs/authentication.md](docs/authentication.md). Existing users can
 > still choose **Use password instead** on sign-in.

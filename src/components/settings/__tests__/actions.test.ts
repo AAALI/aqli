@@ -294,7 +294,6 @@ describe("email auth", () => {
   const session = { data: { session: { access_token: "test-session" }, user: { id: "user-id", email: "writer@example.com" } }, error: null };
   const draw = (overrides = {}) => render(EmailAuthForm, { ...props, ...overrides });
   const emailInput = (tree: ReactNode) => find(tree, (n) => n.type === "input" && n.props.type === "email");
-  const codeInput = (tree: ReactNode) => find(tree, (n) => n.props["aria-label"] === "Six-digit email code");
   const submit = (tree: ReactNode) => trigger(find(tree, (n) => n.type === "form"), "onSubmit", submitEvent);
   async function enterEmail(value = "writer@example.com") {
     await trigger(emailInput(draw()), "onChange", { target: { value } });
@@ -302,7 +301,6 @@ describe("email auth", () => {
 
   beforeEach(() => {
     mocks.sendOtp.mockResolvedValue({ error: null });
-    mocks.verifyOtp.mockResolvedValue(session);
     mocks.passwordLogin.mockResolvedValue(session);
   });
 
@@ -322,86 +320,19 @@ describe("email auth", () => {
     const callback = new URL(request.options.emailRedirectTo);
     expect(callback.origin + callback.pathname).toBe("https://aqli.example/auth/callback");
     expect(callback.searchParams.get("next")).toBe(props.next);
-    expect(codeInput(draw()).props.autoComplete).toBe("one-time-code");
     expect(mocks.assign).not.toHaveBeenCalled();
   });
 
-  it("verifies pasted digits through form submit (including Enter), then preserves next", async () => {
+  it("promises only a link once the email is sent, and no longer shows an input", async () => {
     await enterEmail();
     await submit(draw());
-    // Native maxLength would truncate "123 456" before onChange sees it.
-    expect(codeInput(draw()).props.maxLength).toBeUndefined();
-    await trigger(codeInput(draw()), "onChange", { target: { value: "123 456" } });
-    expect(codeInput(draw()).props.value).toBe("123456");
-    await submit(draw());
-    expect(mocks.verifyOtp).toHaveBeenCalledWith({ email: "writer@example.com", token: "123456", type: "email" });
-    expect(mocks.assign).toHaveBeenCalledWith(props.next);
-  });
-
-  it.each(["send", "existing"])("focuses the code field after %s entry so Enter verifies instead of resending", async (entry) => {
-    await enterEmail();
-    if (entry === "send") await submit(draw());
-    else await trigger(control(draw(), "I already have a code"));
-    hooks.effects = [];
-    const tree = draw();
-    const focus = vi.fn();
-    const inputRef = codeInput(tree).props.ref as { current: Pick<HTMLInputElement, "focus"> | null };
-    inputRef.current = { focus };
-    hooks.effects[0]();
-    expect(focus).toHaveBeenCalledOnce();
-    const sends = mocks.sendOtp.mock.calls.length;
-    await trigger(codeInput(tree), "onChange", { target: { value: "123456" } });
-    await submit(draw());
-    expect(mocks.verifyOtp).toHaveBeenCalledWith({ email: "writer@example.com", token: "123456", type: "email" });
-    expect(mocks.sendOtp).toHaveBeenCalledTimes(sends);
-  });
-
-  it("verifies an existing code in a fresh browser without sending or needing a verifier", async () => {
-    await enterEmail();
-    await trigger(control(draw(), "I already have a code"));
-    await trigger(codeInput(draw()), "onChange", { target: { value: "654321" } });
-    await submit(draw());
-    expect(mocks.sendOtp).not.toHaveBeenCalled();
-    expect(mocks.verifyOtp).toHaveBeenCalledWith({ email: "writer@example.com", token: "654321", type: "email" });
-    expect(mocks.assign).toHaveBeenCalledWith(props.next);
-  });
-
-  it("keeps the code field and permits retry after expired or invalid-code failures", async () => {
-    mocks.verifyOtp.mockResolvedValue({ data: { session: null, user: null }, error: { code: "otp_expired" } });
-    await enterEmail();
-    await trigger(control(draw(), "I already have a code"));
-    await trigger(codeInput(draw()), "onChange", { target: { value: "123456" } });
-    await submit(draw());
-    expect(codeInput(draw()).props.value).toBe("123456");
-    expect(words(draw())).toContain("expired");
-    expect(control(draw(), "Verify code").props.disabled).toBe(false);
-    expect(mocks.assign).not.toHaveBeenCalled();
-  });
-
-  it("does not submit an incomplete code", async () => {
-    await enterEmail();
-    await trigger(control(draw(), "I already have a code"));
-    await trigger(codeInput(draw()), "onChange", { target: { value: "12" } });
-    await submit(draw());
-    expect(control(draw(), "Verify code").props.disabled).toBe(true);
+    expect(words(draw())).toContain("sign-in link to writer@example.com");
+    expect(words(draw())).not.toMatch(/code/i);
+    expect(nodes(draw()).some((n) => n.type === "input")).toBe(false);
     expect(mocks.verifyOtp).not.toHaveBeenCalled();
   });
 
-  it("disables submit while verification is pending and ignores a duplicate submit", async () => {
-    let finish!: (value: unknown) => void;
-    mocks.verifyOtp.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
-    await enterEmail();
-    await trigger(control(draw(), "I already have a code"));
-    await trigger(codeInput(draw()), "onChange", { target: { value: "123456" } });
-    const verifying = submit(draw());
-    expect(control(draw(), "Signing in…").props.disabled).toBe(true);
-    await submit(draw());
-    expect(mocks.verifyOtp).toHaveBeenCalledTimes(1);
-    finish(session);
-    await verifying;
-  });
-
-  it("enforces a resend cooldown, then re-sends the same destination and clears old code", async () => {
+  it("enforces a resend cooldown, then re-sends the same destination", async () => {
     vi.useFakeTimers();
     await enterEmail();
     await submit(draw());
@@ -413,11 +344,9 @@ describe("email auth", () => {
       vi.advanceTimersByTime(1000);
       draw();
     }
-    await trigger(codeInput(draw()), "onChange", { target: { value: "123456" } });
     await trigger(control(draw(), "Resend email"));
     expect(mocks.sendOtp).toHaveBeenCalledTimes(2);
     expect(mocks.sendOtp.mock.calls[1][0]).toEqual(mocks.sendOtp.mock.calls[0][0]);
-    expect(codeInput(draw()).props.value).toBe("");
     expect(control(draw(), "Resend in 60s").props.disabled).toBe(true);
   });
 
@@ -427,7 +356,7 @@ describe("email auth", () => {
     await submit(draw());
     expect(words(draw())).toContain("Create an account or use your workspace invitation");
     expect(emailInput(draw()).props.disabled).toBe(false);
-    expect(control(draw(), "Email me a link and code").props.disabled).toBe(false);
+    expect(control(draw(), "Email me a sign-in link").props.disabled).toBe(false);
   });
 
   it("shows network and rate-limit errors without claiming an email was sent", async () => {
@@ -438,40 +367,60 @@ describe("email auth", () => {
     mocks.sendOtp.mockResolvedValueOnce({ error: { status: 429 } });
     await submit(draw());
     expect(words(draw())).toContain("Too many attempts");
-    expect(words(draw())).not.toContain("Email sent.");
-    expect(control(draw(), "Email me a link and code").props.disabled).toBe(true);
+    expect(words(draw())).not.toContain("Check your email");
+    expect(control(draw(), "Email me a sign-in link").props.disabled).toBe(true);
   });
 
-  it("returns to email entry without retaining the old code or errors", async () => {
+  it("returns to email entry without retaining old errors", async () => {
+    mocks.sendOtp.mockRejectedValueOnce(new TypeError("Network failure"));
     await enterEmail();
     await submit(draw());
-    await trigger(codeInput(draw()), "onChange", { target: { value: "123456" } });
+    expect(words(draw())).toContain("Check your connection");
+    await submit(draw());
     await trigger(control(draw(), "Use a different email"));
     expect(emailInput(draw())).toBeDefined();
-    expect(nodes(draw()).some((n) => n.props["aria-label"] === "Six-digit email code")).toBe(false);
-    await trigger(control(draw(), "I already have a code"));
-    expect(codeInput(draw()).props.value).toBe("");
+    expect(emailInput(draw()).props.value).toBe("writer@example.com");
+    expect(words(draw())).not.toContain("Check your connection");
   });
 
-  it("keeps code entry available if resending fails", async () => {
+  it("keeps the sent screen and permits another resend if resending fails", async () => {
+    vi.useFakeTimers();
     await enterEmail();
-    await trigger(control(draw(), "I already have a code"));
-    await trigger(codeInput(draw()), "onChange", { target: { value: "123456" } });
+    await submit(draw());
+    expect(control(draw(), "Resend in 60s").props.disabled).toBe(true);
+    for (let second = 0; second < 60; second++) {
+      hooks.effects[hooks.effects.length - 1]();
+      vi.advanceTimersByTime(1000);
+      draw();
+    }
     mocks.sendOtp.mockRejectedValueOnce(new TypeError("Network failure"));
     await trigger(control(draw(), "Resend email"));
-    expect(codeInput(draw()).props.value).toBe("123456");
     expect(words(draw())).toContain("Check your connection");
     expect(control(draw(), "Resend email").props.disabled).toBe(false);
   });
 
-  it("does not navigate after verification returns no session", async () => {
-    mocks.verifyOtp.mockResolvedValueOnce({ data: { session: null, user: null }, error: null });
+  it("disables submit while password sign-in is pending and ignores a duplicate submit", async () => {
+    let finish!: (value: unknown) => void;
+    mocks.passwordLogin.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
     await enterEmail();
-    await trigger(control(draw(), "I already have a code"));
-    await trigger(codeInput(draw()), "onChange", { target: { value: "123456" } });
+    await trigger(control(draw(), "Use password instead"));
+    await trigger(find(draw(), (n) => n.props.type === "password"), "onChange", { target: { value: "test-password" } });
+    const signingIn = submit(draw());
+    expect(control(draw(), "Signing in…").props.disabled).toBe(true);
+    await submit(draw());
+    expect(mocks.passwordLogin).toHaveBeenCalledTimes(1);
+    finish(session);
+    await signingIn;
+  });
+
+  it("does not navigate after password sign-in returns no session", async () => {
+    mocks.passwordLogin.mockResolvedValueOnce({ data: { session: null, user: null }, error: null });
+    await enterEmail();
+    await trigger(control(draw(), "Use password instead"));
+    await trigger(find(draw(), (n) => n.props.type === "password"), "onChange", { target: { value: "test-password" } });
     await submit(draw());
     expect(mocks.assign).not.toHaveBeenCalled();
-    expect(words(draw())).toContain("couldn't be verified");
+    expect(words(draw())).toContain("Couldn't sign in");
   });
 
   it("preserves existing password sign-in without creating an account", async () => {

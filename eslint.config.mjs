@@ -16,6 +16,9 @@ const eslintConfig = defineConfig([
     ".open-next/**",
     // Design handoff bundle — reference prototypes, not app source.
     "aqli_Design_Handoff/**",
+    // Agent worktrees checked out inside the repo carry their own node_modules.
+    ".claude/**",
+    "**/node_modules/**",
   ]),
 
   // Spec §2.4 — close the service-role footgun.

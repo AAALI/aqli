@@ -27,9 +27,10 @@ export async function createApiKey(
       key_hash: keyHash,
       key_prefix: keyPrefix,
       created_by: createdBy,
+      owner_user_id: createdBy,
       scopes,
     })
-    .select()
+    .select("id, workspace_id, name, key_prefix, last_used_at, created_by, created_at, revoked_at, scopes")
     .single();
 
   if (error) throw error;

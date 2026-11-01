@@ -1,8 +1,8 @@
 # Authentication setup
 
 Aqli defaults to one email field, followed by a message containing a sign-in
-link and a six-digit code. Existing password accounts are unchanged: choose
-**Use password instead** on sign-in. Signup does not ask for a password.
+link. Existing password accounts are unchanged: choose **Use password instead**
+on sign-in. Signup does not ask for a password.
 
 ## Before deploying
 
@@ -21,15 +21,14 @@ link and a six-digit code. Existing password accounts are unchanged: choose
    waits 60 seconds before offering a resend; Supabase still enforces the real
    limits and may require longer. Its documented defaults are a 60-second
    per-address resend window and a one-hour email OTP expiry. These are
-   configurable, so the UI does not promise a fixed expiry time. Keep email
-   OTP length at six digits for Aqli's code field.
+   configurable, so the UI does not promise a fixed expiry time.
 
 There is no checked-in Supabase `config.toml` or deployed mail template in this
 repository. Operators must configure their own hosted/self-hosted Supabase.
 SMTP credentials stay in Supabase configuration, never `NEXT_PUBLIC_*`.
 The app's `.env.example` is not a mail-server configuration file.
 
-## One email, two ways in
+## One email, one link
 
 Use this body for **Confirm signup** and **Magic link**, with a short subject
 such as “Sign in to Aqli”:
@@ -37,8 +36,7 @@ such as “Sign in to Aqli”:
 ```html
 <h2>Sign in to Aqli</h2>
 <p><a href="{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}&amp;type=email">Sign in to Aqli</a></p>
-<p>Or enter this six-digit code in Aqli: <strong>{{ .Token }}</strong></p>
-<p>Use the newest message. The link and code expire and can only be used once.</p>
+<p>Use the newest message. The link expires and can only be used once.</p>
 <p>If you did not request this email, you can ignore it.</p>
 ```
 
@@ -47,19 +45,19 @@ appends the token hash while retaining the workspace invitation or onboarding
 destination. The callback verifies `token_hash` with `type: 'email'`, writes
 the session cookies, and redirects only to a same-origin relative path.
 This custom link does not require a verifier cookie from the requesting
-browser. Never log the link, code, token hash, or resulting session.
+browser, so it works from a phone when the email was requested on a laptop.
+Never log the link, token hash, or resulting session.
 
-Legacy `{{ .ConfirmationURL }}` links still work through Supabase's
-verification endpoint and Aqli's PKCE `code` exchange, but generally require
-the browser that requested them. Include `{{ .Token }}` even when retaining a
-legacy link so users have a code fallback. Email link scanners can consume a
-one-time link before a person opens it; users may need a fresh email.
-Disable email-provider click tracking that rewrites authentication links.
+The stock Supabase template, `{{ .ConfirmationURL }}`, still works through
+Supabase's verification endpoint and Aqli's PKCE `code` exchange, but it
+requires the browser that requested it: opened anywhere else it lands on the
+sign-in page with a "that link couldn't sign you in" notice. Replace it.
+Email link scanners can consume a one-time link before a person opens it;
+users may need a fresh email. Disable email-provider click tracking that
+rewrites authentication links.
 
-For another-browser code entry, open the same invitation URL, or sign-in/signup
-page with its `next` destination, enter the email address and choose
-**I already have a code**. This verifies the existing code without sending a
-new email or requiring the original browser's PKCE verifier.
+The UI does not offer a code field, so leave `{{ .Token }}` out of the
+template: a code the product cannot accept only confuses people.
 
 ## Existing accounts and invitations
 
@@ -70,8 +68,8 @@ new email or requiring the original browser's PKCE verifier.
 - Signup and invitation authentication use `shouldCreateUser: true`. Existing
   email identities are signed in, not recreated. No existing password is
   changed or removed.
-- Both routes verify codes with `verifyOtp({ email, token, type: 'email' })`.
-  Code entry works independently of the browser that requested the email.
+- `/auth/callback` verifies the link with `verifyOtp({ token_hash, type: 'email' })`,
+  which works independently of the browser that requested the email.
 - After authentication, a full navigation reads the cookie session and
   re-derives onboarding progress. Existing members are sent to their existing
   workspace, not asked to create a duplicate one.
@@ -81,7 +79,7 @@ new email or requiring the original browser's PKCE verifier.
 
 The browser client uses `@supabase/ssr`, which defaults to PKCE and cookie
 storage, not implicit-flow URL fragments. OAuth and legacy PKCE callback
-support remain. Email code verification returns a session directly and does
+support remain. Token-hash verification returns a session directly and does
 not need the PKCE verifier. APIs were checked against the dependencies
 declared in `package.json`: `@supabase/supabase-js` `^2.107.0` and
 `@supabase/ssr` `^0.10.3`. No dependency upgrade is required.
@@ -91,10 +89,10 @@ declared in `package.json`: `@supabase/supabase-js` `^2.107.0` and
 Before relying on passwordless access, test with actual new and existing
 accounts:
 
-- Delivery, spam placement, expired/invalid code feedback and rate limits.
-- Code entry by paste and Enter, resend after cooldown, and a different email.
-- Link and code separately, including code and custom-link entry in a second
-  browser/device. Using either consumes the one-time credential.
+- Delivery, spam placement, expired/invalid link feedback and rate limits.
+- Resend after cooldown, and switching to a different email.
+- Opening the link in a second browser/device. Opening it consumes the
+  one-time credential.
 - A pending workspace invitation and interrupted onboarding, preserving `next`.
 - The existing password sign-in fallback.
 

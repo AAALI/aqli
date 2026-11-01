@@ -30,8 +30,8 @@ function LoginForm() {
     <AuthStage>
       <EmailAuthForm
         next={next} shouldCreateUser={false} allowPassword
-        title="Sign in." eyebrow="Welcome back" description="A link and a code. No password to remember."
-        notice={failedLink ? "That link couldn't sign you in. Enter the code from the email, or request a new message. Links can expire, be used already, or require the browser that requested them." : null}
+        title="Sign in." eyebrow="Welcome back" description="We'll email you a sign-in link. No password to remember."
+        notice={failedLink ? "That link couldn't sign you in. Request a new one below. Links expire and can only be used once." : null}
         footer={<span className="ob-skip">New here? <Link href={authPageHref("/signup", next)} style={{ color: "var(--accent)", textDecoration: "underline" }}>Create an account</Link></span>}
       />
     </AuthStage>

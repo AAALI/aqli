@@ -12,14 +12,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "query parameter required" }, { status: 400 });
   }
 
-  const results = await queryContext(agent.workspaceId, query, {
-    limit: Number(searchParams.get("limit") ?? 5),
-    spaceSlug: searchParams.get("space") ?? undefined,
-    docType: searchParams.get("type") ?? undefined,
-    status: searchParams.get("status") ?? "approved",
-    // The agent inherits the visibility of whoever owns the key.
-    viewerId: agent.ownerUserId,
-  });
-
-  return NextResponse.json({ query, results, total: results.length });
+  try {
+    const results = await queryContext(agent.workspaceId, query, {
+      limit: Number(searchParams.get("limit") ?? 5),
+      spaceSlug: searchParams.get("space") ?? undefined,
+      docType: searchParams.get("type") ?? undefined,
+      status: searchParams.get("status") ?? "approved",
+      // The agent inherits the visibility of whoever owns the key.
+      viewerId: agent.ownerUserId,
+    });
+    return NextResponse.json({ query, results, total: results.length });
+  } catch (err) {
+    // Embedding the query needs the model provider. An agent can act on a 503
+    // (fall back to /api/agent/docs, retry later); a bare 500 tells it nothing.
+    console.error("Agent context retrieval failed:", err);
+    return NextResponse.json({ error: "Context retrieval is unavailable right now" }, { status: 503 });
+  }
 }

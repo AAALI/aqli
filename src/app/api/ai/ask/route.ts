@@ -31,13 +31,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   // Retrieve relevant context from approved docs only.
-  const contextResults = await queryContext(workspace_id, question, {
-    limit: 5,
-    status: "approved",
-    // Ask answers from what this person can read. A private space they are not
-    // in is not in the answer, and not in the sources under it.
-    viewerId: user.id,
-  });
+  let contextResults: Awaited<ReturnType<typeof queryContext>>;
+  try {
+    contextResults = await queryContext(workspace_id, question, {
+      limit: 5,
+      status: "approved",
+      // Ask answers from what this person can read. A private space they are not
+      // in is not in the answer, and not in the sources under it.
+      viewerId: user.id,
+    });
+  } catch (err) {
+    // Embedding the question needs the model provider; when it is down or out
+    // of quota the search page still has its keyword results to show.
+    console.error("AI ask retrieval failed:", err);
+    return NextResponse.json({ error: "Failed to generate answer" }, { status: 502 });
+  }
 
   if (contextResults.length === 0) {
     // Recorded unanswered: this is what Home and Search surface as a gap.
