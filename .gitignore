@@ -67,3 +67,6 @@ reports/*.csv
 /test-results/
 /playwright-report/
 /e2e/.auth/
+
+# supabase cli scratch (project ref, version checks)
+/supabase/.temp/
