@@ -27,6 +27,7 @@ pnpm build      # production build
 pnpm typecheck  # tsc --noEmit
 pnpm lint       # eslint
 pnpm test       # vitest
+pnpm test:e2e   # Playwright against a running app + a throwaway Supabase project (see e2e/README.md)
 pnpm test:sql   # boots a throwaway Postgres, replays every migration, runs supabase/tests/
 pnpm preflight  # is this installation in the state the code expects? (needs SUPABASE_SERVICE_KEY)
 pnpm import     # bring in a markdown/zip or Confluence export (dry run unless --apply)
